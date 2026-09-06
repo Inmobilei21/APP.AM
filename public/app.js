@@ -24,13 +24,14 @@ function renderClients(){
       <button class="primary blue-button" id="connectFolder">Conectar carpeta Clientes</button>
     </section>
     <section class="folder-panel">
-      <div class="folder-toolbar"><strong id="folderName">Gestión / Clientes</strong><span id="folderCount">0 carpetas</span></div>
+      <div class="folder-toolbar"><div><strong id="folderName">Clientes</strong><span id="folderCount">0 carpetas</span></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar cliente…" aria-label="Buscar cliente"></label></div>
       <div class="folder-grid" id="folderGrid">
         <div class="empty folder-empty"><span>▤</span><h4>Carpeta aún no conectada</h4><p>Pulsa “Conectar carpeta Clientes” y selecciona Escritorio → Gestión → Clientes.</p></div>
       </div>
     </section>`;
   bindHeader();
   document.querySelector("#connectFolder").addEventListener("click",connectClientsFolder);
+  document.querySelector("#clientSearch").addEventListener("input",filterClients);
 }
 
 async function connectClientsFolder(){
@@ -49,11 +50,27 @@ async function connectClientsFolder(){
     document.querySelector("#folderCount").textContent=`${folders.length} ${folders.length===1?"carpeta":"carpetas"}`;
     document.querySelector("#folderStatus").textContent="Carpeta conectada. La lista refleja las subcarpetas actuales.";
     document.querySelector("#folderGrid").innerHTML=folders.length
-      ? folders.map(name=>`<button class="folder-card"><span class="folder-icon">▰</span><span><strong>${escapeHtml(name)}</strong><small>Carpeta de cliente</small></span></button>`).join("")
+      ? folders.map(name=>`<button class="folder-card" data-client="${escapeHtml(name.toLocaleLowerCase("es"))}"><span class="folder-icon">▰</span><span><strong>${escapeHtml(name)}</strong><small>Carpeta de cliente</small></span></button>`).join("")
       : `<div class="empty folder-empty"><span>▤</span><h4>No hay carpetas</h4><p>La carpeta seleccionada no contiene subcarpetas de clientes.</p></div>`;
+    document.querySelector("#clientSearch").value="";
+    document.querySelector("#clientSearch").focus();
   }catch(error){
     if(error.name!=="AbortError") alert("No se pudo leer la carpeta seleccionada.");
   }
+}
+
+function filterClients(event){
+  const query=event.target.value.trim().toLocaleLowerCase("es");
+  const cards=[...document.querySelectorAll(".folder-card")];
+  let visible=0;
+  cards.forEach(card=>{
+    const matches=card.dataset.client.includes(query);
+    card.hidden=!matches;
+    if(matches) visible++;
+  });
+  document.querySelector("#folderCount").textContent=query
+    ? `${visible} ${visible===1?"resultado":"resultados"}`
+    : `${cards.length} ${cards.length===1?"carpeta":"carpetas"}`;
 }
 
 function escapeHtml(value){
