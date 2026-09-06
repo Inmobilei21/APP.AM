@@ -48,3 +48,11 @@
 
 /* Acceso Holded */
 .holded-nav .holded-mark{position:relative;width:20px;height:20px;display:inline-block;flex:0 0 20px}.holded-mark i,.holded-hero-mark i{position:absolute;display:block;background:linear-gradient(135deg,#6f86ff,#a8b5ff);border-radius:3px;transform:rotate(45deg)}.holded-mark i:first-child{width:9px;height:17px;left:2px;top:1px}.holded-mark i:last-child{width:8px;height:12px;right:1px;top:1px}.holded-panel{margin-top:26px;background:linear-gradient(135deg,#fff 0%,#f5f7ff 100%);border:1px solid var(--line);border-radius:24px;padding:34px;display:flex;align-items:center;gap:24px}.holded-panel h2{font-size:28px;margin:5px 0 7px}.holded-panel p:not(.eyebrow){color:var(--muted);margin:0}.holded-hero-mark{position:relative;width:74px;height:74px;flex:0 0 74px;border-radius:20px;background:#e9edff}.holded-hero-mark i:first-child{width:22px;height:45px;left:21px;top:15px;background:linear-gradient(135deg,#14279b,#3b50d2)}.holded-hero-mark i:last-child{width:19px;height:32px;right:16px;top:15px;background:linear-gradient(135deg,#5268ed,#94a3ff)}.holded-open{margin-left:auto;text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:9px}.holded-open span{font-size:18px}@media(max-width:760px){.holded-panel{margin:12px;flex-direction:column;align-items:flex-start;padding:24px}.holded-open{margin:4px 0 0;width:100%;justify-content:center}}
+
+/* Corrección exacta del símbolo de Holded */
+.holded-mark,.holded-hero-mark{position:relative;overflow:visible}
+.holded-mark i,.holded-hero-mark i{position:absolute;display:block;border-radius:0;transform:none}
+.holded-mark i:first-child{width:15px;height:18px;left:1px;top:2px;clip-path:polygon(0 33%,18% 12%,100% 72%,77% 100%);background:linear-gradient(135deg,#8fa0ff 0%,#536beb 100%)}
+.holded-mark i:last-child{width:16px;height:14px;left:6px;top:0;clip-path:polygon(0 0,75% 0,100% 32%,75% 100%);background:linear-gradient(135deg,#d5dcff 0%,#7f91f5 100%)}
+.holded-hero-mark i:first-child{width:50px;height:60px;left:10px;top:10px;clip-path:polygon(0 33%,18% 12%,100% 72%,77% 100%);background:linear-gradient(135deg,#5269ee 0%,#14279b 100%)}
+.holded-hero-mark i:last-child{width:52px;height:46px;left:20px;top:7px;clip-path:polygon(0 0,75% 0,100% 32%,75% 100%);background:linear-gradient(135deg,#8798f8 0%,#2f46c8 100%)}
