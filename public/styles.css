@@ -62,3 +62,9 @@
 .holded-hero-mark{display:grid;place-items:center}
 .holded-hero-mark img{display:block;width:58px;height:58px;object-fit:contain}
 .holded-mark i,.holded-hero-mark i{display:none!important}
+
+/* Tratamiento final del logotipo de Holded */
+.holded-nav .holded-mark img{filter:brightness(0) invert(1);opacity:1}
+.holded-original-logo{width:260px;max-width:32%;flex:0 0 260px}
+.holded-original-logo img{display:block;width:100%;height:auto;object-fit:contain}
+@media(max-width:760px){.holded-original-logo{width:230px;max-width:100%;flex-basis:auto}}
