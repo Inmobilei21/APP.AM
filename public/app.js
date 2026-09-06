@@ -40,10 +40,44 @@ const views={
 
 function openProtectedManagement(){
   if(managementUnlocked){renderManagement();return}
-  const password=window.prompt("Introduce la contraseña para acceder a Gestión:");
-  if(password===null)return;
-  if(password==="1234"){managementUnlocked=true;renderManagement()}
-  else alert("Contraseña incorrecta.");
+  document.querySelector("#managementAccess")?.remove();
+  const shell=document.createElement("div");
+  shell.id="managementAccess";
+  shell.className="access-shell";
+  shell.innerHTML=`
+    <div class="access-backdrop"></div>
+    <section class="access-card" role="dialog" aria-modal="true" aria-labelledby="accessTitle">
+      <button class="access-close" type="button" aria-label="Cerrar">×</button>
+      <div class="access-icon">⌘</div>
+      <p class="eyebrow">ACCESO PROTEGIDO</p>
+      <h2 id="accessTitle">Entrar en Gestión</h2>
+      <p class="access-copy">Introduce la contraseña para acceder a la gestión de clientes.</p>
+      <form>
+        <label for="managementPassword">Contraseña</label>
+        <div class="access-input"><span>●</span><input id="managementPassword" type="password" autocomplete="current-password" placeholder="Introduce la contraseña" required></div>
+        <p class="access-error" role="alert"></p>
+        <button class="primary blue-button" type="submit">Acceder</button>
+      </form>
+    </section>`;
+  document.body.appendChild(shell);
+  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
+  shell.querySelector(".access-close").addEventListener("click",close);
+  shell.querySelector(".access-backdrop").addEventListener("click",close);
+  shell.querySelector("form").addEventListener("submit",event=>{
+    event.preventDefault();
+    const input=shell.querySelector("#managementPassword");
+    if(input.value==="1234"){
+      managementUnlocked=true;
+      close();
+      setTimeout(renderManagement,180);
+    }else{
+      shell.querySelector(".access-error").textContent="La contraseña no es correcta.";
+      input.classList.add("invalid");
+      input.select();
+    }
+  });
+  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));
+  setTimeout(()=>shell.querySelector("#managementPassword").focus(),280);
 }
 
 function renderManagement(){
