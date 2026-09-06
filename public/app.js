@@ -6,6 +6,7 @@ let currentEntries=[];
 let folderHistory=[];
 let activeFolderConfig=null;
 let currentDirectoryHandle=null;
+let managementUnlocked=false;
 const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIONES","ESCRITURAS","LIBROS OFICIALES","OTRA DOCUMENTACIÓN"];
 
 document.querySelector("#menu").addEventListener("click",openMenu);
@@ -36,6 +37,14 @@ const views={
     itemLabel:"Carpeta de firma"
   }
 };
+
+function openProtectedManagement(){
+  if(managementUnlocked){renderManagement();return}
+  const password=window.prompt("Introduce la contraseña para acceder a Gestión:");
+  if(password===null)return;
+  if(password==="1234"){managementUnlocked=true;renderManagement()}
+  else alert("Contraseña incorrecta.");
+}
 
 function renderManagement(){
   main.innerHTML=`
@@ -297,7 +306,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   closeMenu();
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
   else if(button.dataset.title==="Firmas digitales") renderSignatures();
-  else if(button.dataset.title==="Gestión") renderManagement();
+  else if(button.dataset.title==="Gestión") openProtectedManagement();
   else{
     main.innerHTML=homeMarkup;
     bindHeader();
