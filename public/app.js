@@ -65,7 +65,8 @@ async function connectFolder(config){
     return;
   }
   try{
-    let handle=await getSavedHandle(config.storageKey);
+    const changing=document.querySelector("#connectFolder")?.dataset.connected==="true";
+    let handle=changing ? null : await getSavedHandle(config.storageKey);
     if(handle){
       const permission=await handle.requestPermission({mode:"read"});
       if(permission!=="granted") handle=null;
@@ -104,6 +105,7 @@ async function displayFolder(handle,config){
   document.querySelector("#folderName").textContent=handle.name;
   document.querySelector("#folderStatus").textContent="Carpeta conectada y guardada. La lista refleja las subcarpetas actuales.";
   document.querySelector("#connectFolder").textContent="Cambiar carpeta";
+  document.querySelector("#connectFolder").dataset.connected="true";
   document.querySelector("#clientSearch").value="";
   renderCards(folders,config.itemLabel);
 }
