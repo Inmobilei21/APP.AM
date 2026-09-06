@@ -2,7 +2,9 @@ const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
 const main=document.querySelector("main");
 const homeMarkup=main.innerHTML;
-let currentFolders=[];
+let currentEntries=[];
+let folderHistory=[];
+let activeFolderConfig=null;
 
 document.querySelector("#menu").addEventListener("click",openMenu);
 overlay.addEventListener("click",closeMenu);
@@ -46,7 +48,7 @@ function renderFolderView(name){
     </section>
     <section class="folder-panel">
       <div class="folder-toolbar">
-        <div><strong id="folderName">${name}</strong><span id="folderCount">0 carpetas</span></div>
+        <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
         <label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label>
       </div>
       <div class="folder-grid" id="folderGrid">
@@ -56,6 +58,7 @@ function renderFolderView(name){
   bindHeader();
   document.querySelector("#connectFolder").addEventListener("click",()=>connectFolder(config));
   document.querySelector("#clientSearch").addEventListener("input",filterFolders);
+  document.querySelector("#folderBack").addEventListener("click",goBackFolder);
   restoreFolder(config);
 }
 
@@ -73,6 +76,7 @@ async function connectFolder(config){
     }
     if(!handle) handle=await window.showDirectoryPicker({mode:"read"});
     await saveHandle(config.storageKey,handle);
+    folderHistory=[];
     await displayFolder(handle,config);
   }catch(error){
     if(error.name!=="AbortError") alert("No se pudo leer la carpeta seleccionada.");
@@ -85,6 +89,7 @@ async function restoreFolder(config){
     if(!handle) return;
     const permission=await handle.queryPermission({mode:"read"});
     if(permission==="granted"){
+      folderHistory=[];
       await displayFolder(handle,config);
     }else{
       document.querySelector("#folderStatus").textContent="Carpeta guardada. Pulsa el botón para volver a autorizar el acceso.";
@@ -95,27 +100,65 @@ async function restoreFolder(config){
   }
 }
 
-async function displayFolder(handle,config){
-  const folders=[];
+async function displayFolder(handle,config,fromBack=false){
+  const entries=[];
   for await(const entry of handle.values()){
-    if(entry.kind==="directory") folders.push(entry.name);
+    entries.push({name:entry.name,kind:entry.kind,handle:entry});
   }
-  folders.sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"}));
-  currentFolders=folders;
+  entries.sort((a,b)=>a.kind===b.kind
+    ? a.name.localeCompare(b.name,"es",{sensitivity:"base"})
+    : a.kind==="directory" ? -1 : 1);
+  currentEntries=entries;
+  activeFolderConfig=config;
   document.querySelector("#folderName").textContent=handle.name;
-  document.querySelector("#folderStatus").textContent="Carpeta conectada y guardada. La lista refleja las subcarpetas actuales.";
+  document.querySelector("#folderStatus").textContent="Carpeta conectada y guardada. Pulsa un cliente para ver sus documentos.";
   document.querySelector("#connectFolder").textContent="Cambiar carpeta";
   document.querySelector("#connectFolder").dataset.connected="true";
   document.querySelector("#clientSearch").value="";
-  renderCards(folders,config.itemLabel);
+  document.querySelector("#folderBack").hidden=folderHistory.length===0;
+  renderEntries(entries);
 }
 
-function renderCards(folders,itemLabel){
-  document.querySelector("#folderCount").textContent=`${folders.length} ${folders.length===1?"carpeta":"carpetas"}`;
-  document.querySelector("#folderGrid").innerHTML=folders.length
-    ? folders.map(name=>`<button class="folder-card" data-client="${escapeHtml(name.toLocaleLowerCase("es"))}"><span class="folder-icon">▰</span><span><strong>${escapeHtml(name)}</strong><small>${itemLabel}</small></span></button>`).join("")
-    : `<div class="empty folder-empty"><span>▤</span><h4>No hay carpetas</h4><p>La carpeta seleccionada no contiene subcarpetas.</p></div>`;
+function renderEntries(entries){
+  document.querySelector("#folderCount").textContent=`${entries.length} ${entries.length===1?"elemento":"elementos"}`;
+  const grid=document.querySelector("#folderGrid");
+  grid.innerHTML=entries.length
+    ? entries.map((entry,index)=>`<button class="folder-card" data-index="${index}" data-client="${escapeHtml(entry.name.toLocaleLowerCase("es"))}"><span class="folder-icon ${entry.kind==="file"?"file":""}">${entry.kind==="directory"?"▰":"▤"}</span><span><strong>${escapeHtml(entry.name)}</strong><small>${entry.kind==="directory"?"Abrir carpeta":"Abrir documento"}</small></span></button>`).join("")
+    : `<div class="empty folder-empty"><span>▤</span><h4>Carpeta vacía</h4><p>No contiene documentos ni subcarpetas.</p></div>`;
+  grid.querySelectorAll(".folder-card").forEach(card=>card.addEventListener("click",()=>openEntry(Number(card.dataset.index))));
 }
+
+async function openEntry(index){
+  const entry=currentEntries[index];
+  if(!entry) return;
+  if(entry.kind==="directory"){
+    const currentName=document.querySelector("#folderName").textContent;
+    const currentHandle=await findCurrentHandle();
+    if(currentHandle) folderHistory.push(currentHandle);
+    await displayFolder(entry.handle,activeFolderConfig);
+  }else{
+    const file=await entry.handle.getFile();
+    const url=URL.createObjectURL(file);
+    window.open(url,"_blank","noopener");
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+}
+
+async function findCurrentHandle(){
+  if(folderHistory.length){
+    const parent=folderHistory[folderHistory.length-1];
+    for await(const entry of parent.values()){
+      if(entry.kind==="directory" && entry.name===document.querySelector("#folderName").textContent) return entry;
+    }
+  }
+  return getSavedHandle(activeFolderConfig.storageKey);
+}
+
+async function goBackFolder(){
+  const handle=folderHistory.pop();
+  if(handle) await displayFolder(handle,activeFolderConfig,true);
+}
+
 
 function filterFolders(event){
   const query=event.target.value.trim().toLocaleLowerCase("es");
@@ -128,7 +171,7 @@ function filterFolders(event){
   });
   document.querySelector("#folderCount").textContent=query
     ? `${visible} ${visible===1?"resultado":"resultados"}`
-    : `${cards.length} ${cards.length===1?"carpeta":"carpetas"}`;
+    : `${cards.length} ${cards.length===1?"elemento":"elementos"}`;
 }
 
 function folderDb(){
