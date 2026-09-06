@@ -10,6 +10,7 @@ const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIO
 
 document.querySelector("#menu").addEventListener("click",openMenu);
 overlay.addEventListener("click",closeMenu);
+if(window.matchMedia("(max-width:760px)").matches){sidebar.classList.add("open");overlay.classList.add("show")}
 
 function openMenu(){sidebar.classList.add("open");overlay.classList.add("show")}
 function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show")}
