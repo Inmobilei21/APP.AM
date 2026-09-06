@@ -120,6 +120,27 @@ function filterSignatureRows(e){const q=e.target.value.trim().toLocaleLowerCase(
 function formatDate(v){return v?new Intl.DateTimeFormat("es-ES").format(new Date(v+"T12:00:00")):"—"}
 function expiryClass(v){if(!v)return"";const d=(new Date(v+"T23:59:59")-new Date())/86400000;return d<0?"expired":d<60?"warning":"valid"}
 
+const workers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Araceli Frías","Jesús Carratalá"];
+
+function renderWorkers(){
+  main.innerHTML=`
+    <header>
+      <button class="menu" id="menu" aria-label="Abrir menú">☰</button>
+      <div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Trabajadores</h1></div>
+      <button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button>
+    </header>
+    <section class="clients-head">
+      <div><p class="eyebrow">EQUIPO</p><h2>Gestión de trabajadores</h2><p>Consulta las fichas del equipo del despacho.</p></div>
+    </section>
+    <section class="folder-panel">
+      <div class="folder-toolbar"><div><strong>TRABAJADORES</strong><span>${workers.length} trabajadores</span></div></div>
+      <div class="folder-grid">
+        ${workers.map((name,index)=>`<button class="folder-card worker-card" type="button" data-worker="${escapeHtml(name)}"><span class="folder-icon">♟</span><span><strong>${escapeHtml(name)}</strong><small>Ficha del trabajador</small></span></button>`).join("")}
+      </div>
+    </section>`;
+  bindHeader();
+}
+
 function renderFolderView(name){
   const config=views[name];
   main.innerHTML=`
@@ -331,6 +352,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   closeMenu();
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
   else if(button.dataset.title==="Firmas digitales") renderSignatures();
+  else if(button.dataset.title==="Trabajadores") renderWorkers();
   else if(button.dataset.title==="Gestión") openProtectedManagement();
   else{
     main.innerHTML=homeMarkup;
