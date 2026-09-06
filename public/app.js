@@ -34,6 +34,85 @@ const views={
   }
 };
 
+function renderManagement(){
+  main.innerHTML=`
+    <header>
+      <button class="menu" id="menu" aria-label="Abrir menú">☰</button>
+      <div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Gestión</h1></div>
+      <button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button>
+    </header>
+    <section class="management-grid">
+      <article class="new-client-panel">
+        <p class="eyebrow">ALTAS</p>
+        <h2>Nuevo cliente</h2>
+        <p class="form-intro">Introduce el nombre con el que se creará su carpeta dentro de Gestión / Clientes.</p>
+        <form id="newClientForm">
+          <label for="clientName">Nombre del cliente</label>
+          <div class="form-row">
+            <input id="clientName" name="clientName" type="text" autocomplete="off" placeholder="Ej. Empresa García, S.L." required maxlength="120">
+            <button class="primary blue-button" type="submit">Guardar cliente</button>
+          </div>
+          <p class="form-message" id="formMessage" role="status"></p>
+        </form>
+      </article>
+      <aside class="management-help">
+        <span class="management-icon">▰</span>
+        <h3>Carpeta automática</h3>
+        <p>Al guardar, se creará una carpeta nueva con ese nombre en la carpeta de Clientes conectada.</p>
+      </aside>
+    </section>`;
+  bindHeader();
+  document.querySelector("#newClientForm").addEventListener("submit",createClient);
+}
+
+async function createClient(event){
+  event.preventDefault();
+  const input=document.querySelector("#clientName");
+  const message=document.querySelector("#formMessage");
+  const button=event.target.querySelector("button[type=submit]");
+  const name=input.value.trim();
+  if(!name) return;
+  if(/[\\/:*?"<>|]/.test(name)){
+    message.className="form-message error";
+    message.textContent="El nombre contiene caracteres que Windows no permite en una carpeta.";
+    return;
+  }
+  if(!("showDirectoryPicker" in window)){
+    message.className="form-message error";
+    message.textContent="Esta función necesita Google Chrome o Microsoft Edge.";
+    return;
+  }
+  button.disabled=true;
+  button.textContent="Guardando…";
+  try{
+    let handle=await getSavedHandle("clients-folder");
+    if(handle){
+      const permission=await handle.requestPermission({mode:"readwrite"});
+      if(permission!=="granted") handle=null;
+    }
+    if(!handle){
+      handle=await window.showDirectoryPicker({mode:"readwrite"});
+      await saveHandle("clients-folder",handle);
+    }
+    let existed=true;
+    try{await handle.getDirectoryHandle(name)}catch{existed=false}
+    await handle.getDirectoryHandle(name,{create:true});
+    message.className="form-message success";
+    message.textContent=existed
+      ? "Ese cliente ya tenía una carpeta."
+      : `Cliente guardado. Se ha creado la carpeta “${name}”.`;
+    if(!existed) input.value="";
+  }catch(error){
+    if(error.name!=="AbortError"){
+      message.className="form-message error";
+      message.textContent="No se pudo crear la carpeta. Comprueba el permiso de escritura.";
+    }
+  }finally{
+    button.disabled=false;
+    button.textContent="Guardar cliente";
+  }
+}
+
 function renderFolderView(name){
   const config=views[name];
   main.innerHTML=`
@@ -211,6 +290,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   button.classList.add("active");
   closeMenu();
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
+  else if(button.dataset.title==="Gestión") renderManagement();
   else{
     main.innerHTML=homeMarkup;
     bindHeader();
