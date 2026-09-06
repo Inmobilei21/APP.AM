@@ -17,3 +17,19 @@
 .client-modal{overflow-x:hidden}.attachment-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.file-field{min-width:0}.file-field input{width:100%;min-width:0}.signature-field{grid-column:1/-1}.signature-field input{max-width:100%}@media(max-width:620px){.attachment-grid{grid-template-columns:1fr}.signature-field{grid-column:auto}}
 
 .signature-actions{display:flex;align-items:center;gap:10px}.signature-actions .client-search{width:270px}@media(max-width:900px){.table-heading{align-items:stretch;flex-direction:column}.signature-actions{width:100%}.signature-actions .client-search{flex:1;width:auto}}@media(max-width:600px){.signature-actions{display:grid}.signature-actions .client-search,.signature-actions .upload-button{width:100%}}
+
+@media(max-width:760px){
+  .sidebar{width:100%;padding:24px 20px;overflow-y:auto;background:linear-gradient(155deg,#0e1835 0%,#12245b 100%)}
+  .sidebar .brand{justify-content:center;padding:4px 12px 24px}
+  .sidebar .brand img{width:min(285px,76vw)}
+  .sidebar nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;padding-bottom:22px}
+  .sidebar nav button{min-height:76px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;color:#dbe2f6;font-weight:650}
+  .sidebar nav button span{width:auto;font-size:19px}
+  .sidebar nav button.active{background:#fff;color:var(--blue);border-color:#fff}
+  .sidebar-footer{margin-top:0;padding:18px 8px 4D8 0}
+  .overlay.show{display:none}
+}
+@media(max-width:390px){
+  .sidebar nav{grid-template-columns:1fr}
+  .sidebar nav button{min-height:62px;flex-direction:row;align-items:center;justify-content:flex-start}
+}
