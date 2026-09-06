@@ -26,7 +26,7 @@
   .sidebar nav button{min-height:76px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;color:#dbe2f6;font-weight:650}
   .sidebar nav button span{width:auto;font-size:19px}
   .sidebar nav button.active{background:#fff;color:var(--blue);border-color:#fff}
-  .sidebar-footer{margin-top:0;padding:18px 8px 4D8 0}
+  .sidebar-footer{margin-top:0;padding:18px 8px 4px 8px}
   .overlay.show{display:none}
 }
 @media(max-width:390px){
