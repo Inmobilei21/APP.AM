@@ -77,11 +77,12 @@ function renderManagement(){
     <section class="management-search"><div><p class="eyebrow">CLIENTES</p><h2>Buscador de clientes</h2><p>Localiza rápidamente cualquier cliente del despacho.</p></div><button class="primary blue-button" id="openNewClient">＋ Nuevo cliente</button><label class="management-searchbox"><span>⌕</span><input id="managementSearch" type="search" placeholder="Buscar por nombre…"></label></section>
     <section class="management-clients"><div class="folder-toolbar"><div><strong>Clientes</strong><span id="managementCount">0 clientes</span></div></div><div class="folder-grid" id="managementGrid"><div class="empty folder-empty"><span>▤</span><h4>Cargando clientes</h4></div></div></section>
     <div class="modal-shell" id="clientModal" aria-hidden="true"><div class="modal-backdrop" data-close-modal></div><section class="client-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-heading"><div><p class="eyebrow">ALTA DE CLIENTE</p><h2 id="modalTitle">Nuevo cliente</h2></div><button class="modal-close" type="button" data-close-modal>×</button></div>
-    <form id="newClientForm"><label>Nombre del cliente<input id="clientName" type="text" placeholder="Ej. Empresa García, S.L." required maxlength="120"></label><div class="attachment-grid"><label class="file-field"><span><strong>Escrituras</strong><small>Opcional · varios archivos</small></span><input id="clientWritings" type="file" multiple></label><label class="file-field"><span><strong>Declaraciones</strong><small>Opcional · varios archivos</small></span><input id="clientDeclarations" type="file" multiple></label><label class="file-field"><span><strong>Firma digital</strong><small>Opcional · certificado digital</small></span><input id="clientSignature" type="file" accept=".p12,.pfx,.cer,.crt"></label></div><div class="signature-data"><label>Fecha de caducidad<input id="signatureExpiry" type="date"></label><label>Contraseña<input id="signaturePassword" type="password" autocomplete="new-password" placeholder="Contraseña de la firma"></label></div><p class="form-message" id="formMessage"></p><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancelar</button><button class="primary blue-button" type="submit">Guardar cliente</button></div></form></section></div>`;
+    <form id="newClientForm"><div class="client-identity-grid"><label>Nombre del cliente<input id="clientName" type="text" placeholder="Ej. Empresa García, S.L." required maxlength="120"></label><label>CIF<input id="clientCif" type="text" placeholder="Ej. B12345678" required maxlength="9" minlength="9" pattern="[A-Za-z0-9]{9}" autocomplete="off"><small>9 caracteres</small></label></div><fieldset class="fiscal-obligations"><legend>Obligaciones fiscales</legend><p>Selecciona los modelos del cliente y su periodicidad.</p><div class="obligation-grid">${["111","115","123","130-131","303","349"].map(m=>`<div class="obligation-item"><label><input type="checkbox" data-tax-model="${m}"><strong>Modelo ${m}</strong></label><select data-tax-period="${m}" aria-label="Periodicidad del modelo ${m}" disabled><option value="trimestral">Trimestral</option><option value="mensual">Mensual</option></select></div>`).join("")}</div></fieldset><div class="attachment-grid"><label class="file-field"><span><strong>Escrituras</strong><small>Opcional · varios archivos</small></span><input id="clientWritings" type="file" multiple></label><label class="file-field"><span><strong>Declaraciones</strong><small>Opcional · varios archivos</small></span><input id="clientDeclarations" type="file" multiple></label><label class="file-field"><span><strong>Firma digital</strong><small>Opcional · certificado digital</small></span><input id="clientSignature" type="file" accept=".p12,.pfx,.cer,.crt"></label></div><div class="signature-data"><label>Fecha de caducidad<input id="signatureExpiry" type="date"></label><label>Contraseña<input id="signaturePassword" type="password" autocomplete="new-password" placeholder="Contraseña de la firma"></label></div><p class="form-message" id="formMessage"></p><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancelar</button><button class="primary blue-button" type="submit">Guardar cliente</button></div></form></section></div>`;
   bindHeader();
   document.querySelector("#openNewClient").addEventListener("click",openClientModal);
   document.querySelectorAll("[data-close-modal]").forEach(x=>x.addEventListener("click",closeClientModal));
   document.querySelector("#newClientForm").addEventListener("submit",createClient);
+  document.querySelectorAll("[data-tax-model]").forEach(check=>check.addEventListener("change",()=>{document.querySelector(`[data-tax-period=\"${check.dataset.taxModel}\"]`).disabled=!check.checked}));
   document.querySelector("#managementSearch").addEventListener("input",filterManagementClients);
   loadManagementClients();
 }
@@ -100,6 +101,7 @@ async function createClient(e){
   let existed=true;try{await root.getDirectoryHandle(name)}catch{existed=false}const client=await root.getDirectoryHandle(name,{create:true}),folders={};for(const f of defaultClientFolders)folders[f]=await client.getDirectoryHandle(f,{create:true});const accountingYear=await folders["CONTABILIDAD"].getDirectoryHandle(String(new Date().getFullYear()),{create:true});for(const subfolder of ["1T","2T","3T","4T","BANCOS"])await accountingYear.getDirectoryHandle(subfolder,{create:true});
   await copyFileList(document.querySelector("#clientWritings").files,folders["ESCRITURAS"]);await copyFileList(document.querySelector("#clientDeclarations").files,folders["DECLARACIONES"]);
   const sig=document.querySelector("#clientSignature");if(sig.files.length){let signaturesRoot=await getSavedHandle("signatures-folder");if(signaturesRoot&&await signaturesRoot.requestPermission({mode:"readwrite"})!=="granted")signaturesRoot=null;if(!signaturesRoot){signaturesRoot=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("signatures-folder",signaturesRoot)}const file=sig.files[0],savedName=`${name} - ${file.name}`;await copyNamedFile(file,signaturesRoot,savedName);await saveSignatureMetadata({id:savedName,client:name,document:savedName,password:document.querySelector("#signaturePassword").value,expiry:document.querySelector("#signatureExpiry").value})}
+  const obligations={};document.querySelectorAll("[data-tax-model]:checked").forEach(check=>{obligations[check.dataset.taxModel]=document.querySelector(`[data-tax-period=\"${check.dataset.taxModel}\"]`).value});await saveClientMetadata({id:name,name,cif:document.querySelector("#clientCif").value.trim().toUpperCase(),obligations});
   message.className="form-message success";message.textContent=existed?"Cliente actualizado correctamente.":`Cliente “${name}” creado correctamente.`;e.target.reset();await loadManagementClients();setTimeout(closeClientModal,850)}
   catch(error){if(error.name!=="AbortError"){message.className="form-message error";message.textContent="No se pudo guardar el cliente. Comprueba el permiso de escritura."}}finally{button.disabled=false;button.textContent="Guardar cliente"}
 }
@@ -139,6 +141,37 @@ function renderWorkers(){
       </div>
     </section>`;
   bindHeader();
+}
+
+const taxModels=["111","115","123","130-131","303","349"];
+
+function renderDeclarations(){
+  main.innerHTML=`
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="declarations-panel">
+      <div class="declarations-heading"><div><p class="eyebrow">OBLIGACIONES FISCALES</p><h2>Control de declaraciones</h2><p>Selecciona un modelo para revisar sus clientes y presentación.</p></div></div>
+      <div class="tax-tabs" role="tablist">${taxModels.map((model,index)=>`<button type="button" role="tab" data-tax-tab="${model}" class="${index===0?"active":""}">Modelo ${model}</button>`).join("")}</div>
+      <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="taxRows"><tr><td colspan="9" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
+    </section>`;
+  bindHeader();
+  document.querySelectorAll("[data-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{document.querySelector("[data-tax-tab].active")?.classList.remove("active");tab.classList.add("active");loadTaxModel(tab.dataset.taxTab)}));
+  loadTaxModel(taxModels[0]);
+}
+function declarationKey(model,client){return "app-am-declaration-"+model+"-"+client}
+function declarationData(model,client){try{return JSON.parse(localStorage.getItem(declarationKey(model,client))||"{}")}catch{return{}}}
+function workerOptions(selected){return '<option value="">Seleccionar…</option>'+workers.map(name=>`<option value="${escapeHtml(name)}" ${selected===name?"selected":""}>${escapeHtml(name)}</option>`).join("")}
+async function loadTaxModel(model){
+  const body=document.querySelector("#taxRows");
+  try{
+    const clients=(await getAllClientMetadata()).filter(client=>client.obligations&&client.obligations[model]);
+    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,client.name);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}"><td><strong>${escapeHtml(client.name)}</strong><small>${client.obligations[model]==="mensual"?"Mensual":"Trimestral"}</small></td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Pendiente"?"selected":""}>Pendiente</option><option ${d.payment==="Domiciliado"?"selected":""}>Domiciliado</option><option ${d.payment==="NRC"?"selected":""}>NRC</option><option ${d.payment==="Pagado"?"selected":""}>Pagado</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="9" class="table-empty">No hay clientes asignados al modelo ${escapeHtml(model)}. Puedes asignarlos desde Gestión → Nuevo cliente.</td></tr>`;
+    body.querySelectorAll("input,select").forEach(control=>control.addEventListener("change",saveDeclarationRow));
+  }catch{body.innerHTML='<tr><td colspan="9" class="table-empty">No se pudieron cargar las obligaciones fiscales.</td></tr>'}
+}
+function saveDeclarationRow(event){
+  const row=event.target.closest("tr"),data={};
+  row.querySelectorAll("[data-field]").forEach(field=>data[field.dataset.field]=field.value);
+  localStorage.setItem(declarationKey(row.dataset.taxModelRow,row.dataset.taxClient),JSON.stringify(data));
 }
 
 function renderFolderView(name){
@@ -313,8 +346,8 @@ function filterFolders(event){
 
 function folderDb(){
   return new Promise((resolve,reject)=>{
-    const request=indexedDB.open("app-am-folders",2);
-    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains("handles"))request.result.createObjectStore("handles");if(!request.result.objectStoreNames.contains("signatureMetadata"))request.result.createObjectStore("signatureMetadata",{keyPath:"id"})};
+    const request=indexedDB.open("app-am-folders",3);
+    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains("handles"))request.result.createObjectStore("handles");if(!request.result.objectStoreNames.contains("signatureMetadata"))request.result.createObjectStore("signatureMetadata",{keyPath:"id"});if(!request.result.objectStoreNames.contains("clientMetadata"))request.result.createObjectStore("clientMetadata",{keyPath:"id"})};
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error);
   });
@@ -340,6 +373,9 @@ async function getSavedHandle(key){
 async function saveSignatureMetadata(data){const d=await folderDb();return new Promise((ok,no)=>{const tx=d.transaction("signatureMetadata","readwrite");tx.objectStore("signatureMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)})}
 async function getAllSignatureMetadata(){const d=await folderDb();return new Promise((ok,no)=>{const r=d.transaction("signatureMetadata","readonly").objectStore("signatureMetadata").getAll();r.onsuccess=()=>{d.close();ok(r.result||[])};r.onerror=()=>no(r.error)})}
 
+async function saveClientMetadata(data){const d=await folderDb();return new Promise((ok,no)=>{const tx=d.transaction("clientMetadata","readwrite");tx.objectStore("clientMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)})}
+async function getAllClientMetadata(){const d=await folderDb();return new Promise((ok,no)=>{const r=d.transaction("clientMetadata","readonly").objectStore("clientMetadata").getAll();r.onsuccess=()=>{d.close();ok(r.result||[])};r.onerror=()=>no(r.error)})}
+
 function escapeHtml(value){
   const node=document.createElement("div");
   node.textContent=value;
@@ -352,6 +388,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   closeMenu();
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
   else if(button.dataset.title==="Firmas digitales") renderSignatures();
+  else if(button.dataset.title==="Declaraciones") renderDeclarations();
   else if(button.dataset.title==="Trabajadores") renderWorkers();
   else if(button.dataset.title==="Gestión") openProtectedManagement();
   else{
