@@ -27,15 +27,6 @@ const views={
     storageKey:"clients-folder",
     itemLabel:"Carpeta de cliente"
   },
-  "Firmas digitales":{
-    eyebrow:"FIRMAS DIGITALES",
-    title:"Carpetas de firmas digitales",
-    description:"Consulta y busca la documentación preparada para firma.",
-    button:"Conectar carpeta Firmas digitales",
-    path:"la carpeta de firmas digitales",
-    storageKey:"signatures-folder",
-    itemLabel:"Carpeta de firma"
-  }
 };
 
 function openProtectedManagement(){
