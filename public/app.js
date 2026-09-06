@@ -106,6 +106,17 @@ async function createClient(e){
 }
 async function copyFileList(list,dir){for(const file of list)await copyNamedFile(file,dir,file.name)}
 async function copyNamedFile(file,dir,name){const dest=await dir.getFileHandle(name,{create:true}),w=await dest.createWritable();await w.write(file);await w.close()}
+function renderHolded(){
+  main.innerHTML=`
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Holded</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="holded-panel">
+      <div class="holded-hero-mark" aria-hidden="true"><i></i><i></i></div>
+      <div><p class="eyebrow">GESTIÓN CONTABLE</p><h2>Acceso a Holded</h2><p>Abre la plataforma de gestión y contabilidad del despacho.</p></div>
+      <a class="primary blue-button holded-open" href="https://app.holded.com" target="_blank" rel="noopener noreferrer">Abrir Holded <span>↗</span></a>
+    </section>`;
+  bindHeader();
+}
+
 function renderSignatures(){
   main.innerHTML=`<header><button class="menu" id="menu">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Firmas digitales</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="signatures-panel"><div class="table-heading"><div><p class="eyebrow">CERTIFICADOS</p><h2>Firmas digitales de clientes</h2></div><div class="signature-actions"><button class="upload-button" id="connectSignatures">Conectar carpeta Firmas digitales</button><label class="client-search"><span>⌕</span><input id="signatureSearch" type="search" placeholder="Buscar cliente…"></label></div></div><div class="signature-table-wrap"><table class="signature-table"><thead><tr><th>Cliente</th><th>Documento</th><th>Contraseña</th><th>Caducidad</th></tr></thead><tbody id="signatureRows"><tr><td colspan="4" class="table-empty">Cargando firmas…</td></tr></tbody></table></div></section>`;bindHeader();document.querySelector("#signatureSearch").addEventListener("input",filterSignatureRows);document.querySelector("#connectSignatures").addEventListener("click",connectSignaturesFolder);loadSignatures()
 }
@@ -387,6 +398,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   closeMenu();
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
   else if(button.dataset.title==="Firmas digitales") renderSignatures();
+  else if(button.dataset.title==="Holded") renderHolded();
   else if(button.dataset.title==="Declaraciones") renderDeclarations();
   else if(button.dataset.title==="Trabajadores") renderWorkers();
   else if(button.dataset.title==="Gestión") openProtectedManagement();
