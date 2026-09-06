@@ -6,7 +6,7 @@ let currentEntries=[];
 let folderHistory=[];
 let activeFolderConfig=null;
 let currentDirectoryHandle=null;
-const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIONES","ESCRITURAS","LIBROS OFICIALES","OTRA DOCUMENTACIÓN"];
+const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIONES","ESCRITURAS","FIRMA DIGITAL","LIBROS OFICIALES","OTRA DOCUMENTACIÓN"];
 
 document.querySelector("#menu").addEventListener("click",openMenu);
 overlay.addEventListener("click",closeMenu);
@@ -37,89 +37,51 @@ const views={
 };
 
 function renderManagement(){
-  main.innerHTML=`
-    <header>
-      <button class="menu" id="menu" aria-label="Abrir menú">☰</button>
-      <div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Gestión</h1></div>
-      <button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button>
-    </header>
-    <section class="management-grid">
-      <article class="new-client-panel">
-        <p class="eyebrow">ALTAS</p>
-        <h2>Nuevo cliente</h2>
-        <p class="form-intro">Introduce el nombre con el que se creará su carpeta dentro de Gestión / Clientes.</p>
-        <form id="newClientForm">
-          <label for="clientName">Nombre del cliente</label>
-          <div class="form-row">
-            <input id="clientName" name="clientName" type="text" autocomplete="off" placeholder="Ej. Empresa García, S.L." required maxlength="120">
-            <button class="primary blue-button" type="submit">Guardar cliente</button>
-          </div>
-          <p class="form-message" id="formMessage" role="status"></p>
-        </form>
-      </article>
-      <aside class="management-help">
-        <span class="management-icon">▰</span>
-        <h3>Carpeta automática</h3>
-        <p>Al guardar, se creará una carpeta nueva con ese nombre en la carpeta de Clientes conectada.</p>
-      </aside>
-    </section>`;
+  main.innerHTML=\`
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Gestión</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="management-search"><div><p class="eyebrow">CLIENTES</p><h2>Buscador de clientes</h2><p>Localiza rápidamente cualquier cliente del despacho.</p></div><button class="primary blue-button" id="openNewClient">＋ Nuevo cliente</button><label class="management-searchbox"><span>⌕</span><input id="managementSearch" type="search" placeholder="Buscar por nombre…"></label></section>
+    <section class="management-clients"><div class="folder-toolbar"><div><strong>Clientes</strong><span id="managementCount">0 clientes</span></div></div><div class="folder-grid" id="managementGrid"><div class="empty folder-empty"><span>▤</span><h4>Cargando clientes</h4></div></div></section>
+    <div class="modal-shell" id="clientModal" aria-hidden="true"><div class="modal-backdrop" data-close-modal></div><section class="client-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-heading"><div><p class="eyebrow">ALTA DE CLIENTE</p><h2 id="modalTitle">Nuevo cliente</h2></div><button class="modal-close" type="button" data-close-modal>×</button></div>
+    <form id="newClientForm"><label>Nombre del cliente<input id="clientName" type="text" placeholder="Ej. Empresa García, S.L." required maxlength="120"></label><div class="attachment-grid"><label class="file-field"><span><strong>Escrituras</strong><small>Opcional · varios archivos</small></span><input id="clientWritings" type="file" multiple></label><label class="file-field"><span><strong>Declaraciones</strong><small>Opcional · varios archivos</small></span><input id="clientDeclarations" type="file" multiple></label><label class="file-field"><span><strong>Firma digital</strong><small>Opcional · certificado digital</small></span><input id="clientSignature" type="file" accept=".p12,.pfx,.cer,.crt"></label></div><div class="signature-data"><label>Fecha de caducidad<input id="signatureExpiry" type="date"></label><label>Contraseña<input id="signaturePassword" type="password" autocomplete="new-password" placeholder="Contraseña de la firma"></label></div><p class="form-message" id="formMessage"></p><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancelar</button><button class="primary blue-button" type="submit">Guardar cliente</button></div></form></section></div>\`;
   bindHeader();
+  document.querySelector("#openNewClient").addEventListener("click",openClientModal);
+  document.querySelectorAll("[data-close-modal]").forEach(x=>x.addEventListener("click",closeClientModal));
   document.querySelector("#newClientForm").addEventListener("submit",createClient);
+  document.querySelector("#managementSearch").addEventListener("input",filterManagementClients);
+  loadManagementClients();
 }
-
-async function createClient(event){
-  event.preventDefault();
-  const input=document.querySelector("#clientName");
-  const message=document.querySelector("#formMessage");
-  const button=event.target.querySelector("button[type=submit]");
-  const enteredName=input.value.trim();
-  const name=enteredName.replace(/[. ]+$/g,"");
-  if(!name) return;
-  if(/[\\/:*?"<>|]/.test(name)){
-    message.className="form-message error";
-    message.textContent="El nombre contiene caracteres que Windows no permite en una carpeta.";
-    return;
-  }
-  if(!("showDirectoryPicker" in window)){
-    message.className="form-message error";
-    message.textContent="Esta función necesita Google Chrome o Microsoft Edge.";
-    return;
-  }
-  button.disabled=true;
-  button.textContent="Guardando…";
-  try{
-    let handle=await getSavedHandle("clients-folder");
-    if(handle){
-      const permission=await handle.requestPermission({mode:"readwrite"});
-      if(permission!=="granted") handle=null;
-    }
-    if(!handle){
-      handle=await window.showDirectoryPicker({mode:"readwrite"});
-      await saveHandle("clients-folder",handle);
-    }
-    let existed=true;
-    try{await handle.getDirectoryHandle(name)}catch{existed=false}
-    const clientHandle=await handle.getDirectoryHandle(name,{create:true});
-    for(const folderName of defaultClientFolders){
-      await clientHandle.getDirectoryHandle(folderName,{create:true});
-    }
-    message.className="form-message success";
-    message.textContent=existed
-      ? "El cliente ya existía. Se ha comprobado su estructura de carpetas."
-      : enteredName!==name
-        ? `Cliente guardado como “${name}”. Windows no permite que una carpeta termine en punto.`
-        : `Cliente guardado. Se ha creado “${name}” con todas sus carpetas.`;
-    if(!existed) input.value="";
-  }catch(error){
-    if(error.name!=="AbortError"){
-      message.className="form-message error";
-      message.textContent="No se pudo crear la carpeta. Comprueba el permiso de escritura.";
-    }
-  }finally{
-    button.disabled=false;
-    button.textContent="Guardar cliente";
-  }
+function openClientModal(){const m=document.querySelector("#clientModal");m.classList.add("open");m.setAttribute("aria-hidden","false");setTimeout(()=>document.querySelector("#clientName")?.focus(),180)}
+function closeClientModal(){const m=document.querySelector("#clientModal");m.classList.remove("open");m.setAttribute("aria-hidden","true")}
+async function loadManagementClients(){
+  const grid=document.querySelector("#managementGrid");
+  try{const root=await getSavedHandle("clients-folder");if(!root||await root.queryPermission({mode:"read"})!=="granted"){grid.innerHTML='<div class="empty folder-empty"><h4>Carpeta de Clientes no autorizada</h4><p>Entra primero en Clientes y autoriza su carpeta.</p></div>';return}
+  const clients=[];for await(const x of root.values())if(x.kind==="directory")clients.push(x.name);clients.sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"}));
+  grid.innerHTML=clients.length?clients.map(n=>\`<button class="folder-card management-client" data-client="\${escapeHtml(n.toLocaleLowerCase("es"))}"><span class="folder-icon">▰</span><span><strong>\${escapeHtml(n)}</strong><small>Cliente</small></span></button>\`).join(""):'<div class="empty folder-empty"><h4>No hay clientes</h4></div>';document.querySelector("#managementCount").textContent=\`\${clients.length} \${clients.length===1?"cliente":"clientes"}\`}catch{grid.innerHTML='<div class="empty folder-empty"><h4>No se pudieron cargar los clientes</h4></div>'}
 }
+function filterManagementClients(e){const q=e.target.value.trim().toLocaleLowerCase("es");const cards=[...document.querySelectorAll(".management-client")];let v=0;cards.forEach(c=>{const s=c.dataset.client.includes(q);c.hidden=!s;if(s)v++});document.querySelector("#managementCount").textContent=q?\`\${v} resultados\`:\`\${cards.length} clientes\`}
+async function createClient(e){
+  e.preventDefault();const input=document.querySelector("#clientName"),message=document.querySelector("#formMessage"),button=e.target.querySelector("button[type=submit]");const entered=input.value.trim(),name=entered.replace(/[. ]+$/,"");if(!name)return;if(/[\\/:*?"<>|]/.test(name)){message.className="form-message error";message.textContent="El nombre contiene caracteres que Windows no permite.";return}button.disabled=true;button.textContent="Guardando…";
+  try{let root=await getSavedHandle("clients-folder");if(root&&await root.requestPermission({mode:"readwrite"})!=="granted")root=null;if(!root){root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("clients-folder",root)}
+  let existed=true;try{await root.getDirectoryHandle(name)}catch{existed=false}const client=await root.getDirectoryHandle(name,{create:true}),folders={};for(const f of defaultClientFolders)folders[f]=await client.getDirectoryHandle(f,{create:true});
+  await copyFileList(document.querySelector("#clientWritings").files,folders["ESCRITURAS"]);await copyFileList(document.querySelector("#clientDeclarations").files,folders["DECLARACIONES"]);
+  const sig=document.querySelector("#clientSignature");if(sig.files.length){await copyFileList(sig.files,folders["FIRMA DIGITAL"]);const file=sig.files[0];await saveSignatureMetadata({id:\`\${name}/\${file.name}\`,client:name,document:file.name,password:document.querySelector("#signaturePassword").value,expiry:document.querySelector("#signatureExpiry").value})}
+  message.className="form-message success";message.textContent=existed?"Cliente actualizado correctamente.":\`Cliente “\${name}” creado correctamente.\`;e.target.reset();await loadManagementClients();setTimeout(closeClientModal,850)}
+  catch(error){if(error.name!=="AbortError"){message.className="form-message error";message.textContent="No se pudo guardar el cliente. Comprueba el permiso de escritura."}}finally{button.disabled=false;button.textContent="Guardar cliente"}
+}
+async function copyFileList(list,dir){for(const file of list){const dest=await dir.getFileHandle(file.name,{create:true}),w=await dest.createWritable();await w.write(file);await w.close()}}
+function renderSignatures(){
+  main.innerHTML=\`<header><button class="menu" id="menu">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Firmas digitales</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="signatures-panel"><div class="table-heading"><div><p class="eyebrow">CERTIFICADOS</p><h2>Firmas digitales de clientes</h2></div><label class="client-search"><span>⌕</span><input id="signatureSearch" type="search" placeholder="Buscar cliente…"></label></div><div class="signature-table-wrap"><table class="signature-table"><thead><tr><th>Cliente</th><th>Documento</th><th>Contraseña</th><th>Caducidad</th></tr></thead><tbody id="signatureRows"><tr><td colspan="4" class="table-empty">Cargando firmas…</td></tr></tbody></table></div></section>\`;bindHeader();document.querySelector("#signatureSearch").addEventListener("input",filterSignatureRows);loadSignatures()
+}
+async function loadSignatures(){
+ const body=document.querySelector("#signatureRows");try{const root=await getSavedHandle("clients-folder");if(!root||await root.queryPermission({mode:"read"})!=="granted"){body.innerHTML='<tr><td colspan="4" class="table-empty">Autoriza primero la carpeta desde Clientes.</td></tr>';return}const metadata=await getAllSignatureMetadata(),map=new Map(metadata.map(x=>[x.id,x])),rows=[];
+ for await(const client of root.values()){if(client.kind!=="directory")continue;let dir;try{dir=await client.getDirectoryHandle("FIRMA DIGITAL")}catch{continue}for await(const doc of dir.values()){if(doc.kind!=="file")continue;const m=map.get(\`\${client.name}/\${doc.name}\`)||{};rows.push({client:client.name,document:doc.name,handle:doc,password:m.password||"",expiry:m.expiry||""})}}
+ window.signatureFiles=rows;body.innerHTML=rows.length?rows.map((r,i)=>\`<tr data-search="\${escapeHtml((r.client+" "+r.document).toLocaleLowerCase("es"))}"><td><strong>\${escapeHtml(r.client)}</strong></td><td><button class="document-link" data-download="\${i}">⇩ \${escapeHtml(r.document)}</button></td><td><button class="password-cell" data-password="\${escapeHtml(r.password)}">\${r.password?"••••••••":"—"}</button></td><td><span class="expiry \${expiryClass(r.expiry)}">\${formatDate(r.expiry)}</span></td></tr>\`).join(""):'<tr><td colspan="4" class="table-empty">Todavía no hay firmas digitales.</td></tr>';
+ body.querySelectorAll("[data-download]").forEach(x=>x.addEventListener("click",()=>downloadSignature(Number(x.dataset.download))));body.querySelectorAll("[data-password]").forEach(x=>x.addEventListener("click",()=>{x.textContent=x.textContent.includes("•")?(x.dataset.password||"—"):"••••••••"}))}catch{body.innerHTML='<tr><td colspan="4" class="table-empty">No se pudieron cargar las firmas.</td></tr>'}
+}
+async function downloadSignature(i){const file=await window.signatureFiles[i].handle.getFile(),url=URL.createObjectURL(file),a=document.createElement("a");a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+function filterSignatureRows(e){const q=e.target.value.trim().toLocaleLowerCase("es");document.querySelectorAll("#signatureRows tr[data-search]").forEach(r=>r.hidden=!r.dataset.search.includes(q))}
+function formatDate(v){return v?new Intl.DateTimeFormat("es-ES").format(new Date(v+"T12:00:00")):"—"}
+function expiryClass(v){if(!v)return"";const d=(new Date(v+"T23:59:59")-new Date())/86400000;return d<0?"expired":d<60?"warning":"valid"}
 
 function renderFolderView(name){
   const config=views[name];
@@ -293,8 +255,8 @@ function filterFolders(event){
 
 function folderDb(){
   return new Promise((resolve,reject)=>{
-    const request=indexedDB.open("app-am-folders",1);
-    request.onupgradeneeded=()=>request.result.createObjectStore("handles");
+    const request=indexedDB.open("app-am-folders",2);
+    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains("handles"))request.result.createObjectStore("handles");if(!request.result.objectStoreNames.contains("signatureMetadata"))request.result.createObjectStore("signatureMetadata",{keyPath:"id"})};
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error);
   });
@@ -317,6 +279,9 @@ async function getSavedHandle(key){
   });
 }
 
+async function saveSignatureMetadata(data){const d=await folderDb();return new Promise((ok,no)=>{const tx=d.transaction("signatureMetadata","readwrite");tx.objectStore("signatureMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)})}
+async function getAllSignatureMetadata(){const d=await folderDb();return new Promise((ok,no)=>{const r=d.transaction("signatureMetadata","readonly").objectStore("signatureMetadata").getAll();r.onsuccess=()=>{d.close();ok(r.result||[])};r.onerror=()=>no(r.error)})}
+
 function escapeHtml(value){
   const node=document.createElement("div");
   node.textContent=value;
@@ -328,6 +293,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   button.classList.add("active");
   closeMenu();
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
+  else if(button.dataset.title==="Firmas digitales") renderSignatures();
   else if(button.dataset.title==="Gestión") renderManagement();
   else{
     main.innerHTML=homeMarkup;
