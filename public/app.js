@@ -361,3 +361,74 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
     if(title) title.textContent=button.dataset.title;
   }
 }));
+
+
+const chatWorkers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Araceli Frías","Jesús Carratalá"];
+let activeChatWorker=null;
+
+function workerInitials(name){return name.split(" ").slice(0,2).map(part=>part[0]).join("").toUpperCase()}
+function getChatMessages(name){try{return JSON.parse(localStorage.getItem("app-am-chat-"+name)||"[]")}catch{return[]}}
+function saveChatMessages(name,messages){localStorage.setItem("app-am-chat-"+name,JSON.stringify(messages))}
+
+function createWorkerChat(){
+  const widget=document.createElement("div");
+  widget.className="worker-chat";
+  widget.innerHTML=`
+    <button class="chat-launcher" id="chatLauncher" type="button" aria-label="Abrir chat de trabajadores">
+      <span class="chat-launcher-icon">✉</span><span class="chat-launcher-label">Chat</span>
+    </button>
+    <section class="chat-panel" id="chatPanel" aria-hidden="true">
+      <header class="chat-header"><div><span class="chat-kicker">EQUIPO</span><h2>Chat de trabajadores</h2></div><button id="closeChat" type="button" aria-label="Cerrar chat">×</button></header>
+      <div id="chatContent"></div>
+    </section>`;
+  document.body.appendChild(widget);
+  document.querySelector("#chatLauncher").addEventListener("click",toggleWorkerChat);
+  document.querySelector("#closeChat").addEventListener("click",closeWorkerChat);
+  renderChatContacts();
+}
+
+function toggleWorkerChat(){
+  const panel=document.querySelector("#chatPanel");
+  const opening=!panel.classList.contains("open");
+  panel.classList.toggle("open",opening);
+  panel.setAttribute("aria-hidden",String(!opening));
+  document.querySelector("#chatLauncher").classList.toggle("active",opening);
+}
+function closeWorkerChat(){
+  const panel=document.querySelector("#chatPanel");
+  panel.classList.remove("open");
+  panel.setAttribute("aria-hidden","true");
+  document.querySelector("#chatLauncher").classList.remove("active");
+}
+function renderChatContacts(){
+  activeChatWorker=null;
+  const content=document.querySelector("#chatContent");
+  content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Selecciona un trabajador para abrir el chat.</span></div><div class="chat-contacts">${chatWorkers.map(name=>`<button type="button" data-chat-worker="${escapeHtml(name)}"><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small>Abrir conversación</small></span><b>›</b></button>`).join("")}</div>`;
+  content.querySelectorAll("[data-chat-worker]").forEach(button=>button.addEventListener("click",()=>renderConversation(button.dataset.chatWorker)));
+}
+function renderConversation(name){
+  activeChatWorker=name;
+  const messages=getChatMessages(name);
+  const content=document.querySelector("#chatContent");
+  content.innerHTML=`
+    <div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación interna</small></div></div>
+    <div class="chat-messages" id="chatMessages">${messages.length?messages.map(message=>`<div class="chat-message"><p>${escapeHtml(message.text)}</p><time>${escapeHtml(message.time)}</time></div>`).join(""):`<div class="chat-empty"><span>✦</span><strong>Inicia la conversación</strong><small>Escribe el primer mensaje para ${escapeHtml(name)}.</small></div>`}</div>
+    <form class="chat-composer" id="chatForm"><textarea id="chatMessage" rows="1" maxlength="500" placeholder="Escribe un mensaje…" required></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>
+    <p class="chat-note">Entrega entre usuarios disponible cuando activemos los perfiles.</p>`;
+  document.querySelector("#chatBack").addEventListener("click",renderChatContacts);
+  document.querySelector("#chatForm").addEventListener("submit",sendChatMessage);
+  document.querySelector("#chatMessage").focus();
+  const box=document.querySelector("#chatMessages");box.scrollTop=box.scrollHeight;
+}
+function sendChatMessage(event){
+  event.preventDefault();
+  const input=document.querySelector("#chatMessage");
+  const text=input.value.trim();
+  if(!text||!activeChatWorker)return;
+  const messages=getChatMessages(activeChatWorker);
+  messages.push({text,time:new Intl.DateTimeFormat("es-ES",{hour:"2-digit",minute:"2-digit"}).format(new Date())});
+  saveChatMessages(activeChatWorker,messages);
+  renderConversation(activeChatWorker);
+}
+
+createWorkerChat();
