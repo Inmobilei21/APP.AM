@@ -5,6 +5,8 @@ const homeMarkup=main.innerHTML;
 let currentEntries=[];
 let folderHistory=[];
 let activeFolderConfig=null;
+let currentDirectoryHandle=null;
+const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIONES","ESCRITURAS","LIBROS OFICIALES","OTRA DOCUMENTACIÓN"];
 
 document.querySelector("#menu").addEventListener("click",openMenu);
 overlay.addEventListener("click",closeMenu);
@@ -97,13 +99,16 @@ async function createClient(event){
     }
     let existed=true;
     try{await handle.getDirectoryHandle(name)}catch{existed=false}
-    await handle.getDirectoryHandle(name,{create:true});
+    const clientHandle=await handle.getDirectoryHandle(name,{create:true});
+    for(const folderName of defaultClientFolders){
+      await clientHandle.getDirectoryHandle(folderName,{create:true});
+    }
     message.className="form-message success";
     message.textContent=existed
-      ? "Ese cliente ya tenía una carpeta."
+      ? "El cliente ya existía. Se ha comprobado su estructura de carpetas."
       : enteredName!==name
         ? `Cliente guardado como “${name}”. Windows no permite que una carpeta termine en punto.`
-        : `Cliente guardado. Se ha creado la carpeta “${name}”.`;
+        : `Cliente guardado. Se ha creado “${name}” con todas sus carpetas.`;
     if(!existed) input.value="";
   }catch(error){
     if(error.name!=="AbortError"){
@@ -131,7 +136,7 @@ function renderFolderView(name){
     <section class="folder-panel">
       <div class="folder-toolbar">
         <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
-        <label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label>
+        <div class="folder-actions"><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button></div>
       </div>
       <div class="folder-grid" id="folderGrid">
         <div class="empty folder-empty"><span>▤</span><h4>Carpeta aún no conectada</h4><p>Pulsa “${config.button}” y selecciona ${config.path}.</p></div>
@@ -141,6 +146,7 @@ function renderFolderView(name){
   document.querySelector("#connectFolder").addEventListener("click",()=>connectFolder(config));
   document.querySelector("#clientSearch").addEventListener("input",filterFolders);
   document.querySelector("#folderBack").addEventListener("click",goBackFolder);
+  document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
   restoreFolder(config);
 }
 
@@ -191,6 +197,7 @@ async function displayFolder(handle,config,fromBack=false){
     ? a.name.localeCompare(b.name,"es",{sensitivity:"base"})
     : a.kind==="directory" ? -1 : 1);
   currentEntries=entries;
+  currentDirectoryHandle=handle;
   activeFolderConfig=config;
   document.querySelector("#folderName").textContent=handle.name;
   document.querySelector("#folderStatus").textContent="Carpeta conectada y guardada. Pulsa un cliente para ver sus documentos.";
@@ -198,6 +205,8 @@ async function displayFolder(handle,config,fromBack=false){
   document.querySelector("#connectFolder").dataset.connected="true";
   document.querySelector("#clientSearch").value="";
   document.querySelector("#folderBack").hidden=folderHistory.length===0;
+  const upload=document.querySelector("#uploadFiles");
+  if(upload) upload.hidden=false;
   renderEntries(entries);
 }
 
@@ -241,6 +250,32 @@ async function goBackFolder(){
   if(handle) await displayFolder(handle,activeFolderConfig,true);
 }
 
+
+async function uploadDocuments(){
+  if(!currentDirectoryHandle) return;
+  if(!("showOpenFilePicker" in window)){
+    alert("Esta función necesita Google Chrome o Microsoft Edge.");
+    return;
+  }
+  try{
+    const permission=await currentDirectoryHandle.requestPermission({mode:"readwrite"});
+    if(permission!=="granted") return;
+    const fileHandles=await window.showOpenFilePicker({multiple:true});
+    for(const sourceHandle of fileHandles){
+      const file=await sourceHandle.getFile();
+      const destination=await currentDirectoryHandle.getFileHandle(file.name,{create:true});
+      const writable=await destination.createWritable();
+      await writable.write(file);
+      await writable.close();
+    }
+    await displayFolder(currentDirectoryHandle,activeFolderConfig,true);
+    document.querySelector("#folderStatus").textContent=fileHandles.length===1
+      ? "Documento añadido correctamente."
+      : `${fileHandles.length} documentos añadidos correctamente.`;
+  }catch(error){
+    if(error.name!=="AbortError") alert("No se pudieron añadir los documentos. Comprueba el permiso de escritura.");
+  }
+}
 
 function filterFolders(event){
   const query=event.target.value.trim().toLocaleLowerCase("es");
