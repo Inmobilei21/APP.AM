@@ -70,7 +70,8 @@ async function createClient(event){
   const input=document.querySelector("#clientName");
   const message=document.querySelector("#formMessage");
   const button=event.target.querySelector("button[type=submit]");
-  const name=input.value.trim();
+  const enteredName=input.value.trim();
+  const name=enteredName.replace(/[. ]+$/g,"");
   if(!name) return;
   if(/[\\/:*?"<>|]/.test(name)){
     message.className="form-message error";
@@ -100,7 +101,9 @@ async function createClient(event){
     message.className="form-message success";
     message.textContent=existed
       ? "Ese cliente ya tenía una carpeta."
-      : `Cliente guardado. Se ha creado la carpeta “${name}”.`;
+      : enteredName!==name
+        ? `Cliente guardado como “${name}”. Windows no permite que una carpeta termine en punto.`
+        : `Cliente guardado. Se ha creado la carpeta “${name}”.`;
     if(!existed) input.value="";
   }catch(error){
     if(error.name!=="AbortError"){
