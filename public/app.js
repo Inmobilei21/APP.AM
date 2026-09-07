@@ -439,7 +439,11 @@ function fiscalPeriodAliases(type,period){
 }
 function fiscalModelMatches(text,model){
   const models=model==="130-131"?["130","131"]:[model];
-  return models.some(number=>new RegExp(`(^| )${number}( |$)`).test(text));
+  return models.some(number=>{
+    const separated=new RegExp(`(^| )${number}( |$)`).test(text);
+    const joinedPeriod=new RegExp(`(^| )${number}(?=(?:[1-4]T|T[1-4]|M(?:0[1-9]|1[0-2])|20\\d{2}))`).test(text);
+    return separated||joinedPeriod;
+  });
 }
 async function collectDeclarationPdfs(directory,path="",depth=0){
   if(depth>5)return[];
