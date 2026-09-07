@@ -561,25 +561,31 @@ function openDeclarationColumnFilter(prefix,bodyId,button){
   const value=declarationColumnFilterState[prefix]?.[column.field]||"";
   const panel=document.createElement("div");panel.className="excel-filter-popover";
   const options=declarationFilterOptions(column.type);
-  const control=options.length
-    ?`<select id="excelFilterValue"><option value="">Todos</option>${options.map(option=>`<option value="${escapeHtml(option)}" ${value===option?"selected":""}>${escapeHtml(option)}</option>`).join("")}</select>`
-    :`<input id="excelFilterValue" type="${column.type==="date"?"date":"search"}" value="${escapeHtml(value)}" placeholder="Buscar…">`;
-  panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div>${control}<div class="excel-filter-actions"><button type="button" data-clear-filter>Limpiar</button><button class="apply" type="button" data-apply-filter>Aplicar</button></div>`;
+  if(options.length){
+    panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div><div class="excel-filter-option-list"><button type="button" data-filter-option="" class="${!value?"selected":""}"><span>${!value?"✓":""}</span>Mostrar todos</button>${options.map(option=>`<button type="button" data-filter-option="${escapeHtml(option)}" class="${value===option?"selected":""}"><span>${value===option?"✓":""}</span>${escapeHtml(option)}</button>`).join("")}</div>`;
+  }else{
+    panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div><input id="excelFilterValue" type="${column.type==="date"?"date":"search"}" value="${escapeHtml(value)}" placeholder="Buscar…"><div class="excel-filter-actions"><button type="button" data-clear-filter>Limpiar</button><button class="apply" type="button" data-apply-filter>Aplicar</button></div>`;
+  }
   document.body.appendChild(panel);
   const rect=button.getBoundingClientRect();
   panel.style.left=Math.max(10,Math.min(rect.left,window.innerWidth-286))+"px";
-  panel.style.top=Math.min(rect.bottom+7,window.innerHeight-panel.offsetHeight-10)+"px";
-  const input=panel.querySelector("#excelFilterValue"),close=()=>panel.remove();
-  const apply=()=>{
-    const next=input.value.trim();
+  panel.style.top=Math.max(10,Math.min(rect.bottom+7,window.innerHeight-panel.offsetHeight-10))+"px";
+  const close=()=>panel.remove();
+  const setFilter=next=>{
     if(next)declarationColumnFilterState[prefix][column.field]=next;else delete declarationColumnFilterState[prefix][column.field];
     button.classList.toggle("active",Boolean(next));applyDeclarationFilters(prefix,bodyId);close();
   };
   panel.addEventListener("click",event=>event.stopPropagation());
-  panel.querySelector("[data-apply-filter]").addEventListener("click",apply);
-  panel.querySelector("[data-clear-filter]").addEventListener("click",()=>{delete declarationColumnFilterState[prefix][column.field];button.classList.remove("active");applyDeclarationFilters(prefix,bodyId);close()});
-  input.addEventListener("keydown",event=>{if(event.key==="Enter")apply();if(event.key==="Escape")close()});
-  setTimeout(()=>document.addEventListener("click",close,{once:true}),0);input.focus();
+  if(options.length){
+    panel.querySelectorAll("[data-filter-option]").forEach(option=>option.addEventListener("click",()=>setFilter(option.dataset.filterOption)));
+  }else{
+    const input=panel.querySelector("#excelFilterValue");
+    panel.querySelector("[data-apply-filter]").addEventListener("click",()=>setFilter(input.value.trim()));
+    panel.querySelector("[data-clear-filter]").addEventListener("click",()=>setFilter(""));
+    input.addEventListener("keydown",event=>{if(event.key==="Enter")setFilter(input.value.trim());if(event.key==="Escape")close()});
+    input.focus();
+  }
+  setTimeout(()=>document.addEventListener("click",close,{once:true}),0);
 }
 function declarationRowFilterValue(row,field){
   if(field==="client")return row.dataset.taxClient||"";
