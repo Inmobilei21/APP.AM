@@ -77,3 +77,6 @@
 
 /* Histórico de declaraciones */
 .history-selectors{display:flex;align-items:flex-end;gap:12px}.history-selectors .quarter-selector{min-width:190px}.history-panel .history-lock{margin-top:14px}.history-lock:has(>span:first-child:nth-last-child(2)){background:#eef8f2;border-color:#cbe9d7}.history-panel .tax-table tr:has(input:disabled){opacity:.72}@media(max-width:760px){.history-selectors{width:100%;flex-direction:column;align-items:stretch}.history-selectors .quarter-selector{min-width:0}}
+
+/* Selector mensual o trimestral */
+.control-period-selectors{display:grid;grid-template-columns:minmax(170px,.8fr) minmax(250px,1.2fr);gap:12px;min-width:450px}.tax-tabs button:disabled{opacity:.38;cursor:not-allowed;text-decoration:line-through}.deadline-unavailable{grid-column:1/-1;padding:8px;display:flex;flex-direction:column;gap:4px}.deadline-unavailable strong{font-size:14px}.deadline-unavailable span{font-size:13px;color:var(--muted)}.tax-status.unavailable{background:#e8ecf6;color:#5d687f}@media(max-width:900px){.control-period-selectors{min-width:0;width:100%}}@media(max-width:520px){.control-period-selectors{grid-template-columns:1fr}}
