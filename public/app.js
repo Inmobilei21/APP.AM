@@ -526,6 +526,47 @@ async function setupDeclarationFolderSource(elementId,reload){
 }
 
 
+const declarationPayments=["Domicil.","N.R.C.","Cargo","Aplaz.","Pte. Pago","Negativa","Compensación","Devolver","Baja","Cliente"];
+function declarationFiltersMarkup(prefix){
+  const workerFilter=workers.map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+  const paymentFilter=declarationPayments.map(value=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+  return `<div class="declaration-filters" id="${prefix}Filters">
+    <label class="declaration-filter-search"><span>⌕</span><input id="${prefix}FilterSearch" type="search" placeholder="Buscar cliente o CIF…" aria-label="Buscar por cliente o CIF"></label>
+    <label><span>Encargado</span><select id="${prefix}FilterManager"><option value="">Todos</option>${workerFilter}</select></label>
+    <label><span>Pago</span><select id="${prefix}FilterPayment"><option value="">Todos</option>${paymentFilter}</select></label>
+    <label><span>Presentado por</span><select id="${prefix}FilterSubmitted"><option value="">Todos</option>${workerFilter}</select></label>
+    <label><span>Revisado por</span><select id="${prefix}FilterReviewed"><option value="">Todos</option>${workerFilter}</select></label>
+    <div class="declaration-filter-result"><strong id="${prefix}FilterCount">0</strong><small>resultados</small></div>
+  </div>`;
+}
+function declarationFilterValue(prefix,suffix){
+  return document.querySelector(`#${prefix}${suffix}`)?.value||"";
+}
+function setupDeclarationFilters(prefix,bodyId){
+  const panel=document.querySelector(`#${prefix}Filters`);if(!panel)return;
+  panel.querySelectorAll("input,select").forEach(control=>control.addEventListener("input",()=>applyDeclarationFilters(prefix,bodyId)));
+}
+function applyDeclarationFilters(prefix,bodyId){
+  const body=document.querySelector(`#${bodyId}`);if(!body)return;
+  const search=declarationFilterValue(prefix,"FilterSearch").trim().toLocaleLowerCase("es");
+  const manager=declarationFilterValue(prefix,"FilterManager");
+  const payment=declarationFilterValue(prefix,"FilterPayment");
+  const submitted=declarationFilterValue(prefix,"FilterSubmitted");
+  const reviewed=declarationFilterValue(prefix,"FilterReviewed");
+  let visible=0;
+  body.querySelectorAll("tr[data-tax-client]").forEach(row=>{
+    const client=(row.dataset.taxClient||"").toLocaleLowerCase("es");
+    const cif=(row.children[2]?.textContent||"").trim().toLocaleLowerCase("es");
+    const show=(!search||(client+" "+cif).includes(search))
+      &&(!manager||row.querySelector('[data-field="manager"]')?.value===manager)
+      &&(!payment||row.querySelector('[data-field="payment"]')?.value===payment)
+      &&(!submitted||row.querySelector('[data-field="submittedBy"]')?.value===submitted)
+      &&(!reviewed||row.querySelector('[data-field="reviewedBy"]')?.value===reviewed);
+    row.hidden=!show;if(show)visible++;
+  });
+  const count=document.querySelector(`#${prefix}FilterCount`);if(count)count.textContent=String(visible);
+}
+
 function renderDeclarations(){
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
@@ -541,9 +582,11 @@ function renderDeclarations(){
       <div class="tax-deadlines" id="taxDeadlines"></div>
       <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner" id="taxLockBanner" hidden></div>
+      ${declarationFiltersMarkup("tax")}
       <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>Documento</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="taxRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
    bindHeader();
+  setupDeclarationFilters("tax","taxRows");
   document.querySelector("#taxType").value=activeTaxType;fillTaxPeriodSelect();syncTaxModelTabs();
   document.querySelector("#taxType").addEventListener("change",event=>{activeTaxType=event.target.value;activeTaxQuarter=activeTaxType==="mensual"?"M01":"1T";if(activeTaxType==="mensual"&&activeTaxModel==="130-131")activeTaxModel="111";fillTaxPeriodSelect();syncTaxModelTabs();loadTaxModel(activeTaxModel)});
   document.querySelector("#taxQuarter").addEventListener("change",event=>{activeTaxQuarter=event.target.value;loadTaxModel(activeTaxModel)});
@@ -570,7 +613,8 @@ async function loadTaxModel(model){
     const clients=(await getAllClientMetadata()).filter(client=>(client.periodicity||"trimestral")===activeTaxType&&client.obligations&&client.obligations[model]);
     const documents=await declarationDocumentsForClients(clients,model,activeTaxType,activeTaxQuarter,2026);
     body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeTaxQuarter,client.name);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeTaxQuarter}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeTaxType==="mensual"?"Mensual":"Trimestral"}</small></td><td>${declarationDocumentMarkup(documents.get(client.name))}</td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="10" class="table-empty">No hay clientes ${activeTaxType==="mensual"?"mensuales":"trimestrales"} asignados al modelo ${escapeHtml(model)}.</td></tr>`;
-    body.querySelectorAll("input,select").forEach(control=>{control.disabled=state.locked;control.addEventListener("change",saveDeclarationRow)});
+    body.querySelectorAll("input,select").forEach(control=>{control.disabled=state.locked;control.addEventListener("change",event=>{saveDeclarationRow(event);applyDeclarationFilters("tax","taxRows")})});
+    applyDeclarationFilters("tax","taxRows");
     renderTaxLock(state,model,activeTaxQuarter,activeTaxType);
   }catch{body.innerHTML='<tr><td colspan="10" class="table-empty">No se pudieron cargar las obligaciones fiscales.</td></tr>'}
 }
@@ -641,9 +685,11 @@ function renderDeclarationHistory(){
       <div class="declaration-folder-source" id="historyDeclarationFolder"></div>
       <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner history-lock" id="historyLockBanner"></div>
+      ${declarationFiltersMarkup("history")}
       <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>Documento</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="historyTaxRows"><tr><td colspan="10" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
+  setupDeclarationFilters("history","historyTaxRows");
   document.querySelector("#historyYear").value=String(activeHistoryYear);
   document.querySelector("#historyType").value=activeHistoryType;
   fillHistoryPeriodSelect();syncHistoryModelTabs();
@@ -660,7 +706,8 @@ async function loadHistoricalModel(model){
     const clients=(await getAllClientMetadata()).filter(client=>(client.periodicity||"trimestral")===activeHistoryType&&client.obligations&&client.obligations[model]);
     const documents=await declarationDocumentsForClients(clients,model,activeHistoryType,activeHistoryQuarter,activeHistoryYear);
     body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeHistoryQuarter,client.name,activeHistoryYear);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeHistoryQuarter}" data-tax-year-row="${activeHistoryYear}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeHistoryType==="mensual"?"Mensual":"Trimestral"} · ${activeHistoryYear}</small></td><td>${declarationDocumentMarkup(documents.get(client.name))}</td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="10" class="table-empty">No hay clientes ${activeHistoryType==="mensual"?"mensuales":"trimestrales"} asignados al modelo ${escapeHtml(model)}.</td></tr>`;
-    body.querySelectorAll("input,select").forEach(control=>{control.disabled=!unlocked;control.addEventListener("change",saveHistoricalRow)});
+    body.querySelectorAll("input,select").forEach(control=>{control.disabled=!unlocked;control.addEventListener("change",event=>{saveHistoricalRow(event);applyDeclarationFilters("history","historyTaxRows")})});
+    applyDeclarationFilters("history","historyTaxRows");
     renderHistoryLock(unlocked,model);
   }catch{body.innerHTML='<tr><td colspan="10" class="table-empty">No se pudo cargar el histórico.</td></tr>'}
 }
