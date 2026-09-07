@@ -241,8 +241,8 @@ function renderTaxDeadlines(model,quarter,state){
     <span class="tax-status ${state.type}">${state.label}</span>
     ${d.provisional?'<p class="deadline-note">4.º trimestre: fechas calculadas con las reglas generales de la AEAT. Pendiente de confirmación en el calendario oficial de 2027.</p>':""}`;
 }
-function declarationKey(model,quarter,client){return "app-am-declaration-"+model+"-"+quarter+"-"+client}
-function declarationData(model,quarter,client){try{return JSON.parse(localStorage.getItem(declarationKey(model,quarter,client))||"{}")}catch{return{}}}
+function declarationKey(model,quarter,client,year=2026){return "app-am-declaration-"+year+"-"+model+"-"+quarter+"-"+client}
+function declarationData(model,quarter,client,year=2026){try{const saved=localStorage.getItem(declarationKey(model,quarter,client,year));const legacy=year===2026?localStorage.getItem("app-am-declaration-"+model+"-"+quarter+"-"+client):null;return JSON.parse(saved||legacy||"{}")}catch{return{}}}
 function workerOptions(selected){return '<option value="">Seleccionar…</option>'+workers.map(name=>`<option value="${escapeHtml(name)}" ${selected===name?"selected":""}>${escapeHtml(name)}</option>`).join("")}
 async function loadTaxModel(model){
   const body=document.querySelector("#taxRows"),state=taxWindowState(model,activeTaxQuarter);
@@ -276,6 +276,78 @@ function saveDeclarationRow(event){
   const row=event.target.closest("tr"),data={};
   row.querySelectorAll("[data-field]").forEach(field=>data[field.dataset.field]=field.value);
   localStorage.setItem(declarationKey(row.dataset.taxModelRow,row.dataset.taxQuarterRow,row.dataset.taxClient),JSON.stringify(data));
+}
+
+const historyUnlocks=new Set();
+let activeHistoryYear=2025;
+let activeHistoryQuarter="1T";
+let activeHistoryModel="111";
+
+function historicalYears(){
+  const now=new Date(),years=[];
+  for(let year=2020;year<=now.getFullYear();year++){
+    let deadline=new Date(year+1,0,30,23,59,59);
+    const day=deadline.getDay();
+    if(day===6)deadline.setDate(deadline.getDate()+2);
+    if(day===0)deadline.setDate(deadline.getDate()+1);
+    if(now>deadline)years.push(year);
+  }
+  return years;
+}
+function renderDeclarationHistory(){
+  const years=historicalYears(),lastYear=years[years.length-1]||2025;
+  if(!years.includes(activeHistoryYear))activeHistoryYear=lastYear;
+  main.innerHTML=`
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Historial declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="declarations-panel history-panel">
+      <div class="declarations-heading">
+        <div><p class="eyebrow">ARCHIVO FISCAL</p><h2>Histórico de declaraciones</h2><p>Consulta las declaraciones de ejercicios y trimestres anteriores.</p></div>
+        <div class="history-selectors">
+          <label class="quarter-selector"><span>Ejercicio</span><select id="historyYear">${years.map(year=>`<option value="${year}">${year}</option>`).join("")}</select></label>
+          <label class="quarter-selector"><span>Periodo fiscal</span><select id="historyQuarter">${taxQuarters.map(q=>`<option value="${q.id}">${q.label}</option>`).join("")}</select></label>
+        </div>
+      </div>
+      <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
+      <div class="tax-lock-banner history-lock" id="historyLockBanner"></div>
+      <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="historyTaxRows"><tr><td colspan="9" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
+    </section>`;
+  bindHeader();
+  document.querySelector("#historyYear").value=String(activeHistoryYear);
+  document.querySelector("#historyQuarter").value=activeHistoryQuarter;
+  document.querySelector("#historyYear").addEventListener("change",event=>{activeHistoryYear=Number(event.target.value);loadHistoricalModel(activeHistoryModel)});
+  document.querySelector("#historyQuarter").addEventListener("change",event=>{activeHistoryQuarter=event.target.value;loadHistoricalModel(activeHistoryModel)});
+  document.querySelectorAll("[data-history-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{document.querySelector("[data-history-tax-tab].active")?.classList.remove("active");tab.classList.add("active");activeHistoryModel=tab.dataset.historyTaxTab;loadHistoricalModel(activeHistoryModel)}));
+  loadHistoricalModel(activeHistoryModel);
+}
+async function loadHistoricalModel(model){
+  const body=document.querySelector("#historyTaxRows"),key=activeHistoryYear+"-"+activeHistoryQuarter+"-"+model,unlocked=historyUnlocks.has(key);
+  try{
+    const clients=(await getAllClientMetadata()).filter(client=>client.obligations&&client.obligations[model]);
+    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeHistoryQuarter,client.name,activeHistoryYear);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeHistoryQuarter}" data-tax-year-row="${activeHistoryYear}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeHistoryQuarter} · ${activeHistoryYear}</small></td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="9" class="table-empty">No hay clientes asignados al modelo ${escapeHtml(model)}.</td></tr>`;
+    body.querySelectorAll("input,select").forEach(control=>{control.disabled=!unlocked;control.addEventListener("change",saveHistoricalRow)});
+    renderHistoryLock(unlocked,model);
+  }catch{body.innerHTML='<tr><td colspan="9" class="table-empty">No se pudo cargar el histórico.</td></tr>'}
+}
+function renderHistoryLock(unlocked,model){
+  const banner=document.querySelector("#historyLockBanner");
+  if(unlocked){banner.innerHTML='<span>🔓</span><div><strong>Edición temporalmente desbloqueada</strong><p>Los cambios realizados en este histórico se guardarán en el dispositivo.</p></div>';return}
+  banner.innerHTML='<span>🔒</span><div><strong>Histórico bloqueado</strong><p>El ejercicio está protegido para evitar modificaciones accidentales.</p></div><button type="button" id="unlockHistory">Desbloquear</button>';
+  document.querySelector("#unlockHistory").addEventListener("click",()=>openHistoryUnlock(model));
+}
+function openHistoryUnlock(model){
+  document.querySelector("#historyAccess")?.remove();
+  const shell=document.createElement("div");shell.id="historyAccess";shell.className="access-shell";
+  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true" aria-labelledby="historyAccessTitle"><button class="access-close" type="button" aria-label="Cerrar">×</button><div class="access-icon">◷</div><p class="eyebrow">HISTÓRICO PROTEGIDO</p><h2 id="historyAccessTitle">Desbloquear histórico</h2><p class="access-copy">Introduce la contraseña para modificar este ejercicio y trimestre.</p><form><label for="historyPassword">Contraseña</label><div class="access-input"><span>●</span><input id="historyPassword" type="password" required></div><p class="access-error" role="alert"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
+  document.body.appendChild(shell);
+  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
+  shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
+  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#historyPassword");if(input.value==="1234"){historyUnlocks.add(activeHistoryYear+"-"+activeHistoryQuarter+"-"+model);close();setTimeout(()=>loadHistoricalModel(model),180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
+  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>shell.querySelector("#historyPassword").focus(),250);
+}
+function saveHistoricalRow(event){
+  const row=event.target.closest("tr"),data={};
+  row.querySelectorAll("[data-field]").forEach(field=>data[field.dataset.field]=field.value);
+  localStorage.setItem(declarationKey(row.dataset.taxModelRow,row.dataset.taxQuarterRow,row.dataset.taxClient,Number(row.dataset.taxYearRow)),JSON.stringify(data));
 }
 
 function renderFolderView(name){
@@ -494,6 +566,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   else if(button.dataset.title==="Firmas digitales") renderSignatures();
   else if(button.dataset.title==="Holded") renderHolded();
   else if(button.dataset.title==="Declaraciones") renderDeclarations();
+  else if(button.dataset.title==="Historial declaraciones") renderDeclarationHistory();
   else if(button.dataset.title==="Trabajadores") renderWorkers();
   else if(button.dataset.title==="Gestión") openProtectedManagement();
   else{
