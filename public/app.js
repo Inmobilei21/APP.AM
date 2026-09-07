@@ -258,7 +258,7 @@ async function renderTasks(){
         <div class="client-modal-head"><div><p class="eyebrow">NUEVA TAREA</p><h2 id="taskModalTitle">Añadir tarea</h2></div><button class="modal-close" type="button" data-close-task aria-label="Cerrar">×</button></div>
         <form id="taskForm">
           <div class="task-form-grid">
-            <label>Cliente<select id="taskClient" required><option value="">Cargando clientes…</option></select></label>
+            <label class="task-client-field">Cliente<div class="task-client-combobox"><span class="task-search-icon">⌕</span><input id="taskEl" type="search" autocomplete="off" placeholder="Buscar cliente…" required aria-autocomplete="list" aria-controls="taskClientResults"><div class="task-client-results" id="taskClientResults" role="listbox" hidden></div></div></label>
             <label>Encargado<select id="taskAssigned" required><option value="">Selecciona un trabajador</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label>
             <label>Concepto<select id="taskConcept" required><option value="">Selecciona un concepto</option><option>Declaraciones</option><option>Notificación</option><option>Gestión</option><option>Cuentas Anuales</option><option>Otro</option></select></label>
             <label id="customConceptField" hidden>Concepto concreto<input id="taskCustomConcept" maxlength="80" placeholder="Escribe el concepto"></label>
@@ -267,23 +267,47 @@ async function renderTasks(){
             <label class="task-description-field">Descripción<textarea id="taskDescription" rows="4" maxlength="600" placeholder="Información útil para orientar la tarea"></textarea></label>
           </div>
           <p class="form-message" id="taskFormMessage"></p>
-          <div class="modal-actions"><button class="secondary" type="button" data-close-task>Cancelar</button><button class="primary blue-button" type="submit">Guardar tarea</button></div>
+          <div class="modal-actions"><button class="task-cancel-button" type="button" data-close-task><span aria-hidden="true">×</span> Cancelar</button><button class="primary blue-button" type="submit">Guardar tarea</button></div>
         </form>
       </section>
     </div>`;
   bindHeader();renderTaskBoard();
   const modal=document.querySelector("#taskModal"),form=document.querySelector("#taskForm");
+  let taskClientNames=[];
   const close=()=>{modal.classList.remove("open");modal.setAttribute("aria-hidden","true")};
   document.querySelectorAll("[data-close-task]").forEach(button=>button.addEventListener("click",close));
+  const clientInput=document.querySelector("#taskClient"),clientResults=document.querySelector("#taskClientResults");
+  function renderTaskClientResults(query){
+    const normalized=query.trim().toLocaleLowerCase("es");
+    const matches=taskClientNames.filter(name=>name.toLocaleLowerCase("es").includes(normalized)).slice(0,10);
+    clientResults.innerHTML=matches.length?matches.map(name=>`<button type="button" role="option" data-task-client="${escapeHtml(name)}"><span>⌕</span><strong>${escapeHtml(name)}</strong></button>`).join(""):`<div class="task-client-no-results">${taskClientNames.length?"No se encontraron clientes":"No hay clientes disponibles"}</div>`;
+    clientResults.hidden=false;
+  }
+  clientInput.addEventListener("focus",()=>renderTaskClientResults(clientInput.value));
+  clientInput.addEventListener("input",()=>renderTaskClientResults(clientInput.value));
+  clientInput.addEventListener("blur",()=>setTimeout(()=>clientResults.hidden=true,140));
+  clientInput.addEventListener("keydown",event=>{
+    if(event.key==="Escape"){clientResults.hidden=true;clientInput.blur()}
+    if(event.key==="Enter"&&!clientResults.hidden){
+      const first=clientResults.querySelector("[data-task-client]");
+      if(first){event.preventDefault();clientInput.value=first.dataset.taskClient;clientResults.hidden=true}
+    }
+  });
+  clientResults.addEventListener("mousedown",event=>{
+    const option=event.target.closest("[data-task-client]");if(!option)return;
+    event.preventDefault();clientInput.value=option.dataset.taskClient;clientResults.hidden=true;
+  });
   document.querySelector("#openTaskModal").addEventListener("click",async()=>{
     form.reset();
     const today=new Date().toISOString().slice(0,10);
     document.querySelector("#taskStartDate").value=today;
     document.querySelector("#taskFinalDate").min=today;
     document.querySelector("#customConceptField").hidden=true;
-    const clientSelect=document.querySelector("#taskClient"),clients=await getTaskClientNames();
-    clientSelect.innerHTML=`<option value="">Selecciona un cliente</option>${clients.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}`;
+    taskClientNames=await getTaskClientNames();
+    clientInput.value="";
     modal.classList.add("open");modal.setAttribute("aria-hidden","false");
+    renderTaskClientResults("");
+    setTimeout(()=>clientInput.focus(),180);
   });
   document.querySelector("#taskConcept").addEventListener("change",event=>{
     const custom=document.querySelector("#customConceptField"),input=document.querySelector("#taskCustomConcept");
@@ -295,7 +319,7 @@ async function renderTasks(){
     const concept=document.querySelector("#taskConcept").value;
     const task={
       id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-      client:document.querySelector("#taskClient").value,
+      client:document.querySelector("#taskClient").value.trim(),
       assigned:document.querySelector("#taskAssigned").value,
       concept,
       customConcept:document.querySelector("#taskCustomConcept").value.trim(),
