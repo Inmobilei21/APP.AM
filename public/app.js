@@ -90,7 +90,7 @@ function renderManagement(){
     <section class="management-search"><div><p class="eyebrow">CLIENTES</p><h2>Buscador de clientes</h2><p>Localiza rápidamente cualquier cliente del despacho.</p></div><button class="primary blue-button" id="openNewClient">＋ Nuevo cliente</button><label class="management-searchbox"><span>⌕</span><input id="managementSearch" type="search" placeholder="Buscar por nombre…"></label></section>
     <section class="management-clients"><div class="folder-toolbar"><div><strong>Clientes</strong><span id="managementCount">0 clientes</span></div></div><div class="folder-grid" id="managementGrid"><div class="empty folder-empty"><span>▤</span><h4>Cargando clientes</h4></div></div></section>
     <div class="modal-shell" id="clientModal" aria-hidden="true"><div class="modal-backdrop" data-close-modal></div><section class="client-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-heading"><div><p class="eyebrow" id="modalEyebrow">ALTA DE CLIENTE</p><h2 id="modalTitle">Nuevo cliente</h2></div><button class="modal-close" type="button" data-close-modal>×</button></div>
-    <form id="newClientForm"><div class="client-identity-grid"><label>Nombre del cliente<input id="clientName" type="text" placeholder="Ej. Empresa García, S.L." required maxlength="120"></label><label>CIF<input id="clientCif" type="text" placeholder="Ej. B12345678" required maxlength="9" autocomplete="off"><small>9 caracteres</small></label></div><section class="internal-client-data"><div class="internal-section-heading"><strong>Datos internos de contacto</strong><small>Información visible únicamente para el despacho.</small></div><div class="internal-data-grid"><label>Administradores<textarea id="clientAdministrators" rows="3" placeholder="Un administrador por línea"></textarea></label><label>Teléfonos de contacto<textarea id="clientPhones" rows="3" placeholder="Un teléfono por línea"></textarea></label><label>Correos electrónicos<textarea id="clientEmails" rows="3" placeholder="Un correo por línea"></textarea></label></div></section><fieldset class="fiscal-obligations"><legend>Obligaciones fiscales</legend><div class="fiscal-periodicity"><div><strong>Periodicidad</strong><small>Se aplicará a todos los modelos seleccionados.</small></div><select id="fiscalPeriodicity" aria-label="Periodicidad fiscal"><option value="trimestral" selected>Trimestral</option><option value="mensual">Mensual</option></select></div><p>Selecciona los modelos fiscales del cliente.</p><div class="obligation-grid">${["111","115","123","130-131","303","349"].map(m=>`<div class="obligation-item"><label><input type="checkbox" data-tax-model="${m}"><strong>Modelo ${m}</strong></label></div>`).join("")}</div></fieldset><div class="attachment-grid"><label class="file-field"><span><strong>Escrituras</strong><small>Opcional · varios archivos</small></span><input id="clientWritings" type="file" multiple></label><label class="file-field"><span><strong>Declaraciones</strong><small>Opcional · varios archivos</small></span><input id="clientDeclarations" type="file" multiple></label><label class="file-field"><span><strong>Firma digital</strong><small>Opcional · certificado digital</small></span><input id="clientSignature" type="file" accept=".p12,.pfx,.cer,.crt"></label></div><div class="signature-data"><label>Fecha de caducidad<input id="signatureExpiry" type="date"></label><label>Contraseña<input id="signaturePassword" type="password" autocomplete="new-password" placeholder="Contraseña de la firma"></label></div><p class="form-message" id="formMessage"></p><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancelar</button><button class="primary blue-button" type="submit">Guardar cliente</button></div></form></section></div>`;
+    <form id="newClientForm"><div class="client-identity-grid"><label>Nombre del cliente<input id="clientName" type="text" placeholder="Ej. Empresa García, S.L." required maxlength="120"></label><label>CIF<input id="clientCif" type="text" placeholder="Ej. B12345678" required maxlength="9" autocomplete="off"><small>9 caracteres</small></label></div><section class="internal-client-data"><div class="internal-section-heading"><strong>Datos internos de contacto</strong><small>Información visible únicamente para el despacho.</small></div><div class="internal-data-grid"><label>Administradores<textarea id="clientAdministrators" rows="3" placeholder="Un administrador por línea"></textarea></label><label>Teléfonos de contacto<textarea id="clientPhones" rows="3" placeholder="Un teléfono por línea"></textarea></label><label>Correos electrónicos<textarea id="clientEmails" rows="3" placeholder="Un correo por línea"></textarea></label></div></section><fieldset class="fiscal-obligations"><legend>Obligaciones fiscales</legend><div class="fiscal-periodicity"><div><strong>Periodicidad</strong><small>Se aplicará a todos los modelos seleccionados.</small></div><select id="fiscalPeriodicity" aria-label="Periodicidad fiscal"><option value="trimestral" selected>Trimestral</option><option value="mensual">Mensual</option></select></div><p>Selecciona los modelos fiscales del cliente.</p><div class="obligation-grid">${["111","115","123","130-131","303","349"].map(m=>`<div class="obligation-item"><label><input type="checkbox" data-tax-model="${m}"><strong>Modelo ${m}</strong></label></div>`).join("")}</div></fieldset><fieldset class="courtesy-obligation"><legend>Días de cortesía</legend><label><input type="checkbox" id="courtesyDaysRequired"><span><strong>Incluir en el control de días de cortesía</strong><small>El cliente aparecerá en el listado para gestionar su solicitud.</small></span></label></fieldset><div class="attachment-grid"><label class="file-field"><span><strong>Escrituras</strong><small>Opcional · varios archivos</small></span><input id="clientWritings" type="file" multiple></label><label class="file-field"><span><strong>Declaraciones</strong><small>Opcional · varios archivos</small></span><input id="clientDeclarations" type="file" multiple></label><label class="file-field"><span><strong>Firma digital</strong><small>Opcional · certificado digital</small></span><input id="clientSignature" type="file" accept=".p12,.pfx,.cer,.crt"></label></div><div class="signature-data"><label>Fecha de caducidad<input id="signatureExpiry" type="date"></label><label>Contraseña<input id="signaturePassword" type="password" autocomplete="new-password" placeholder="Contraseña de la firma"></label></div><p class="form-message" id="formMessage"></p><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancelar</button><button class="primary blue-button" type="submit">Guardar cliente</button></div></form></section></div>`;
   bindHeader();
   document.querySelector("#openNewClient").addEventListener("click",openClientModal);
   document.querySelectorAll("[data-close-modal]").forEach(x=>x.addEventListener("click",closeClientModal));
@@ -118,6 +118,7 @@ async function openEditClient(name){
   document.querySelector("#clientEmails").value=data.emails||"";
   document.querySelector("#fiscalPeriodicity").value=data.periodicity||"trimestral";
   document.querySelectorAll("[data-tax-model]").forEach(check=>check.checked=Boolean(data.obligations&&data.obligations[check.dataset.taxModel]));
+  document.querySelector("#courtesyDaysRequired").checked=Boolean(data.courtesyDaysRequired);
   document.querySelector("#modalEyebrow").textContent="FICHA INTERNA";
   document.querySelector("#modalTitle").textContent="Editar cliente";
   form.querySelector("button[type=submit]").textContent="Guardar cambios";
@@ -138,7 +139,7 @@ async function createClient(e){
   let existed=true;try{await root.getDirectoryHandle(name)}catch{existed=false}const client=await root.getDirectoryHandle(name,{create:true}),folders={};for(const f of defaultClientFolders)folders[f]=await client.getDirectoryHandle(f,{create:true});const accountingYear=await folders["CONTABILIDAD"].getDirectoryHandle(String(new Date().getFullYear()),{create:true});for(const subfolder of ["1T","2T","3T","4T","BANCOS"])await accountingYear.getDirectoryHandle(subfolder,{create:true});
   await copyFileList(document.querySelector("#clientWritings").files,folders["ESCRITURAS"]);await copyFileList(document.querySelector("#clientDeclarations").files,folders["DECLARACIONES"]);
   const sig=document.querySelector("#clientSignature");if(sig.files.length){let signaturesRoot=await getSavedHandle("signatures-folder");if(signaturesRoot&&await signaturesRoot.requestPermission({mode:"readwrite"})!=="granted")signaturesRoot=null;if(!signaturesRoot){signaturesRoot=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("signatures-folder",signaturesRoot)}const file=sig.files[0],savedName=`${name} - ${file.name}`;await copyNamedFile(file,signaturesRoot,savedName);await saveSignatureMetadata({id:savedName,client:name,document:savedName,password:document.querySelector("#signaturePassword").value,expiry:document.querySelector("#signatureExpiry").value})}
-  const obligations={};document.querySelectorAll("[data-tax-model]:checked").forEach(check=>{obligations[check.dataset.taxModel]=true});await saveClientMetadata({id:name,name,cif:document.querySelector("#clientCif").value.trim().toUpperCase(),administrators:document.querySelector("#clientAdministrators").value.trim(),phones:document.querySelector("#clientPhones").value.trim(),emails:document.querySelector("#clientEmails").value.trim(),periodicity:document.querySelector("#fiscalPeriodicity").value,obligations});
+  const obligations={};document.querySelectorAll("[data-tax-model]:checked").forEach(check=>{obligations[check.dataset.taxModel]=true});await saveClientMetadata({id:name,name,cif:document.querySelector("#clientCif").value.trim().toUpperCase(),administrators:document.querySelector("#clientAdministrators").value.trim(),phones:document.querySelector("#clientPhones").value.trim(),emails:document.querySelector("#clientEmails").value.trim(),periodicity:document.querySelector("#fiscalPeriodicity").value,obligations,courtesyDaysRequired:document.querySelector("#courtesyDaysRequired").checked});
   message.className="form-message success";message.textContent=existed?"Cliente actualizado correctamente.":`Cliente “${name}” creado correctamente.`;e.target.reset();await loadManagementClients();setTimeout(closeClientModal,850)}
   catch(error){if(error.name!=="AbortError"){message.className="form-message error";message.textContent="No se pudo guardar el cliente. Comprueba el permiso de escritura."}}finally{button.disabled=false;button.textContent=e.target.dataset.editing?"Guardar cambios":"Guardar cliente"}
 }
@@ -169,6 +170,74 @@ async function downloadSignature(i){const file=await window.signatureFiles[i].ha
 function filterSignatureRows(e){const q=e.target.value.trim().toLocaleLowerCase("es");document.querySelectorAll("#signatureRows tr[data-search]").forEach(r=>r.hidden=!r.dataset.search.includes(q))}
 function formatDate(v){return v?new Intl.DateTimeFormat("es-ES").format(new Date(v+"T12:00:00")):"—"}
 function expiryClass(v){if(!v)return"";const d=(new Date(v+"T23:59:59")-new Date())/86400000;return d<0?"expired":d<60?"warning":"valid"}
+
+
+let courtesyObjectUrls=[];
+function courtesyStorageKey(client){return"app-am-courtesy-"+client}
+function getCourtesyData(client){try{return JSON.parse(localStorage.getItem(courtesyStorageKey(client))||"{}")}catch{return{}}}
+function saveCourtesyData(client,data){localStorage.setItem(courtesyStorageKey(client),JSON.stringify(data))}
+function courtesyClientKey(name){return normalizeFiscalClient(name).toLocaleLowerCase("es")}
+async function renderCourtesyDays(){
+  main.innerHTML=`
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Días de cortesía</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="courtesy-panel">
+      <div class="table-heading courtesy-heading"><div><p class="eyebrow">NOTIFICACIONES ELECTRÓNICAS</p><h2>Control de días de cortesía</h2><p>Clientes incluidos desde su ficha interna.</p></div><button class="upload-button" id="connectCourtesyFolder">Conectar carpeta Días de cortesía</button></div>
+      <div class="courtesy-table-wrap"><table class="courtesy-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Firma</th><th>Fecha presentación</th><th>Periodo solicitado</th><th>Documento</th></tr></thead><tbody id="courtesyRows"><tr><td colspan="6" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
+    </section>`;
+  bindHeader();
+  document.querySelector("#connectCourtesyFolder").addEventListener("click",connectCourtesyFolder);
+  await loadCourtesyDays();
+}
+async function connectCourtesyFolder(){
+  try{const root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("courtesy-folder",root);await loadCourtesyDays()}
+  catch(error){if(error?.name!=="AbortError")alert("No se pudo conectar la carpeta de días de cortesía.")}
+}
+async function courtesyFileUrl(handle){
+  const file=await handle.getFile(),url=URL.createObjectURL(file);courtesyObjectUrls.push(url);return{url,name:file.name};
+}
+async function loadCourtesyDays(){
+  const body=document.querySelector("#courtesyRows"),connect=document.querySelector("#connectCourtesyFolder");
+  courtesyObjectUrls.forEach(url=>URL.revokeObjectURL(url));courtesyObjectUrls=[];
+  try{
+    const clients=(await getAllClientMetadata()).filter(client=>client.courtesyDaysRequired).sort((a,b)=>a.name.localeCompare(b.name,"es"));
+    let courtesyRoot=null,signatureRoot=null;
+    try{courtesyRoot=await getSavedHandle("courtesy-folder");if(courtesyRoot&&await courtesyRoot.queryPermission({mode:"read"})!=="granted")courtesyRoot=null}catch{}
+    try{signatureRoot=await getSavedHandle("signatures-folder");if(signatureRoot&&await signatureRoot.queryPermission({mode:"read"})!=="granted")signatureRoot=null}catch{}
+    connect.textContent=courtesyRoot?"Cambiar carpeta":"Conectar carpeta Días de cortesía";
+    const signatures=await getAllSignatureMetadata(),signatureMap=new Map(signatures.map(item=>[courtesyClientKey(item.client),item]));
+    const rows=[];
+    for(const client of clients){
+      const data=getCourtesyData(client.name),signatureMeta=signatureMap.get(courtesyClientKey(client.name));
+      let signature=null,documentFile=null;
+      if(signatureRoot&&signatureMeta?.document){try{signature=await courtesyFileUrl(await signatureRoot.getFileHandle(signatureMeta.document))}catch{}}
+      if(courtesyRoot&&data.document){try{documentFile=await courtesyFileUrl(await courtesyRoot.getFileHandle(data.document))}catch{}}
+      rows.push({client,data,signature,documentFile});
+    }
+    window.courtesyRows=rows;
+    body.innerHTML=rows.length?rows.map((row,index)=>`<tr data-courtesy-client="${escapeHtml(row.client.name)}"><td><strong title="${escapeHtml(row.client.name)}">${escapeHtml(row.client.name)}</strong></td><td>${escapeHtml(row.client.cif||"—")}</td><td>${row.signature?`<a class="courtesy-file-link" href="${row.signature.url}" download="${escapeHtml(row.signature.name)}">Firma disponible ↓</a>`:'<span class="courtesy-missing">No disponible</span>'}</td><td><input type="date" data-courtesy-field="submitted" value="${escapeHtml(row.data.submitted||"")}"></td><td><input type="text" data-courtesy-field="period" value="${escapeHtml(row.data.period||"")}" placeholder="Ej. del 5 al 12 de agosto"></td><td>${row.documentFile?`<div class="courtesy-document-actions"><a class="courtesy-file-link" href="${row.documentFile.url}" target="_blank" rel="noopener">Ver PDF</a><a class="courtesy-download" href="${row.documentFile.url}" download="${escapeHtml(row.documentFile.name)}">↓</a></div>`:'<span class="courtesy-missing">Sin documento</span>'}<label class="courtesy-upload"><span>${row.documentFile?"Sustituir":"Adjuntar"}</span><input type="file" accept=".pdf" data-courtesy-upload="${index}"></label></td></tr>`).join(""):'<tr><td colspan="6" class="table-empty">No hay clientes marcados con la obligación de días de cortesía.</td></tr>';
+    body.querySelectorAll("[data-courtesy-field]").forEach(input=>input.addEventListener("change",saveCourtesyRow));
+    body.querySelectorAll("[data-courtesy-upload]").forEach(input=>input.addEventListener("change",event=>uploadCourtesyDocument(Number(event.target.dataset.courtesyUpload),event.target.files[0])));
+  }catch{body.innerHTML='<tr><td colspan="6" class="table-empty">No se pudo cargar el control de días de cortesía.</td></tr>'}
+}
+function saveCourtesyRow(event){
+  const row=event.target.closest("tr"),client=row.dataset.courtesyClient,data=getCourtesyData(client);
+  row.querySelectorAll("[data-courtesy-field]").forEach(field=>data[field.dataset.courtesyField]=field.value);
+  saveCourtesyData(client,data);
+}
+async function uploadCourtesyDocument(index,file){
+  if(!file)return;
+  const row=window.courtesyRows[index],client=row.client.name;
+  try{
+    let root=await getSavedHandle("courtesy-folder");
+    if(root&&await root.requestPermission({mode:"readwrite"})!=="granted")root=null;
+    if(!root){root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("courtesy-folder",root)}
+    const savedName=`${client} - ${file.name}`;
+    await copyNamedFile(file,root,savedName);
+    const data=getCourtesyData(client);data.document=savedName;saveCourtesyData(client,data);
+    await loadCourtesyDays();
+  }catch(error){if(error?.name!=="AbortError")alert("No se pudo guardar el documento. Comprueba el permiso de escritura.")}
+}
+
 
 const workers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Araceli Frías","Jesús Carratalá"];
 
@@ -1030,6 +1099,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   else if(button.dataset.title==="Historial declaraciones") renderDeclarationHistory();
   else if(button.dataset.title==="Trabajadores") renderWorkers();
   else if(button.dataset.title==="Tareas") renderTasks();
+  else if(button.dataset.title==="Días de cortesía") renderCourtesyDays();
   else if(button.dataset.title==="Gestión") openProtectedManagement();
   else{
     main.innerHTML=homeMarkup;
