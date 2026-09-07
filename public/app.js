@@ -159,6 +159,156 @@ function expiryClass(v){if(!v)return"";const d=(new Date(v+"T23:59:59")-new Date
 
 const workers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Araceli Frías","Jesús Carratalá"];
 
+
+const TASKS_STORAGE_KEY="app-am-tasks";
+const taskStatuses=[
+  {id:"pending",label:"Pte. Inicio"},
+  {id:"progress",label:"En proceso"},
+  {id:"done",label:"Final"}
+];
+
+function getTasks(){
+  try{return JSON.parse(localStorage.getItem(TASKS_STORAGE_KEY)||"[]")}
+  catch{return[]}
+}
+function saveTasks(tasks){localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(tasks))}
+function taskDateLabel(value){return value?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(new Date(value+"T12:00:00")):"Sin plazo"}
+function taskCountdown(value){
+  if(!value)return{label:"Sin plazo final",className:""};
+  const today=new Date();today.setHours(0,0,0,0);
+  const end=new Date(value+"T00:00:00");
+  const days=Math.round((end-today)/86400000);
+  if(days<0)return{label:`Vencida hace ${Math.abs(days)} ${Math.abs(days)===1?"día":"días"}`,className:"overdue"};
+  if(days===0)return{label:"Vence hoy",className:"today"};
+  return{label:`${days===1?"Queda":"Quedan"} ${days} ${days===1?"día":"días"}`,className:days<=3?"soon":""};
+}
+async function getTaskClientNames(){
+  const names=new Set();
+  try{(await getAllClientMetadata()).forEach(client=>client?.name&&names.add(client.name))}catch{}
+  try{
+    const root=await getSavedHandle("clients-folder");
+    if(root&&await root.queryPermission({mode:"read"})==="granted"){
+      for await(const entry of root.values())if(entry.kind==="directory")names.add(entry.name);
+    }
+  }catch{}
+  return [...names].sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"}));
+}
+function taskCardMarkup(task){
+  const countdown=taskCountdown(task.finalDate);
+  const concept=task.concept==="Otro"?(task.customConcept||"Otro"):task.concept;
+  return `<article class="task-note" draggable="true" data-task-id="${escapeHtml(task.id)}">
+    <div class="task-note-top"><span class="task-concept">${escapeHtml(concept||"Sin concepto")}</span><span class="task-grip" aria-hidden="true">⠿</span></div>
+    <h4>${escapeHtml(task.client||"Sin cliente")}</h4>
+    <div class="task-deadline"><span>Plazo: ${taskDateLabel(task.finalDate)}</span><strong class="${countdown.className}">${countdown.label}</strong></div>
+    ${task.description?`<p>${escapeHtml(task.description)}</p>`:""}
+    <div class="task-assignee"><span>${escapeHtml(workerInitials(task.assigned||"—"))}</span><small>${escapeHtml(task.assigned||"Sin encargado")}</small></div>
+    <label class="task-mobile-state">Estado<select data-task-state="${escapeHtml(task.id)}">${taskStatuses.map(status=>`<option value="${status.id}" ${status.id===task.status?"selected":""}>${status.label}</option>`).join("")}</select></label>
+  </article>`;
+}
+function renderTaskBoard(){
+  const tasks=getTasks();
+  taskStatuses.forEach(status=>{
+    const list=document.querySelector(`[data-task-list="${status.id}"]`);
+    const count=document.querySelector(`[data-task-count="${status.id}"]`);
+    if(!list)return;
+    const items=tasks.filter(task=>task.status===status.id);
+    count.textContent=items.length;
+    list.innerHTML=items.length?items.map(taskCardMarkup).join(""):`<div class="task-empty">Arrastra aquí una tarea</div>`;
+  });
+  document.querySelectorAll(".task-note").forEach(card=>{
+    card.addEventListener("dragstart",event=>{
+      event.dataTransfer.effectAllowed="move";
+      event.dataTransfer.setData("text/plain",card.dataset.taskId);
+      requestAnimationFrame(()=>card.classList.add("dragging"));
+    });
+    card.addEventListener("dragend",()=>card.classList.remove("dragging"));
+  });
+  document.querySelectorAll("[data-task-list]").forEach(list=>{
+    list.addEventListener("dragover",event=>{event.preventDefault();event.dataTransfer.dropEffect="move";list.closest(".task-column").classList.add("drag-over")});
+    list.addEventListener("dragleave",event=>{if(!list.contains(event.relatedTarget))list.closest(".task-column").classList.remove("drag-over")});
+    list.addEventListener("drop",event=>{
+      event.preventDefault();
+      list.closest(".task-column").classList.remove("drag-over");
+      changeTaskStatus(event.dataTransfer.getData("text/plain"),list.dataset.taskList);
+    });
+  });
+  document.querySelectorAll("[data-task-state]").forEach(select=>select.addEventListener("change",()=>changeTaskStatus(select.dataset.taskState,select.value)));
+}
+function changeTaskStatus(id,status){
+  const tasks=getTasks(),task=tasks.find(item=>item.id===id);
+  if(!task||!taskStatuses.some(item=>item.id===status))return;
+  task.status=status;saveTasks(tasks);renderTaskBoard();
+}
+async function renderTasks(){
+  main.innerHTML=`
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">ORGANIZACIÓN DEL DESPACHO</p><h1>Tareas</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="tasks-head">
+      <div><p class="eyebrow">CONTROL DE TAREAS</p><h2>Tablero de trabajo</h2><p>Organiza los plazos y mueve cada nota según avance el trabajo.</p></div>
+      <button class="primary blue-button" id="openTaskModal">＋ Añadir tarea</button>
+    </section>
+    <section class="task-board" aria-label="Tablero de tareas">
+      ${taskStatuses.map(status=>`<section class="task-column status-${status.id}" data-task-status="${status.id}">
+        <header class="task-column-head"><div><span></span><h3>${status.label}</h3></div><strong data-task-count="${status.id}">0</strong></header>
+        <div class="task-list" data-task-list="${status.id}"></div>
+      </section>`).join("")}
+    </section>
+    <div class="modal-shell task-modal-shell" id="taskModal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-task></div>
+      <section class="client-modal task-modal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+        <div class="client-modal-head"><div><p class="eyebrow">NUEVA TAREA</p><h2 id="taskModalTitle">Añadir tarea</h2></div><button class="modal-close" type="button" data-close-task aria-label="Cerrar">×</button></div>
+        <form id="taskForm">
+          <div class="task-form-grid">
+            <label>Cliente<select id="taskClient" required><option value="">Cargando clientes…</option></select></label>
+            <label>Encargado<select id="taskAssigned" required><option value="">Selecciona un trabajador</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label>
+            <label>Concepto<select id="taskConcept" required><option value="">Selecciona un concepto</option><option>Declaraciones</option><option>Notificación</option><option>Gestión</option><option>Cuentas Anuales</option><option>Otro</option></select></label>
+            <label id="customConceptField" hidden>Concepto concreto<input id="taskCustomConcept" maxlength="80" placeholder="Escribe el concepto"></label>
+            <label>Plazo de inicio<input id="taskStartDate" type="date" readonly></label>
+            <label>Plazo final<input id="taskFinalDate" type="date" required></label>
+            <label class="task-description-field">Descripción<textarea id="taskDescription" rows="4" maxlength="600" placeholder="Información útil para orientar la tarea"></textarea></label>
+          </div>
+          <p class="form-message" id="taskFormMessage"></p>
+          <div class="modal-actions"><button class="secondary" type="button" data-close-task>Cancelar</button><button class="primary blue-button" type="submit">Guardar tarea</button></div>
+        </form>
+      </section>
+    </div>`;
+  bindHeader();renderTaskBoard();
+  const modal=document.querySelector("#taskModal"),form=document.querySelector("#taskForm");
+  const close=()=>{modal.classList.remove("open");modal.setAttribute("aria-hidden","true")};
+  document.querySelectorAll("[data-close-task]").forEach(button=>button.addEventListener("click",close));
+  document.querySelector("#openTaskModal").addEventListener("click",async()=>{
+    form.reset();
+    const today=new Date().toISOString().slice(0,10);
+    document.querySelector("#taskStartDate").value=today;
+    document.querySelector("#taskFinalDate").min=today;
+    document.querySelector("#customConceptField").hidden=true;
+    const clientSelect=document.querySelector("#taskClient"),clients=await getTaskClientNames();
+    clientSelect.innerHTML=`<option value="">Selecciona un cliente</option>${clients.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}`;
+    modal.classList.add("open");modal.setAttribute("aria-hidden","false");
+  });
+  document.querySelector("#taskConcept").addEventListener("change",event=>{
+    const custom=document.querySelector("#customConceptField"),input=document.querySelector("#taskCustomConcept");
+    custom.hidden=event.target.value!=="Otro";input.required=event.target.value==="Otro";
+    if(custom.hidden)input.value="";
+  });
+  form.addEventListener("submit",event=>{
+    event.preventDefault();
+    const concept=document.querySelector("#taskConcept").value;
+    const task={
+      id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+      client:document.querySelector("#taskClient").value,
+      assigned:document.querySelector("#taskAssigned").value,
+      concept,
+      customConcept:document.querySelector("#taskCustomConcept").value.trim(),
+      description:document.querySelector("#taskDescription").value.trim(),
+      startDate:new Date().toISOString(),
+      finalDate:document.querySelector("#taskFinalDate").value,
+      status:"pending"
+    };
+    const tasks=getTasks();tasks.push(task);saveTasks(tasks);close();renderTaskBoard();
+  });
+}
+
+
 function renderWorkers(){
   main.innerHTML=`
     <header>
@@ -612,6 +762,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   else if(button.dataset.title==="Declaraciones") renderDeclarations();
   else if(button.dataset.title==="Historial declaraciones") renderDeclarationHistory();
   else if(button.dataset.title==="Trabajadores") renderWorkers();
+  else if(button.dataset.title==="Tareas") renderTasks();
   else if(button.dataset.title==="Gestión") openProtectedManagement();
   else{
     main.innerHTML=homeMarkup;
