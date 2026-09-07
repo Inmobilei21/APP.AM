@@ -15,6 +15,18 @@ if(window.matchMedia("(max-width:760px)").matches){sidebar.classList.add("open")
 
 function openMenu(){sidebar.classList.add("open");overlay.classList.add("show")}
 function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show")}
+let mobileSwipeStart=null;
+document.addEventListener("touchstart",event=>{
+  if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open"))return;
+  const touch=event.touches[0];
+  if(touch.clientX<=45)mobileSwipeStart={x:touch.clientX,y:touch.clientY};
+},{passive:true});
+document.addEventListener("touchend",event=>{
+  if(!mobileSwipeStart)return;
+  const touch=event.changedTouches[0],dx=touch.clientX-mobileSwipeStart.x,dy=Math.abs(touch.clientY-mobileSwipeStart.y);
+  mobileSwipeStart=null;
+  if(dx>=70&&dx>dy*1.25)openMenu();
+},{passive:true});
 function bindHeader(){document.querySelector("#menu")?.addEventListener("click",openMenu)}
 
 const views={
