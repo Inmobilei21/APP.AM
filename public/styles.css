@@ -80,3 +80,11 @@
 
 /* Selector mensual o trimestral */
 .control-period-selectors{display:grid;grid-template-columns:minmax(170px,.8fr) minmax(250px,1.2fr);gap:12px;min-width:450px}.tax-tabs button:disabled{opacity:.38;cursor:not-allowed;text-decoration:line-through}.deadline-unavailable{grid-column:1/-1;padding:8px;display:flex;flex-direction:column;gap:4px}.deadline-unavailable strong{font-size:14px}.deadline-unavailable span{font-size:13px;color:var(--muted)}.tax-status.unavailable{background:#e8ecf6;color:#5d687f}@media(max-width:900px){.control-period-selectors{min-width:0;width:100%}}@media(max-width:520px){.control-period-selectors{grid-template-columns:1fr}}
+
+/* Corrección de solapamiento de selectores fiscales */
+.control-period-selectors .quarter-selector,.history-selectors .quarter-selector{min-width:0;width:auto}
+.control-period-selectors .quarter-selector select,.history-selectors .quarter-selector select{width:100%;min-width:0}
+.control-period-selectors{grid-template-columns:minmax(150px,.75fr) minmax(220px,1.25fr);gap:16px}
+.history-selectors{display:grid;grid-template-columns:minmax(120px,.6fr) minmax(155px,.85fr) minmax(210px,1.15fr);gap:14px;min-width:540px}
+@media(max-width:1100px){.declarations-heading{align-items:stretch;flex-direction:column}.control-period-selectors,.history-selectors{min-width:0;width:100%}}
+@media(max-width:650px){.history-selectors{grid-template-columns:1fr}.control-period-selectors{grid-template-columns:1fr}}
