@@ -179,34 +179,103 @@ function renderWorkers(){
 }
 
 const taxModels=["111","115","123","130-131","303","349"];
+const taxQuarters=[
+  {id:"1T",label:"1.º Trimestre"},
+  {id:"2T",label:"2.º Trimestre"},
+  {id:"3T",label:"3.º Trimestre"},
+  {id:"4T",label:"4.º Trimestre"}
+];
+let activeTaxModel="111";
+let activeTaxQuarter="1T";
+const taxUnlocks=new Set();
+
+function taxDeadline(model,quarter){
+  const standard={
+    "1T":{start:"2026-04-01",domicileEnd:"2026-04-15",presentationEnd:"2026-04-20"},
+    "2T":{start:"2026-07-01",domicileEnd:"2026-07-15",presentationEnd:"2026-07-20"},
+    "3T":{start:"2026-10-01",domicileEnd:"2026-10-15",presentationEnd:"2026-10-20"}
+  };
+  if(standard[quarter]){
+    const deadline={...standard[quarter]};
+    if(model==="349")deadline.domicileEnd=null;
+    return deadline;
+  }
+  if(["130-131","303"].includes(model))return{start:"2027-01-01",domicileEnd:"2027-01-25",presentationEnd:"2027-02-01",provisional:true};
+  if(model==="349")return{start:"2027-01-01",domicileEnd:null,presentationEnd:"2027-02-01",provisional:true};
+  return{start:"2027-01-01",domicileEnd:"2027-01-15",presentationEnd:"2027-01-20",provisional:true};
+}
+function formatTaxDate(value){return new Intl.DateTimeFormat("es-ES",{day:"numeric",month:"long",year:"numeric"}).format(new Date(value+"T12:00:00"))}
+function taxWindowState(model,quarter){
+  const deadline=taxDeadline(model,quarter),today=new Date(),start=new Date(deadline.start+"T00:00:00"),end=new Date(deadline.presentationEnd+"T23:59:59"),lockAt=new Date(end);lockAt.setDate(lockAt.getDate()+10);
+  const key=model+"-"+quarter;
+  if(today<start)return{locked:true,type:"upcoming",label:"Aún no abierto",deadline};
+  if(today>lockAt&&!taxUnlocks.has(key))return{locked:true,type:"expired",label:"Periodo bloqueado",deadline};
+  if(today>end)return{locked:false,type:"grace",label:"Plazo finalizado · edición disponible durante 10 días",deadline};
+  return{locked:false,type:"open",label:"Plazo abierto",deadline};
+}
 
 function renderDeclarations(){
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="declarations-panel">
-      <div class="declarations-heading"><div><p class="eyebrow">OBLIGACIONES FISCALES</p><h2>Control de declaraciones</h2><p>Selecciona un modelo para revisar sus clientes y presentación.</p></div></div>
+      <div class="declarations-heading">
+        <div><p class="eyebrow">OBLIGACIONES FISCALES</p><h2>Control de declaraciones</h2><p>Selecciona el trimestre y el modelo que quieres revisar.</p></div>
+        <label class="quarter-selector"><span>Periodo fiscal</span><select id="taxQuarter">${taxQuarters.map(q=>`<option value="${q.id}">${q.label}</option>`).join("")}</select></label>
+      </div>
+      <div class="tax-deadlines" id="taxDeadlines"></div>
       <div class="tax-tabs" role="tablist">${taxModels.map((model,index)=>`<button type="button" role="tab" data-tax-tab="${model}" class="${index===0?"active":""}">Modelo ${model}</button>`).join("")}</div>
+      <div class="tax-lock-banner" id="taxLockBanner" hidden></div>
       <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="taxRows"><tr><td colspan="9" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
-  document.querySelectorAll("[data-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{document.querySelector("[data-tax-tab].active")?.classList.remove("active");tab.classList.add("active");loadTaxModel(tab.dataset.taxTab)}));
-  loadTaxModel(taxModels[0]);
+  document.querySelector("#taxQuarter").value=activeTaxQuarter;
+  document.querySelector("#taxQuarter").addEventListener("change",event=>{activeTaxQuarter=event.target.value;loadTaxModel(activeTaxModel)});
+  document.querySelectorAll("[data-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{document.querySelector("[data-tax-tab].active")?.classList.remove("active");tab.classList.add("active");activeTaxModel=tab.dataset.taxTab;loadTaxModel(activeTaxModel)}));
+  loadTaxModel(activeTaxModel);
 }
-function declarationKey(model,client){return "app-am-declaration-"+model+"-"+client}
-function declarationData(model,client){try{return JSON.parse(localStorage.getItem(declarationKey(model,client))||"{}")}catch{return{}}}
+function renderTaxDeadlines(model,quarter,state){
+  const d=state.deadline,domicile=d.domicileEnd?`Del ${formatTaxDate(d.start)} al ${formatTaxDate(d.domicileEnd)}`:"No aplicable a este modelo";
+  document.querySelector("#taxDeadlines").innerHTML=`
+    <div class="deadline-card"><span class="deadline-icon">⌂</span><div><small>PLAZO DE DOMICILIACIÓN</small><strong>${domicile}</strong></div></div>
+    <div class="deadline-card"><span class="deadline-icon">✓</span><div><small>PLAZO DE PRESENTACIÓN</small><strong>Del ${formatTaxDate(d.start)} al ${formatTaxDate(d.presentationEnd)}</strong></div></div>
+    <span class="tax-status ${state.type}">${state.label}</span>
+    ${d.provisional?'<p class="deadline-note">4.º trimestre: fechas calculadas con las reglas generales de la AEAT. Pendiente de confirmación en el calendario oficial de 2027.</p>':""}`;
+}
+function declarationKey(model,quarter,client){return "app-am-declaration-"+model+"-"+quarter+"-"+client}
+function declarationData(model,quarter,client){try{return JSON.parse(localStorage.getItem(declarationKey(model,quarter,client))||"{}")}catch{return{}}}
 function workerOptions(selected){return '<option value="">Seleccionar…</option>'+workers.map(name=>`<option value="${escapeHtml(name)}" ${selected===name?"selected":""}>${escapeHtml(name)}</option>`).join("")}
 async function loadTaxModel(model){
-  const body=document.querySelector("#taxRows");
+  const body=document.querySelector("#taxRows"),state=taxWindowState(model,activeTaxQuarter);
+  renderTaxDeadlines(model,activeTaxQuarter,state);
   try{
     const clients=(await getAllClientMetadata()).filter(client=>client.obligations&&client.obligations[model]);
-    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,client.name);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}"><td><strong>${escapeHtml(client.name)}</strong><small>${(client.periodicity||client.obligations[model])==="mensual"?"Mensual":"Trimestral"}</small></td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="9" class="table-empty">No hay clientes asignados al modelo ${escapeHtml(model)}. Puedes asignarlos desde Gestión → Nuevo cliente.</td></tr>`;
-    body.querySelectorAll("input,select").forEach(control=>control.addEventListener("change",saveDeclarationRow));
+    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeTaxQuarter,client.name);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeTaxQuarter}"><td><strong>${escapeHtml(client.name)}</strong><small>${(client.periodicity||client.obligations[model])==="mensual"?"Mensual":"Trimestral"}</small></td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="9" class="table-empty">No hay clientes asignados al modelo ${escapeHtml(model)}. Puedes asignarlos desde Gestión → Nuevo cliente.</td></tr>`;
+    body.querySelectorAll("input,select").forEach(control=>{control.disabled=state.locked;control.addEventListener("change",saveDeclarationRow)});
+    renderTaxLock(state,model,activeTaxQuarter);
   }catch{body.innerHTML='<tr><td colspan="9" class="table-empty">No se pudieron cargar las obligaciones fiscales.</td></tr>'}
+}
+function renderTaxLock(state,model,quarter){
+  const banner=document.querySelector("#taxLockBanner");
+  if(!state.locked){banner.hidden=true;banner.innerHTML="";return}
+  banner.hidden=false;
+  if(state.type==="upcoming")banner.innerHTML='<span>🔒</span><div><strong>Trimestre bloqueado</strong><p>No se puede editar hasta que comience el plazo oficial de presentación.</p></div>';
+  else banner.innerHTML=`<span>🔒</span><div><strong>Trimestre cerrado</strong><p>Han pasado más de 10 días desde el final del plazo de presentación.</p></div><button type="button" id="unlockTax">Desbloquear</button>`;
+  document.querySelector("#unlockTax")?.addEventListener("click",()=>openTaxUnlock(model,quarter));
+}
+function openTaxUnlock(model,quarter){
+  document.querySelector("#taxAccess")?.remove();
+  const shell=document.createElement("div");shell.id="taxAccess";shell.className="access-shell";
+  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true" aria-labelledby="taxAccessTitle"><button class="access-close" type="button" aria-label="Cerrar">×</button><div class="access-icon">✓</div><p class="eyebrow">PERIODO CERRADO</p><h2 id="taxAccessTitle">Desbloquear trimestre</h2><p class="access-copy">Introduce la contraseña para modificar este periodo fiscal.</p><form><label for="taxPassword">Contraseña</label><div class="access-input"><span>●</span><input id="taxPassword" type="password" required></div><p class="access-error" role="alert"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
+  document.body.appendChild(shell);
+  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
+  shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
+  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#taxPassword");if(input.value==="1234"){taxUnlocks.add(model+"-"+quarter);close();setTimeout(()=>loadTaxModel(model),180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
+  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>shell.querySelector("#taxPassword").focus(),250);
 }
 function saveDeclarationRow(event){
   const row=event.target.closest("tr"),data={};
   row.querySelectorAll("[data-field]").forEach(field=>data[field.dataset.field]=field.value);
-  localStorage.setItem(declarationKey(row.dataset.taxModelRow,row.dataset.taxClient),JSON.stringify(data));
+  localStorage.setItem(declarationKey(row.dataset.taxModelRow,row.dataset.taxQuarterRow,row.dataset.taxClient),JSON.stringify(data));
 }
 
 function renderFolderView(name){
