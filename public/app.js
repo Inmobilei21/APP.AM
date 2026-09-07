@@ -368,9 +368,20 @@ function renderWorkers(){
 const taxModels=["111","115","123","130-131","303","349"];
 const taxQuarters=[{id:"1T",label:"1.º Trimestre"},{id:"2T",label:"2.º Trimestre"},{id:"3T",label:"3.º Trimestre"},{id:"4T",label:"4.º Trimestre"}];
 const taxMonths=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"].map((label,index)=>({id:"M"+String(index+1).padStart(2,"0"),label}));
+function defaultControlTaxPeriod(type,date=new Date()){
+  if(type==="mensual"){
+    const previousMonth=date.getMonth()===0?12:date.getMonth();
+    return "M"+String(previousMonth).padStart(2,"0");
+  }
+  const month=date.getMonth()+1;
+  if(month<=3)return "4T";
+  if(month<=6)return "1T";
+  if(month<=9)return "2T";
+  return "3T";
+}
 let activeTaxType="trimestral";
 let activeTaxModel="111";
-let activeTaxQuarter="1T";
+let activeTaxQuarter=defaultControlTaxPeriod("trimestral");
 const taxUnlocks=new Set();
 
 const withholdingMonthly=[
@@ -636,6 +647,7 @@ function applyDeclarationFilters(prefix,bodyId){
 }
 
 function renderDeclarations(){
+  activeTaxQuarter=defaultControlTaxPeriod(activeTaxType);
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="declarations-panel">
@@ -655,7 +667,7 @@ function renderDeclarations(){
    bindHeader();
   setupDeclarationFilters("tax","taxRows");
   document.querySelector("#taxType").value=activeTaxType;fillTaxPeriodSelect();syncTaxModelTabs();
-  document.querySelector("#taxType").addEventListener("change",event=>{activeTaxType=event.target.value;activeTaxQuarter=activeTaxType==="mensual"?"M01":"1T";if(activeTaxType==="mensual"&&activeTaxModel==="130-131")activeTaxModel="111";fillTaxPeriodSelect();syncTaxModelTabs();loadTaxModel(activeTaxModel)});
+  document.querySelector("#taxType").addEventListener("change",event=>{activeTaxType=event.target.value;activeTaxQuarter=defaultControlTaxPeriod(activeTaxType);if(activeTaxType==="mensual"&&activeTaxModel==="130-131")activeTaxModel="111";fillTaxPeriodSelect();syncTaxModelTabs();loadTaxModel(activeTaxModel)});
   document.querySelector("#taxQuarter").addEventListener("change",event=>{activeTaxQuarter=event.target.value;loadTaxModel(activeTaxModel)});
   document.querySelectorAll("[data-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{if(tab.disabled)return;activeTaxModel=tab.dataset.taxTab;syncTaxModelTabs();loadTaxModel(activeTaxModel)}));
   setupDeclarationFolderSource("taxDeclarationFolder",()=>loadTaxModel(activeTaxModel));
