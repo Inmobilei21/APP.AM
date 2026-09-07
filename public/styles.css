@@ -128,3 +128,11 @@
 
 /* Iconos lineales del menú */
 nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-items:center;text-align:initial;color:#b9c7e3;transition:color .16s ease,transform .16s ease}nav button .nav-icon svg{width:19px;height:19px;display:block}nav button:hover .nav-icon,nav button.active .nav-icon{color:#fff;transform:scale(1.06)}nav button.active .nav-icon svg{stroke-width:2.1}
+
+
+/* Estado activo de iconos en la versión app */
+@media(max-width:760px){
+  .sidebar nav button.active .nav-icon{color:var(--blue)!important;transform:scale(1.08)}
+  .sidebar nav button.active .nav-icon svg{stroke:currentColor}
+  .sidebar nav .holded-nav.active .holded-mark img{filter:none!important;opacity:1}
+}
