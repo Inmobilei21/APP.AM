@@ -223,7 +223,7 @@ function renderDeclarations(){
         <label class="quarter-selector"><span>Periodo fiscal</span><select id="taxQuarter">${taxQuarters.map(q=>`<option value="${q.id}">${q.label}</option>`).join("")}</select></label>
       </div>
       <div class="tax-deadlines" id="taxDeadlines"></div>
-      <div class="tax-tabs" role="tablist">${taxModels.map((model,index)=>`<button type="button" role="tab" data-tax-tab="${model}" class="${index===0?"active":""}">Modelo ${model}</button>`).join("")}</div>
+      <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner" id="taxLockBanner" hidden></div>
       <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="taxRows"><tr><td colspan="9" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
