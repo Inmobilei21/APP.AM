@@ -527,44 +527,77 @@ async function setupDeclarationFolderSource(elementId,reload){
 
 
 const declarationPayments=["Domicil.","N.R.C.","Cargo","Aplaz.","Pte. Pago","Negativa","Compensación","Devolver","Baja","Cliente"];
-function declarationFiltersMarkup(prefix){
-  const workerFilter=workers.map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
-  const paymentFilter=declarationPayments.map(value=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
-  return `<div class="declaration-filters" id="${prefix}Filters">
-    <label class="declaration-filter-search"><span>⌕</span><input id="${prefix}FilterSearch" type="search" placeholder="Buscar cliente o CIF…" aria-label="Buscar por cliente o CIF"></label>
-    <label><span>Encargado</span><select id="${prefix}FilterManager"><option value="">Todos</option>${workerFilter}</select></label>
-    <label><span>Pago</span><select id="${prefix}FilterPayment"><option value="">Todos</option>${paymentFilter}</select></label>
-    <label><span>Presentado por</span><select id="${prefix}FilterSubmitted"><option value="">Todos</option>${workerFilter}</select></label>
-    <label><span>Revisado por</span><select id="${prefix}FilterReviewed"><option value="">Todos</option>${workerFilter}</select></label>
-    <div class="declaration-filter-result"><strong id="${prefix}FilterCount">0</strong><small>resultados</small></div>
-  </div>`;
-}
-function declarationFilterValue(prefix,suffix){
-  return document.querySelector(`#${prefix}${suffix}`)?.value||"";
+const declarationColumnFilterState={tax:{},history:{}};
+const declarationColumns=[
+  {field:"client",label:"Cliente",type:"text"},
+  {field:"document",label:"Documento",type:"document"},
+  {field:"cif",label:"CIF",type:"text"},
+  {field:"manager",label:"Encargado",type:"worker"},
+  {field:"prepared",label:"Fecha confección",type:"date"},
+  {field:"amount",label:"Importe",type:"text"},
+  {field:"payment",label:"Pago",type:"payment"},
+  {field:"submitted",label:"Fecha presentación",type:"date"},
+  {field:"submittedBy",label:"Presentado por",type:"worker"},
+  {field:"reviewedBy",label:"Revisado por",type:"worker"}
+];
+function declarationTableHeaders(prefix){
+  return declarationColumns.map(column=>`<th data-declaration-column="${column.field}"><span>${column.label}</span><button class="excel-filter-button ${declarationColumnFilterState[prefix]?.[column.field]?"active":""}" type="button" data-excel-filter="${column.field}" aria-label="Filtrar ${column.label}" title="Filtrar ${column.label}">▾</button></th>`).join("");
 }
 function setupDeclarationFilters(prefix,bodyId){
-  const panel=document.querySelector(`#${prefix}Filters`);if(!panel)return;
-  panel.querySelectorAll("input,select").forEach(control=>control.addEventListener("input",()=>applyDeclarationFilters(prefix,bodyId)));
+  const body=document.querySelector(`#${bodyId}`),table=body?.closest("table");if(!table)return;
+  table.querySelectorAll("[data-excel-filter]").forEach(button=>button.addEventListener("click",event=>{
+    event.stopPropagation();openDeclarationColumnFilter(prefix,bodyId,button);
+  }));
+}
+function declarationFilterOptions(type){
+  if(type==="worker")return workers;
+  if(type==="payment")return declarationPayments;
+  if(type==="document")return ["Con documento","Sin documento"];
+  return [];
+}
+function openDeclarationColumnFilter(prefix,bodyId,button){
+  document.querySelector(".excel-filter-popover")?.remove();
+  const column=declarationColumns.find(item=>item.field===button.dataset.excelFilter);if(!column)return;
+  const value=declarationColumnFilterState[prefix]?.[column.field]||"";
+  const panel=document.createElement("div");panel.className="excel-filter-popover";
+  const options=declarationFilterOptions(column.type);
+  const control=options.length
+    ?`<select id="excelFilterValue"><option value="">Todos</option>${options.map(option=>`<option value="${escapeHtml(option)}" ${value===option?"selected":""}>${escapeHtml(option)}</option>`).join("")}</select>`
+    :`<input id="excelFilterValue" type="${column.type==="date"?"date":"search"}" value="${escapeHtml(value)}" placeholder="Buscar…">`;
+  panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div>${control}<div class="excel-filter-actions"><button type="button" data-clear-filter>Limpiar</button><button class="apply" type="button" data-apply-filter>Aplicar</button></div>`;
+  document.body.appendChild(panel);
+  const rect=button.getBoundingClientRect();
+  panel.style.left=Math.max(10,Math.min(rect.left,window.innerWidth-286))+"px";
+  panel.style.top=Math.min(rect.bottom+7,window.innerHeight-panel.offsetHeight-10)+"px";
+  const input=panel.querySelector("#excelFilterValue"),close=()=>panel.remove();
+  const apply=()=>{
+    const next=input.value.trim();
+    if(next)declarationColumnFilterState[prefix][column.field]=next;else delete declarationColumnFilterState[prefix][column.field];
+    button.classList.toggle("active",Boolean(next));applyDeclarationFilters(prefix,bodyId);close();
+  };
+  panel.addEventListener("click",event=>event.stopPropagation());
+  panel.querySelector("[data-apply-filter]").addEventListener("click",apply);
+  panel.querySelector("[data-clear-filter]").addEventListener("click",()=>{delete declarationColumnFilterState[prefix][column.field];button.classList.remove("active");applyDeclarationFilters(prefix,bodyId);close()});
+  input.addEventListener("keydown",event=>{if(event.key==="Enter")apply();if(event.key==="Escape")close()});
+  setTimeout(()=>document.addEventListener("click",close,{once:true}),0);input.focus();
+}
+function declarationRowFilterValue(row,field){
+  if(field==="client")return row.dataset.taxClient||"";
+  if(field==="document")return row.querySelector(".declaration-document-missing")?"Sin documento":"Con documento";
+  if(field==="cif")return row.children[2]?.textContent?.trim()||"";
+  return row.querySelector(`[data-field="${field}"]`)?.value||"";
 }
 function applyDeclarationFilters(prefix,bodyId){
   const body=document.querySelector(`#${bodyId}`);if(!body)return;
-  const search=declarationFilterValue(prefix,"FilterSearch").trim().toLocaleLowerCase("es");
-  const manager=declarationFilterValue(prefix,"FilterManager");
-  const payment=declarationFilterValue(prefix,"FilterPayment");
-  const submitted=declarationFilterValue(prefix,"FilterSubmitted");
-  const reviewed=declarationFilterValue(prefix,"FilterReviewed");
-  let visible=0;
+  const filters=declarationColumnFilterState[prefix]||{};
   body.querySelectorAll("tr[data-tax-client]").forEach(row=>{
-    const client=(row.dataset.taxClient||"").toLocaleLowerCase("es");
-    const cif=(row.children[2]?.textContent||"").trim().toLocaleLowerCase("es");
-    const show=(!search||(client+" "+cif).includes(search))
-      &&(!manager||row.querySelector('[data-field="manager"]')?.value===manager)
-      &&(!payment||row.querySelector('[data-field="payment"]')?.value===payment)
-      &&(!submitted||row.querySelector('[data-field="submittedBy"]')?.value===submitted)
-      &&(!reviewed||row.querySelector('[data-field="reviewedBy"]')?.value===reviewed);
-    row.hidden=!show;if(show)visible++;
+    const show=Object.entries(filters).every(([field,expected])=>{
+      const actual=declarationRowFilterValue(row,field);
+      if(field==="client"||field==="cif"||field==="amount")return actual.toLocaleLowerCase("es").includes(expected.toLocaleLowerCase("es"));
+      return actual===expected;
+    });
+    row.hidden=!show;
   });
-  const count=document.querySelector(`#${prefix}FilterCount`);if(count)count.textContent=String(visible);
 }
 
 function renderDeclarations(){
@@ -582,8 +615,7 @@ function renderDeclarations(){
       <div class="tax-deadlines" id="taxDeadlines"></div>
       <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner" id="taxLockBanner" hidden></div>
-      ${declarationFiltersMarkup("tax")}
-      <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>Documento</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="taxRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
+      <div class="tax-table-wrap"><table class="tax-table"><thead><tr>${declarationTableHeaders("tax")}</tr></thead><tbody id="taxRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
    bindHeader();
   setupDeclarationFilters("tax","taxRows");
@@ -685,8 +717,7 @@ function renderDeclarationHistory(){
       <div class="declaration-folder-source" id="historyDeclarationFolder"></div>
       <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner history-lock" id="historyLockBanner"></div>
-      ${declarationFiltersMarkup("history")}
-      <div class="tax-table-wrap"><table class="tax-table"><thead><tr><th>Cliente</th><th>Documento</th><th>CIF</th><th>Encargado</th><th>Fecha confección</th><th>Importe</th><th>Pago</th><th>Fecha presentación</th><th>Presentado por</th><th>Revisado por</th></tr></thead><tbody id="historyTaxRows"><tr><td colspan="10" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
+      <div class="tax-table-wrap"><table class="tax-table"><thead><tr>${declarationTableHeaders("history")}</tr></thead><tbody id="historyTaxRows"><tr><td colspan="10" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
   setupDeclarationFilters("history","historyTaxRows");
