@@ -561,10 +561,19 @@ function openDeclarationColumnFilter(prefix,bodyId,button){
   const value=declarationColumnFilterState[prefix]?.[column.field]||"";
   const panel=document.createElement("div");panel.className="excel-filter-popover";
   const options=declarationFilterOptions(column.type);
-  if(options.length){
+  if(column.type==="date"){
+    const concreteDate=value.startsWith("__")?"":value;
+    panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div>
+      <div class="excel-filter-option-list date-filter-options">
+        <button type="button" data-date-filter="" class="${!value?"selected":""}"><span>${!value?"✓":""}</span>Mostrar todas</button>
+        <button type="button" data-date-filter="__EMPTY__" class="${value==="__EMPTY__"?"selected":""}"><span>${value==="__EMPTY__"?"✓":""}</span>Solo vacías</button>
+        <button type="button" data-date-filter="__HAS__" class="${value==="__HAS__"?"selected":""}"><span>${value==="__HAS__"?"✓":""}</span>Solo con fecha</button>
+      </div>
+      <div class="specific-date-filter"><label for="excelFilterValue">Fecha concreta</label><div><input id="excelFilterValue" type="date" value="${escapeHtml(concreteDate)}"><button type="button" data-apply-date aria-label="Aplicar fecha">Aplicar</button></div></div>`;
+  }else if(options.length){
     panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div><div class="excel-filter-option-list"><button type="button" data-filter-option="" class="${!value?"selected":""}"><span>${!value?"✓":""}</span>Mostrar todos</button>${options.map(option=>`<button type="button" data-filter-option="${escapeHtml(option)}" class="${value===option?"selected":""}"><span>${value===option?"✓":""}</span>${escapeHtml(option)}</button>`).join("")}</div>`;
   }else{
-    panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div><input id="excelFilterValue" type="${column.type==="date"?"date":"search"}" value="${escapeHtml(value)}" placeholder="Buscar…"><div class="excel-filter-actions"><button type="button" data-clear-filter>Limpiar</button><button class="apply" type="button" data-apply-filter>Aplicar</button></div>`;
+    panel.innerHTML=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${column.label}</strong></div><input id="excelFilterValue" type="search" value="${escapeHtml(value)}" placeholder="Buscar…"><div class="excel-filter-actions"><button type="button" data-clear-filter>Limpiar</button><button class="apply" type="button" data-apply-filter>Aplicar</button></div>`;
   }
   document.body.appendChild(panel);
   const rect=button.getBoundingClientRect();
@@ -576,7 +585,12 @@ function openDeclarationColumnFilter(prefix,bodyId,button){
     button.classList.toggle("active",Boolean(next));applyDeclarationFilters(prefix,bodyId);close();
   };
   panel.addEventListener("click",event=>event.stopPropagation());
-  if(options.length){
+  if(column.type==="date"){
+    const input=panel.querySelector("#excelFilterValue");
+    panel.querySelectorAll("[data-date-filter]").forEach(option=>option.addEventListener("click",()=>setFilter(option.dataset.dateFilter)));
+    panel.querySelector("[data-apply-date]").addEventListener("click",()=>{if(input.value)setFilter(input.value)});
+    input.addEventListener("keydown",event=>{if(event.key==="Enter"&&input.value)setFilter(input.value);if(event.key==="Escape")close()});
+  }else if(options.length){
     panel.querySelectorAll("[data-filter-option]").forEach(option=>option.addEventListener("click",()=>setFilter(option.dataset.filterOption)));
   }else{
     const input=panel.querySelector("#excelFilterValue");
@@ -599,6 +613,8 @@ function applyDeclarationFilters(prefix,bodyId){
   body.querySelectorAll("tr[data-tax-client]").forEach(row=>{
     const show=Object.entries(filters).every(([field,expected])=>{
       const actual=declarationRowFilterValue(row,field);
+      if(expected==="__EMPTY__")return !actual;
+      if(expected==="__HAS__")return Boolean(actual);
       if(field==="client"||field==="cif"||field==="amount")return actual.toLocaleLowerCase("es").includes(expected.toLocaleLowerCase("es"));
       return actual===expected;
     });
