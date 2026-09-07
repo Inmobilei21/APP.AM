@@ -247,7 +247,7 @@ function renderDeclarations(){
       <div class="declarations-heading">
         <div><p class="eyebrow">OBLIGACIONES FISCALES</p><h2>Control de declaraciones</h2><p>Selecciona la periodicidad, el periodo y el modelo que quieres revisar.</p></div>
         <div class="control-period-selectors">
-          <label class="quarter-selector"><span>Tipo</span><select id="taxType"><option value="trimestral">Trimestral</option><option value="mensual">Mensual</option></select></label>
+          <label class="quarter-selector"><span>Periodicidad</span><select id="taxType"><option value="trimestral">Trimestral</option><option value="mensual">Mensual</option></select></label>
           <label class="quarter-selector"><span>Periodo fiscal</span><select id="taxQuarter"></select></label>
         </div>
       </div>
@@ -312,19 +312,28 @@ function saveDeclarationRow(event){
 
 const historyUnlocks=new Set();
 let activeHistoryYear=2025;
+let activeHistoryType="trimestral";
 let activeHistoryQuarter="1T";
 let activeHistoryModel="111";
 
 function historicalYears(){
   const now=new Date(),years=[];
   for(let year=2020;year<=now.getFullYear();year++){
-    let deadline=new Date(year+1,0,30,23,59,59);
-    const day=deadline.getDay();
+    let deadline=new Date(year+1,0,30,23,59,59),day=deadline.getDay();
     if(day===6)deadline.setDate(deadline.getDate()+2);
     if(day===0)deadline.setDate(deadline.getDate()+1);
     if(now>deadline)years.push(year);
   }
   return years;
+}
+function historyPeriods(){return activeHistoryType==="mensual"?taxMonths:taxQuarters}
+function fillHistoryPeriodSelect(){
+  const select=document.querySelector("#historyQuarter");if(!select)return;
+  select.innerHTML=historyPeriods().map(period=>`<option value="${period.id}">${period.label}</option>`).join("");
+  select.value=activeHistoryQuarter;
+}
+function syncHistoryModelTabs(){
+  document.querySelectorAll("[data-history-tax-tab]").forEach(tab=>{const unavailable=activeHistoryType==="mensual"&&tab.dataset.historyTaxTab==="130-131";tab.disabled=unavailable;tab.classList.toggle("active",tab.dataset.historyTaxTab===activeHistoryModel)});
 }
 function renderDeclarationHistory(){
   const years=historicalYears(),lastYear=years[years.length-1]||2025;
@@ -333,10 +342,11 @@ function renderDeclarationHistory(){
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Historial declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="declarations-panel history-panel">
       <div class="declarations-heading">
-        <div><p class="eyebrow">ARCHIVO FISCAL</p><h2>Histórico de declaraciones</h2><p>Consulta las declaraciones de ejercicios y trimestres anteriores.</p></div>
+        <div><p class="eyebrow">ARCHIVO FISCAL</p><h2>Histórico de declaraciones</h2><p>Consulta las declaraciones de ejercicios y periodos anteriores.</p></div>
         <div class="history-selectors">
           <label class="quarter-selector"><span>Ejercicio</span><select id="historyYear">${years.map(year=>`<option value="${year}">${year}</option>`).join("")}</select></label>
-          <label class="quarter-selector"><span>Periodo fiscal</span><select id="historyQuarter">${taxQuarters.map(q=>`<option value="${q.id}">${q.label}</option>`).join("")}</select></label>
+          <label class="quarter-selector"><span>Periodicidad</span><select id="historyType"><option value="trimestral">Trimestral</option><option value="mensual">Mensual</option></select></label>
+          <label class="quarter-selector"><span>Periodo fiscal</span><select id="historyQuarter"></select></label>
         </div>
       </div>
       <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
@@ -345,17 +355,19 @@ function renderDeclarationHistory(){
     </section>`;
   bindHeader();
   document.querySelector("#historyYear").value=String(activeHistoryYear);
-  document.querySelector("#historyQuarter").value=activeHistoryQuarter;
+  document.querySelector("#historyType").value=activeHistoryType;
+  fillHistoryPeriodSelect();syncHistoryModelTabs();
   document.querySelector("#historyYear").addEventListener("change",event=>{activeHistoryYear=Number(event.target.value);loadHistoricalModel(activeHistoryModel)});
+  document.querySelector("#historyType").addEventListener("change",event=>{activeHistoryType=event.target.value;activeHistoryQuarter=activeHistoryType==="mensual"?"M01":"1T";if(activeHistoryType==="mensual"&&activeHistoryModel==="130-131")activeHistoryModel="111";fillHistoryPeriodSelect();syncHistoryModelTabs();loadHistoricalModel(activeHistoryModel)});
   document.querySelector("#historyQuarter").addEventListener("change",event=>{activeHistoryQuarter=event.target.value;loadHistoricalModel(activeHistoryModel)});
-  document.querySelectorAll("[data-history-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{document.querySelector("[data-history-tax-tab].active")?.classList.remove("active");tab.classList.add("active");activeHistoryModel=tab.dataset.historyTaxTab;loadHistoricalModel(activeHistoryModel)}));
+  document.querySelectorAll("[data-history-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{if(tab.disabled)return;activeHistoryModel=tab.dataset.historyTaxTab;syncHistoryModelTabs();loadHistoricalModel(activeHistoryModel)}));
   loadHistoricalModel(activeHistoryModel);
 }
 async function loadHistoricalModel(model){
-  const body=document.querySelector("#historyTaxRows"),key=activeHistoryYear+"-"+activeHistoryQuarter+"-"+model,unlocked=historyUnlocks.has(key);
+  const body=document.querySelector("#historyTaxRows"),key=activeHistoryYear+"-"+activeHistoryType+"-"+activeHistoryQuarter+"-"+model,unlocked=historyUnlocks.has(key);
   try{
-    const clients=(await getAllClientMetadata()).filter(client=>client.obligations&&client.obligations[model]);
-    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeHistoryQuarter,client.name,activeHistoryYear);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeHistoryQuarter}" data-tax-year-row="${activeHistoryYear}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeHistoryQuarter} · ${activeHistoryYear}</small></td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="9" class="table-empty">No hay clientes asignados al modelo ${escapeHtml(model)}.</td></tr>`;
+    const clients=(await getAllClientMetadata()).filter(client=>(client.periodicity||"trimestral")===activeHistoryType&&client.obligations&&client.obligations[model]);
+    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeHistoryQuarter,client.name,activeHistoryYear);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeHistoryQuarter}" data-tax-year-row="${activeHistoryYear}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeHistoryType==="mensual"?"Mensual":"Trimestral"} · ${activeHistoryYear}</small></td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="9" class="table-empty">No hay clientes ${activeHistoryType==="mensual"?"mensuales":"trimestrales"} asignados al modelo ${escapeHtml(model)}.</td></tr>`;
     body.querySelectorAll("input,select").forEach(control=>{control.disabled=!unlocked;control.addEventListener("change",saveHistoricalRow)});
     renderHistoryLock(unlocked,model);
   }catch{body.innerHTML='<tr><td colspan="9" class="table-empty">No se pudo cargar el histórico.</td></tr>'}
@@ -369,11 +381,11 @@ function renderHistoryLock(unlocked,model){
 function openHistoryUnlock(model){
   document.querySelector("#historyAccess")?.remove();
   const shell=document.createElement("div");shell.id="historyAccess";shell.className="access-shell";
-  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true" aria-labelledby="historyAccessTitle"><button class="access-close" type="button" aria-label="Cerrar">×</button><div class="access-icon">◷</div><p class="eyebrow">HISTÓRICO PROTEGIDO</p><h2 id="historyAccessTitle">Desbloquear histórico</h2><p class="access-copy">Introduce la contraseña para modificar este ejercicio y trimestre.</p><form><label for="historyPassword">Contraseña</label><div class="access-input"><span>●</span><input id="historyPassword" type="password" required></div><p class="access-error" role="alert"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
+  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true" aria-labelledby="historyAccessTitle"><button class="access-close" type="button" aria-label="Cerrar">×</button><div class="access-icon">◷</div><p class="eyebrow">HISTÓRICO PROTEGIDO</p><h2 id="historyAccessTitle">Desbloquear histórico</h2><p class="access-copy">Introduce la contraseña para modificar este ejercicio y periodo.</p><form><label for="historyPassword">Contraseña</label><div class="access-input"><span>●</span><input id="historyPassword" type="password" required></div><p class="access-error" role="alert"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
   document.body.appendChild(shell);
   const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
   shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
-  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#historyPassword");if(input.value==="1234"){historyUnlocks.add(activeHistoryYear+"-"+activeHistoryQuarter+"-"+model);close();setTimeout(()=>loadHistoricalModel(model),180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
+  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#historyPassword");if(input.value==="1234"){historyUnlocks.add(activeHistoryYear+"-"+activeHistoryType+"-"+activeHistoryQuarter+"-"+model);close();setTimeout(()=>loadHistoricalModel(model),180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
   requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>shell.querySelector("#historyPassword").focus(),250);
 }
 function saveHistoricalRow(event){
