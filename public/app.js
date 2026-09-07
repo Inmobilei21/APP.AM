@@ -258,7 +258,7 @@ async function renderTasks(){
         <div class="client-modal-head"><div><p class="eyebrow">NUEVA TAREA</p><h2 id="taskModalTitle">Añadir tarea</h2></div><button class="modal-close" type="button" data-close-task aria-label="Cerrar">×</button></div>
         <form id="taskForm">
           <div class="task-form-grid">
-            <label class="task-client-field">Cliente<div class="task-client-combobox"><span class="task-search-icon">⌕</span><input id="taskEl" type="search" autocomplete="off" placeholder="Buscar cliente…" required aria-autocomplete="list" aria-controls="taskClientResults"><div class="task-client-results" id="taskClientResults" role="listbox" hidden></div></div></label>
+            <label class="task-client-field">Cliente<div class="task-client-combobox"><span class="task-search-icon">⌕</span><input id="taskClient" type="search" autocomplete="off" placeholder="Buscar cliente…" required aria-autocomplete="list" aria-controls="taskClientResults"><div class="task-client-results" id="taskClientResults" role="listbox" hidden></div></div></label>
             <label>Encargado<select id="taskAssigned" required><option value="">Selecciona un trabajador</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label>
             <label>Concepto<select id="taskConcept" required><option value="">Selecciona un concepto</option><option>Declaraciones</option><option>Notificación</option><option>Gestión</option><option>Cuentas Anuales</option><option>Otro</option></select></label>
             <label id="customConceptField" hidden>Concepto concreto<input id="taskCustomConcept" maxlength="80" placeholder="Escribe el concepto"></label>
