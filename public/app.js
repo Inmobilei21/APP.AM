@@ -554,7 +554,7 @@ const declarationColumns=[
   {field:"reviewedBy",label:"Revisado por",type:"worker"}
 ];
 function declarationTableHeaders(prefix){
-  return declarationColumns.map(column=>`<th data-declaration-column="${column.field}"><span>${column.label}</span><button class="excel-filter-button ${declarationColumnFilterState[prefix]?.[column.field]?"active":""}" type="button" data-excel-filter="${column.field}" aria-label="Filtrar ${column.label}" title="Filtrar ${column.label}">▾</button></th>`).join("");
+  return declarationColumns.map(column=>{const label=prefix==="tax"&&column.field==="prepared"?"Confección":prefix==="tax"&&column.field==="submitted"?"Presentación":column.label;return `<th data-declaration-column="${column.field}"><span>${label}</span><button class="excel-filter-button ${declarationColumnFilterState[prefix]?.[column.field]?"active":""}" type="button" data-excel-filter="${column.field}" aria-label="Filtrar ${label}" title="Filtrar ${label}">▾</button></th>`}).join("");
 }
 function setupDeclarationFilters(prefix,bodyId){
   const body=document.querySelector(`#${bodyId}`),table=body?.closest("table");if(!table)return;
