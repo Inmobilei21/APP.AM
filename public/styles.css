@@ -146,3 +146,18 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 .existing-signature-list>button[hidden]{display:none!important}
 
 .signature-table th{white-space:nowrap}.signature-table th:nth-child(1),.signature-table td:nth-child(1){width:24%}.signature-table th:nth-child(2),.signature-table td:nth-child(2){width:13%}.signature-table th:nth-child(3),.signature-table td:nth-child(3){width:10%}.signature-table th:nth-child(4),.signature-table td:nth-child(4){width:9%}.signature-table th:nth-child(5),.signature-table td:nth-child(5){width:11%}.signature-table th:nth-child(6),.signature-table td:nth-child(6){width:23%}.signature-table th:nth-child(7),.signature-table td:nth-child(7){width:10%}.signature-table td:nth-child(1),.signature-table td:nth-child(2),.signature-table td:nth-child(6){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.signature-table td:nth-child(1) strong,.signature-table .document-link{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.existing-signature-list>button:disabled{cursor:not-allowed;background:#f3f4f7;color:#8a93a5;border-color:#e5e8ee}.existing-signature-list>button:disabled .existing-signature-file,.existing-signature-list>button:disabled b{color:#929aaa}.existing-signature-list>button:disabled b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+
+/* Bloque único de firmas digitales en la ficha del cliente */
+.digital-signature-section{min-width:0;border:1px solid var(--line);border-radius:16px;margin:18px 0;padding:16px}
+.digital-signature-section legend{padding:0 7px;font-size:16px;font-weight:750;color:var(--ink)}
+.digital-signature-section>p{margin:0 0 13px;color:var(--muted);font-size:13px;font-weight:400}
+.digital-signature-document{min-width:0;border:1px solid #e3e7f0;border-radius:14px;padding:15px;background:#fafbfe;display:grid;gap:12px}
+.digital-signature-copy strong,.digital-signature-copy small{display:block}
+.digital-signature-copy small{margin-top:4px;color:var(--muted);font-weight:400}
+.digital-signature-document input[type="file"]{width:100%;min-width:0;max-width:100%;font-size:12px}
+.digital-signature-section .signature-data{margin-top:12px}
+@media(max-width:620px){
+  .digital-signature-section{padding:14px}
+  .digital-signature-section .signature-data{grid-template-columns:1fr}
+}
