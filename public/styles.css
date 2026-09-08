@@ -376,3 +376,13 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   .annual-stage-summary{align-items:flex-start;flex-direction:column}
   .annual-stage-summary>.annual-progress{width:100%}
 }
+
+
+/* Plazos de cierres anuales */
+.annual-closing-deadlines{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 20px;padding:14px;border:1px solid #e3e7f0;border-radius:16px;background:#f5f7fc}
+.annual-closing-deadlines article{min-width:0;border:1px solid #e2e6f0;border-radius:13px;background:#fff;padding:13px 14px;display:flex;align-items:center;gap:12px}
+.annual-closing-deadlines article>span{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:#e8ecff;color:var(--blue);display:grid;place-items:center;font-size:11px;font-weight:900}
+.annual-closing-deadlines article>div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.annual-closing-deadlines small{color:#748097;font-size:10px;font-weight:850;letter-spacing:.055em}
+.annual-closing-deadlines strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+@media(max-width:900px){.annual-closing-deadlines{grid-template-columns:1fr}}
