@@ -185,7 +185,7 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   #newClientForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity identity" "internal fiscal" "courtesy attachments" "signature ." "message message" "actions actions";gap:12px 18px;align-items:start}
   #newClientForm .client-identity-grid{grid-area:identity;grid-template-columns:minmax(0,2.6fr) minmax(190px,.68fr) minmax(220px,.82fr)}
   #newClientForm .internal-client-data{grid-area:internal;margin:0}
-  #newClientForm .fiscal-obligations{grid-area:fiscal;margin:0}
+  #newClientForm .fiscal-obligations{grid-area:fiscal;margin:0;align-self:stretch}
   #newClientForm .courtesy-obligation{grid-area:courtesy;margin:0}
   #newClientForm .attachment-grid{grid-area:attachments;margin:0}
   #newClientForm .digital-signature-section{grid-area:signature;margin:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(180px,.78fr);column-gap:12px;align-items:start}
