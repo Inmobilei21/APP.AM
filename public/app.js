@@ -1089,6 +1089,22 @@ async function restoreFolder(config){
   }
 }
 
+function documentTypeVisual(name){
+  const extension=(String(name).split(".").pop()||"").toLocaleLowerCase("es");
+  const types={
+    pdf:{className:"pdf",label:"PDF"},
+    doc:{className:"word",label:"DOC"},docx:{className:"word",label:"DOCX"},odt:{className:"word",label:"ODT"},
+    xls:{className:"excel",label:"XLS"},xlsx:{className:"excel",label:"XLSX"},xlsm:{className:"excel",label:"XLSM"},csv:{className:"excel",label:"CSV"},ods:{className:"excel",label:"ODS"},
+    ppt:{className:"powerpoint",label:"PPT"},pptx:{className:"powerpoint",label:"PPTX"},
+    jpg:{className:"image",label:"JPG"},jpeg:{className:"image",label:"JPG"},png:{className:"image",label:"PNG"},gif:{className:"image",label:"GIF"},webp:{className:"image",label:"WEBP"},svg:{className:"image",label:"SVG"},
+    p12:{className:"certificate",label:"P12"},pfx:{className:"certificate",label:"PFX"},cer:{className:"certificate",label:"CER"},crt:{className:"certificate",label:"CRT"},
+    zip:{className:"archive",label:"ZIP"},rar:{className:"archive",label:"RAR"},"7z":{className:"archive",label:"7Z"},
+    txt:{className:"text",label:"TXT"},rtf:{className:"text",label:"RTF"},xml:{className:"code",label:"XML"},json:{className:"code",label:"JSON"}
+  };
+  const type=types[extension]||{className:"other",label:(extension||"FILE").slice(0,4).toUpperCase()};
+  return `<span class="file-type-icon ${type.className}" aria-label="Archivo ${escapeHtml(type.label)}"><span class="file-sheet" aria-hidden="true"></span><b>${escapeHtml(type.label)}</b></span>`;
+}
+
 async function displayFolder(handle,config,fromBack=false){
   const entries=[];
   for await(const entry of handle.values()){
@@ -1115,7 +1131,7 @@ function renderEntries(entries){
   document.querySelector("#folderCount").textContent=`${entries.length} ${entries.length===1?"elemento":"elementos"}`;
   const grid=document.querySelector("#folderGrid");
   grid.innerHTML=entries.length
-    ? entries.map((entry,index)=>`<button class="folder-card" data-index="${index}" data-client="${escapeHtml(entry.name.toLocaleLowerCase("es"))}"><span class="folder-icon ${entry.kind==="file"?"file":""}">${entry.kind==="directory"?"▰":"▤"}</span><span><strong>${escapeHtml(entry.name)}</strong><small>${entry.kind==="directory"?"Abrir carpeta":"Abrir documento"}</small></span></button>`).join("")
+    ? entries.map((entry,index)=>`<button class="folder-card" data-index="${index}" data-client="${escapeHtml(entry.name.toLocaleLowerCase("es"))}">${entry.kind==="directory"?'<span class="folder-icon">▰</span>':documentTypeVisual(entry.name)}<span><strong>${escapeHtml(entry.name)}</strong><small>${entry.kind==="directory"?"Abrir carpeta":"Abrir documento"}</small></span></button>`).join("")
     : `<div class="empty folder-empty"><span>▤</span><h4>Carpeta vacía</h4><p>No contiene documentos ni subcarpetas.</p></div>`;
   grid.querySelectorAll(".folder-card").forEach(card=>card.addEventListener("click",()=>openEntry(Number(card.dataset.index))));
 }
