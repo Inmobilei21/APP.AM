@@ -133,7 +133,8 @@ async function openEditClient(name){
   document.querySelector("#formMessage").textContent="";
   showClientModal();
 }
-function closeClientModal(){const m=document.querySelector("#clientModal");m.classList.remove("open");m.setAttribute("aria-hidden","true")}
+function clearManagementSearch(){const search=document.querySelector("#managementSearch");if(!search)return;search.value="";search.dispatchEvent(new Event("input",{bubbles:true}))}
+function closeClientModal(){const m=document.querySelector("#clientModal");m.classList.remove("open");m.setAttribute("aria-hidden","true");clearManagementSearch()}
 function onNewSignatureSelected(event){const form=document.querySelector("#newClientForm"),picker=document.querySelector("#existingSignaturePicker"),label=document.querySelector("#linkedSignatureName");if(event.target.files.length){delete form.dataset.existingSignature;label.textContent=`Nueva firma: ${event.target.files[0].name}`;picker.hidden=true}else label.textContent=form.dataset.existingSignature?`Vinculada: ${form.dataset.existingSignature}`:"Ninguna firma vinculada"}
 async function openExistingSignaturePicker(){
  const picker=document.querySelector("#existingSignaturePicker"),list=document.querySelector("#existingSignatureList"),search=document.querySelector("#existingSignatureSearch");
