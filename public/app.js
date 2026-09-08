@@ -609,7 +609,7 @@ async function renderAnnualClosings(){
         <div><p class="eyebrow">CONTROL SOCIETARIO</p><h2>Cierres anuales</h2><p>Seguimiento por etapas de todas las personas jurídicas.</p></div>
         <div class="annual-heading-controls">
           <div class="annual-closing-deadlines compact">
-            <article><div><small>FORMULACIÓN</small><strong>30 de septiembre</strong></div></article>
+            <article><div><small>FORMULACIÓN</small><strong>30 de marzo</strong></div></article>
             <article><div><small>APROBACIÓN</small><strong>30 de junio</strong></div></article>
             <article><div><small>INSCRIPCIÓN</small><strong>31 de julio</strong></div></article>
           </div>
