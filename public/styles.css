@@ -391,10 +391,10 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 /* Cabecera compacta y buscador de cierres anuales */
 .annual-heading-controls{display:flex;align-items:stretch;justify-content:flex-end;gap:12px;min-width:0}
 .annual-closing-deadlines.compact{display:flex;grid-template-columns:none;gap:8px;margin:0;padding:0;border:0;border-radius:0;background:transparent}
-.annual-closing-deadlines.compact article{min-width:138px;padding:9px 11px;border-radius:12px;background:#f8f9fc}
-.annual-closing-deadlines.compact article>div{gap:2px}
-.annual-closing-deadlines.compact small{font-size:9px}
-.annual-closing-deadlines.compact strong{font-size:11px}
+.annual-closing-deadlines.compact article{min-width:174px;padding:12px 15px;border-radius:13px;background:#f8f9fc}
+.annual-closing-deadlines.compact article>div{gap:4px}
+.annual-closing-deadlines.compact small{font-size:10px}
+.annual-closing-deadlines.compact strong{font-size:13px}
 .annual-closing-search{display:flex;align-items:center;justify-content:space-between;gap:22px;margin:0 0 20px;padding:14px 16px;border:1px solid #e3e7f0;border-radius:16px;background:#f5f7fc}
 .annual-closing-search>div strong,.annual-closing-search>div small{display:block}
 .annual-closing-search>div strong{font-size:14px}
