@@ -161,3 +161,18 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   .digital-signature-section{padding:14px}
   .digital-signature-section .signature-data{grid-template-columns:1fr}
 }
+
+
+/* Ficha del cliente: consulta primero y edición bajo demanda */
+.client-card-arrow{margin-left:auto;color:#2134b7;font-size:28px;line-height:1;font-weight:500;transition:transform .18s ease}
+.management-client:hover .client-card-arrow,.management-client:focus-visible .client-card-arrow{transform:translateX(3px)}
+.client-view-edit{border-color:#2438c5;color:#132aa7;background:#f3f5ff}
+.client-view-edit:hover{background:#e8ecff}
+.client-view-mode input:disabled,.client-view-mode textarea:disabled,.client-view-mode select:disabled{opacity:1;color:var(--ink);-webkit-text-fill-color:var(--ink);background:#f7f8fc;border-color:#e8eaf1;cursor:default}
+.client-view-mode input[type="checkbox"]:disabled{accent-color:#2338c5}
+.client-view-mode input[type="file"]:disabled{color:var(--muted)}
+.client-view-mode .existing-signature-button:disabled{opacity:.55;cursor:default}
+@media(max-width:620px){
+  .client-card-arrow{font-size:25px}
+  .modal-actions .client-view-edit{flex:1}
+}
