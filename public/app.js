@@ -576,6 +576,101 @@ function renderWorkers(){
   bindHeader();
 }
 
+
+const annualClosingStages=[
+  {id:"accounting",label:"Cierre contable",tasks:["Conciliación y saldos revisados","Amortizaciones y periodificaciones","Asiento de regularización y cierre"]},
+  {id:"review",label:"Revisión contable",tasks:["Balance y cuenta de resultados revisados","Impuestos y cuentas vinculadas comprobados","Documentación final validada"]},
+  {id:"annual",label:"Cierre anual",tasks:["Formulación de cuentas","Legalización de libros","Presentación y depósito final"]}
+];
+function annualClosingKey(clientId,year=new Date().getFullYear()){return `app-am-annual-closing-${year}-${clientId}`}
+function annualClosingState(clientId){
+  try{
+    const stored=JSON.parse(localStorage.getItem(annualClosingKey(clientId))||"{}");
+    const state={};
+    annualClosingStages.forEach(stage=>state[stage.id]=stage.tasks.map((_,index)=>Boolean(stored[stage.id]?.[index])));
+    return state;
+  }catch{
+    return Object.fromEntries(annualClosingStages.map(stage=>[stage.id,stage.tasks.map(()=>false)]));
+  }
+}
+function annualStageProgress(state,stage){
+  const values=state[stage.id]||[];
+  return values.length?Math.round(values.filter(Boolean).length/values.length*100):0;
+}
+function annualProgressMarkup(progress){
+  return `<div class="annual-progress"><div class="annual-progress-track"><span style="width:${progress}%"></span></div><strong>${progress}%</strong></div>`;
+}
+async function renderAnnualClosings(){
+  const year=new Date().getFullYear();
+  main.innerHTML=`
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Cierres anuales</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="annual-closing-panel">
+      <div class="annual-closing-heading"><div><p class="eyebrow">CONTROL SOCIETARIO</p><h2>Cierres anuales</h2><p>Seguimiento por etapas de todas las personas jurídicas · ${year}</p></div><span class="annual-year">${year}</span></div>
+      <div class="annual-closing-table-wrap"><table class="annual-closing-table"><thead><tr><th>Cliente</th>${annualClosingStages.map(stage=>`<th>${stage.label}</th>`).join("")}</tr></thead><tbody id="annualClosingRows"><tr><td colspan="4" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
+    </section>
+    <div class="modal-shell annual-closing-shell" id="annualClosingModal" aria-hidden="true"><div class="modal-backdrop" data-close-annual></div><section class="annual-closing-modal" role="dialog" aria-modal="true" aria-labelledby="annualClosingTitle"><div class="modal-heading"><div><p class="eyebrow">CIERRE ANUAL · ${year}</p><h2 id="annualClosingTitle">Ficha del cliente</h2></div><button class="modal-close" type="button" data-close-annual>×</button></div><div class="annual-stage-tabs" id="annualStageTabs"></div><div class="annual-stage-content" id="annualStageContent"></div><div class="modal-actions"><button type="button" class="secondary-button" data-close-annual>Cerrar</button></div></section></div>`;
+  bindHeader();
+  document.querySelectorAll("[data-close-annual]").forEach(button=>button.addEventListener("click",closeAnnualClosingModal));
+  try{
+    const clients=(await getAllClientMetadata()).filter(client=>(client.personType||"juridica")==="juridica").sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
+    const body=document.querySelector("#annualClosingRows");
+    body.innerHTML=clients.length?clients.map(client=>{
+      const state=annualClosingState(client.id||client.name);
+      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}</td>`).join("")}</tr>`;
+    }).join(""):'<tr><td colspan="4" class="table-empty">No hay personas jurídicas registradas.</td></tr>';
+    body.querySelectorAll("[data-annual-client]").forEach(row=>{
+      const client=clients.find(item=>(item.id||item.name)===row.dataset.annualClient);
+      const open=()=>openAnnualClosingModal(client);
+      row.addEventListener("click",open);
+      row.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();open()}});
+    });
+  }catch{
+    document.querySelector("#annualClosingRows").innerHTML='<tr><td colspan="4" class="table-empty">No se pudieron cargar los clientes.</td></tr>';
+  }
+}
+function closeAnnualClosingModal(){
+  const modal=document.querySelector("#annualClosingModal");if(!modal)return;
+  modal.classList.remove("open");modal.setAttribute("aria-hidden","true");
+}
+function openAnnualClosingModal(client){
+  if(!client)return;
+  const modal=document.querySelector("#annualClosingModal"),clientId=client.id||client.name;
+  modal.dataset.clientId=clientId;
+  modal.dataset.clientName=client.name;
+  document.querySelector("#annualClosingTitle").textContent=client.name;
+  const state=annualClosingState(clientId);
+  const firstPending=annualClosingStages.find(stage=>annualStageProgress(state,stage)<100);
+  renderAnnualClosingStage(firstPending?.id||annualClosingStages.at(-1).id);
+  modal.classList.add("open");modal.setAttribute("aria-hidden","false");
+}
+function renderAnnualClosingStage(stageId){
+  const modal=document.querySelector("#annualClosingModal"),clientId=modal.dataset.clientId,state=annualClosingState(clientId);
+  let previousComplete=true;
+  const availability={};
+  annualClosingStages.forEach(stage=>{availability[stage.id]=previousComplete;previousComplete=previousComplete&&annualStageProgress(state,stage)===100});
+  if(!availability[stageId])stageId=annualClosingStages.find(stage=>availability[stage.id]&&annualStageProgress(state,stage)<100)?.id||"accounting";
+  document.querySelector("#annualStageTabs").innerHTML=annualClosingStages.map(stage=>{
+    const progress=annualStageProgress(state,stage),locked=!availability[stage.id];
+    return `<button type="button" data-annual-stage="${stage.id}" class="${stage.id===stageId?"active":""}" ${locked?"disabled":""}><span>${locked?"🔒":progress===100?"✓":""} ${stage.label}</span>${annualProgressMarkup(progress)}</button>`;
+  }).join("");
+  document.querySelectorAll("[data-annual-stage]").forEach(button=>button.addEventListener("click",()=>renderAnnualClosingStage(button.dataset.annualStage)));
+  const stage=annualClosingStages.find(item=>item.id===stageId),progress=annualStageProgress(state,stage);
+  document.querySelector("#annualStageContent").innerHTML=`
+    <div class="annual-stage-summary"><div><small>PROGRESO DE LA ETAPA</small><h3>${stage.label}</h3></div>${annualProgressMarkup(progress)}</div>
+    <div class="annual-checklist">${stage.tasks.map((task,index)=>`<label><input type="checkbox" data-annual-check="${index}" ${state[stage.id][index]?"checked":""}><span><strong>${escapeHtml(task)}</strong><small>${state[stage.id][index]?"Completado":"Pendiente"}</small></span></label>`).join("")}</div>`;
+  document.querySelectorAll("[data-annual-check]").forEach(check=>check.addEventListener("change",()=>{
+    const updated=annualClosingState(clientId);
+    updated[stage.id][Number(check.dataset.annualCheck)]=check.checked;
+    localStorage.setItem(annualClosingKey(clientId),JSON.stringify(updated));
+    updateAnnualClosingTableRow(clientId,updated);
+    renderAnnualClosingStage(stage.id);
+  }));
+}
+function updateAnnualClosingTableRow(clientId,state){
+  const row=[...document.querySelectorAll("[data-annual-client]")].find(item=>item.dataset.annualClient===clientId);if(!row)return;
+  annualClosingStages.forEach(stage=>{const cell=row.querySelector(`[data-annual-progress="${stage.id}"]`);if(cell)cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))});
+}
+
 const taxModels=["111","115","123","130-131","303","349","182","347","202"];
 const annualTaxModels=["190","180","390"];
 const annualTaxSource={"190":"111","180":"115","390":"303"};
@@ -1291,6 +1386,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   else if(button.dataset.title==="Tareas") renderTasks();
   else if(button.dataset.title==="Contactos") renderContacts();
   else if(button.dataset.title==="Días de cortesía") renderCourtesyDays();
+  else if(button.dataset.title==="Cierres anuales") renderAnnualClosings();
   else if(button.dataset.title==="Gestión") openProtectedManagement();
   else{
     main.innerHTML=homeMarkup;
