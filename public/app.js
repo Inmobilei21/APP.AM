@@ -577,6 +577,10 @@ function renderWorkers(){
 }
 
 const taxModels=["111","115","123","130-131","303","349"];
+const annualTaxModels=["190","180","390"];
+const annualTaxSource={"190":"111","180":"115","390":"303"};
+function sourceTaxModel(model){return annualTaxSource[model]||model}
+function visibleControlTaxModels(){return activeTaxType==="trimestral"&&activeTaxQuarter==="4T"?[...taxModels,...annualTaxModels]:taxModels}
 const taxQuarters=[{id:"1T",label:"1.º Trimestre"},{id:"2T",label:"2.º Trimestre"},{id:"3T",label:"3.º Trimestre"},{id:"4T",label:"4.º Trimestre"}];
 const taxMonths=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"].map((label,index)=>({id:"M"+String(index+1).padStart(2,"0"),label}));
 function defaultControlTaxPeriod(type,date=new Date()){
@@ -646,7 +650,15 @@ function fillTaxPeriodSelect(){
   select.value=activeTaxQuarter;
 }
 function syncTaxModelTabs(){
-  document.querySelectorAll("[data-tax-tab]").forEach(tab=>{const unavailable=activeTaxType==="mensual"&&tab.dataset.taxTab==="130-131";tab.disabled=unavailable;tab.classList.toggle("active",tab.dataset.taxTab===activeTaxModel)});
+  const visible=visibleControlTaxModels();
+  if(!visible.includes(activeTaxModel))activeTaxModel="111";
+  document.querySelectorAll("[data-tax-tab]").forEach(tab=>{
+    const model=tab.dataset.taxTab;
+    tab.hidden=!visible.includes(model);
+    const unavailable=activeTaxType==="mensual"&&model==="130-131";
+    tab.disabled=unavailable;
+    tab.classList.toggle("active",model===activeTaxModel);
+  });
 }
 
 
@@ -775,8 +787,14 @@ const declarationColumns=[
   {field:"submittedBy",label:"Presentado por",type:"worker"},
   {field:"reviewedBy",label:"Revisado por",type:"worker"}
 ];
-function declarationTableHeaders(prefix){
-  return declarationColumns.map(column=>{const label=prefix==="tax"&&column.field==="prepared"?"Confección":prefix==="tax"&&column.field==="submitted"?"Presentación":column.label;return `<th data-declaration-column="${column.field}"><span>${label}</span><button class="excel-filter-button ${declarationColumnFilterState[prefix]?.[column.field]?"active":""}" type="button" data-excel-filter="${column.field}" aria-label="Filtrar ${label}" title="Filtrar ${label}">▾</button></th>`}).join("");
+function declarationTableHeaders(prefix,model=""){
+  const columns=[...declarationColumns];
+  if(prefix==="tax"&&model==="111")columns.splice(columns.findIndex(column=>column.field==="cif")+1,0,{field:"notRequired",label:"No obligada",type:"boolean"});
+  return columns.map(column=>{
+    const label=prefix==="tax"&&column.field==="prepared"?"Confección":prefix==="tax"&&column.field==="submitted"?"Presentación":column.label;
+    if(column.type==="boolean")return `<th data-declaration-column="${column.field}"><span>${label}</span></th>`;
+    return `<th data-declaration-column="${column.field}"><span>${label}</span><button class="excel-filter-button ${declarationColumnFilterState[prefix]?.[column.field]?"active":""}" type="button" data-excel-filter="${column.field}" aria-label="Filtrar ${label}" title="Filtrar ${label}">▾</button></th>`;
+  }).join("");
 }
 function setupDeclarationFilters(prefix,bodyId){
   const body=document.querySelector(`#${bodyId}`),table=body?.closest("table");if(!table)return;
@@ -871,15 +889,15 @@ function renderDeclarations(){
       </div>
       <div class="declaration-folder-source" id="taxDeclarationFolder"></div>
       <div class="tax-deadlines" id="taxDeadlines"></div>
-      <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
+      <div class="tax-tabs" role="tablist">${[...taxModels,...annualTaxModels].map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner" id="taxLockBanner" hidden></div>
-      <div class="tax-table-wrap"><table class="tax-table"><thead><tr>${declarationTableHeaders("tax")}</tr></thead><tbody id="taxRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
+      <div class="tax-table-wrap"><table class="tax-table"><thead><tr id="taxTableHead">${declarationTableHeaders("tax",activeTaxModel)}</tr></thead><tbody id="taxRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
    bindHeader();
   setupDeclarationFilters("tax","taxRows");
   document.querySelector("#taxType").value=activeTaxType;fillTaxPeriodSelect();syncTaxModelTabs();
   document.querySelector("#taxType").addEventListener("change",event=>{activeTaxType=event.target.value;activeTaxQuarter=defaultControlTaxPeriod(activeTaxType);if(activeTaxType==="mensual"&&activeTaxModel==="130-131")activeTaxModel="111";fillTaxPeriodSelect();syncTaxModelTabs();loadTaxModel(activeTaxModel)});
-  document.querySelector("#taxQuarter").addEventListener("change",event=>{activeTaxQuarter=event.target.value;loadTaxModel(activeTaxModel)});
+  document.querySelector("#taxQuarter").addEventListener("change",event=>{activeTaxQuarter=event.target.value;syncTaxModelTabs();loadTaxModel(activeTaxModel)});
   document.querySelectorAll("[data-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{if(tab.disabled)return;activeTaxModel=tab.dataset.taxTab;syncTaxModelTabs();loadTaxModel(activeTaxModel)}));
   setupDeclarationFolderSource("taxDeclarationFolder",()=>loadTaxModel(activeTaxModel));
   loadTaxModel(activeTaxModel);
@@ -897,13 +915,26 @@ function declarationKey(model,period,client,year=2026){return "app-am-declaratio
 function declarationData(model,period,client,year=2026){try{const saved=localStorage.getItem(declarationKey(model,period,client,year));const legacy=year===2026?localStorage.getItem("app-am-declaration-"+model+"-"+period+"-"+client):null;return JSON.parse(saved||legacy||"{}")}catch{return{}}}
 function workerOptions(selected){return '<option value="">Seleccionar…</option>'+workers.map(name=>`<option value="${escapeHtml(name)}" ${selected===name?"selected":""}>${escapeHtml(name)}</option>`).join("")}
 async function loadTaxModel(model){
-  const body=document.querySelector("#taxRows"),state=taxWindowState(model,activeTaxQuarter,activeTaxType);
+  const body=document.querySelector("#taxRows"),state=taxWindowState(sourceTaxModel(model),activeTaxQuarter,activeTaxType);
+  const isModel111=model==="111";
+  const columnCount=isModel111?11:10;
+  const tableHead=document.querySelector("#taxTableHead");
+  if(tableHead){tableHead.innerHTML=declarationTableHeaders("tax",model);setupDeclarationFilters("tax","taxRows")}
   renderTaxDeadlines(model,activeTaxQuarter,state);
   try{
-    const clients=(await getAllClientMetadata()).filter(client=>(client.periodicity||"trimestral")===activeTaxType&&client.obligations&&client.obligations[model]);
+    const clients=(await getAllClientMetadata()).filter(client=>(client.periodicity||"trimestral")===activeTaxType&&client.obligations&&client.obligations[sourceTaxModel(model)]);
     const documents=await declarationDocumentsForClients(clients,model,activeTaxType,activeTaxQuarter,2026);
-    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeTaxQuarter,client.name);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeTaxQuarter}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeTaxType==="mensual"?"Mensual":"Trimestral"}</small></td><td>${declarationDocumentMarkup(documents.get(client.name))}</td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="10" class="table-empty">No hay clientes ${activeTaxType==="mensual"?"mensuales":"trimestrales"} asignados al modelo ${escapeHtml(model)}.</td></tr>`;
-    body.querySelectorAll("input,select").forEach(control=>{control.disabled=state.locked;control.addEventListener("change",event=>{saveDeclarationRow(event);applyDeclarationFilters("tax","taxRows")})});
+    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeTaxQuarter,client.name);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeTaxQuarter}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeTaxType==="mensual"?"Mensual":"Trimestral"}</small></td><td>${declarationDocumentMarkup(documents.get(client.name))}</td><td>${escapeHtml(client.cif||"—")}</td>${isModel111?`<td class="not-required-cell"><label><input type="checkbox" data-field="notRequired" ${d.notRequired?"checked":""}><span>No obligada</span></label></td>`:""}<td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="${columnCount}" class="table-empty">No hay clientes ${activeTaxType==="mensual"?"mensuales":"trimestrales"} asignados al modelo ${escapeHtml(model)}.</td></tr>`;
+    body.querySelectorAll("tr[data-tax-client]").forEach(row=>{
+      const toggle=row.querySelector('[data-field="notRequired"]');
+      const applyRowLock=()=>{
+        const notRequired=Boolean(toggle?.checked);
+        row.classList.toggle("not-required-row",notRequired);
+        row.querySelectorAll("[data-field]").forEach(control=>{control.disabled=state.locked||(notRequired&&control!==toggle)});
+      };
+      applyRowLock();
+      row.querySelectorAll("input,select").forEach(control=>control.addEventListener("change",event=>{applyRowLock();saveDeclarationRow(event);applyDeclarationFilters("tax","taxRows")}));
+    });
     applyDeclarationFilters("tax","taxRows");
     renderTaxLock(state,model,activeTaxQuarter,activeTaxType);
   }catch{body.innerHTML='<tr><td colspan="10" class="table-empty">No se pudieron cargar las obligaciones fiscales.</td></tr>'}
@@ -929,7 +960,7 @@ function openTaxUnlock(model,period,type){
 }
 function saveDeclarationRow(event){
   const row=event.target.closest("tr"),data={};
-  row.querySelectorAll("[data-field]").forEach(field=>data[field.dataset.field]=field.value);
+  row.querySelectorAll("[data-field]").forEach(field=>data[field.dataset.field]=field.type==="checkbox"?field.checked:field.value);
   localStorage.setItem(declarationKey(row.dataset.taxModelRow,row.dataset.taxQuarterRow,row.dataset.taxClient),JSON.stringify(data));
 }
 
