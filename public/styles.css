@@ -182,7 +182,7 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 @media(min-width:1100px){
   #clientModal .client-modal{width:min(1460px,calc(100vw - 52px));max-height:calc(100vh - 28px);padding:22px 26px}
   #clientModal .modal-heading{padding-bottom:13px;margin-bottom:14px}
-  #newClientForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity identity" "internal fiscal" "courtesy registry" "signature registry" "message message" "actions actions";gap:12px 18px;align-items:start}
+  #newClientForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity identity" "internal fiscal" "courtesy ." "signature registry" "message message" "actions actions";gap:12px 18px;align-items:start}
   #newClientForm .client-identity-grid{grid-area:identity;grid-template-columns:minmax(0,2.6fr) minmax(190px,.68fr) minmax(220px,.82fr)}
   #newClientForm .internal-client-data{grid-area:internal;margin:0}
   #newClientForm .fiscal-obligations{grid-area:fiscal;margin:0;align-self:stretch}
@@ -304,3 +304,15 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 .file-type-icon.text{--file-color:#536277;background:#edf1f5}
 .file-type-icon.code{--file-color:#6653b5;background:#eeeafd}
 .file-type-icon.other{--file-color:#596174;background:#eef1f5}
+
+
+/* Registro Mercantil alineado y estable respecto a Firmas digitales */
+@media(min-width:1100px){
+  #newClientForm .digital-signature-section,#newClientForm .commercial-registry-section{height:280px;box-sizing:border-box}
+  #newClientForm .commercial-registry-section{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  #newClientForm .registry-tabs{flex:0 0 auto}
+  #newClientForm .registry-tab-content{flex:1 1 auto;min-height:0;overflow:hidden}
+  #newClientForm .registry-tab-panel{height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#aeb7c8 transparent}
+  #newClientForm .registry-tab-panel::-webkit-scrollbar{width:6px}
+  #newClientForm .registry-tab-panel::-webkit-scrollbar-thumb{background:#aeb7c8;border-radius:8px}
+}
