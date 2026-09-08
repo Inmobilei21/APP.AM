@@ -182,16 +182,16 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 @media(min-width:1100px){
   #clientModal .client-modal{width:min(1460px,calc(100vw - 52px));max-height:calc(100vh - 28px);padding:22px 26px}
   #clientModal .modal-heading{padding-bottom:13px;margin-bottom:14px}
-  #newClientForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity identity" "internal fiscal" "courtesy attachments" "signature signature" "message message" "actions actions";gap:12px 18px;align-items:start}
-  #newClientForm .client-identity-grid{grid-area:identity}
+  #newClientForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity identity" "internal fiscal" "courtesy attachments" "signature ." "message message" "actions actions";gap:12px 18px;align-items:start}
+  #newClientForm .client-identity-grid{grid-area:identity;grid-template-columns:minmax(0,2.6fr) minmax(190px,.68fr) minmax(220px,.82fr)}
   #newClientForm .internal-client-data{grid-area:internal;margin:0}
   #newClientForm .fiscal-obligations{grid-area:fiscal;margin:0}
   #newClientForm .courtesy-obligation{grid-area:courtesy;margin:0}
   #newClientForm .attachment-grid{grid-area:attachments;margin:0}
-  #newClientForm .digital-signature-section{grid-area:signature;margin:0;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);column-gap:14px;align-items:start}
+  #newClientForm .digital-signature-section{grid-area:signature;margin:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(180px,.78fr);column-gap:12px;align-items:start}
   #newClientForm .digital-signature-section>p{grid-column:1/-1}
   #newClientForm .digital-signature-document{grid-column:1}
-  #newClientForm .digital-signature-section .signature-data{grid-column:2;margin-top:0}
+  #newClientForm .digital-signature-section .signature-data{grid-column:2;margin-top:0;grid-template-columns:1fr}
   #newClientForm .form-message{grid-area:message;margin:0}
   #newClientForm .modal-actions{grid-area:actions;margin-top:0}
   #newClientForm .internal-client-data,#newClientForm .fiscal-obligations,#newClientForm .courtesy-obligation,#newClientForm .digital-signature-section{padding:13px 14px}
@@ -206,4 +206,17 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   #newClientForm .file-field{padding:12px;gap:8px}
   #newClientForm .digital-signature-document{padding:12px;gap:9px}
   #newClientForm .signature-data{padding:12px}
+}
+
+
+.client-identity-grid select{display:block;width:100%;height:48px;margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:#fff;font:inherit;color:var(--ink)}
+.client-identity-grid select:focus{outline:0;border-color:#91a0ff;box-shadow:0 0 0 3px #e9edff}
+@media(min-width:761px) and (max-width:1099px){
+  .client-identity-grid{grid-template-columns:minmax(0,2fr) minmax(160px,1fr)}
+  .client-identity-grid>label:last-child{grid-column:1/-1}
+}
+@media(min-width:1100px){
+  #newClientForm .digital-signature-section .existing-signature-button{padding:9px 12px;font-size:12px}
+  #newClientForm .digital-signature-section .existing-signature-search{height:36px}
+  #newClientForm .digital-signature-section .signature-data label{gap:5px}
 }
