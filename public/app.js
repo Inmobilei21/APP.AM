@@ -576,7 +576,7 @@ function renderWorkers(){
   bindHeader();
 }
 
-const taxModels=["111","115","123","130-131","303","349"];
+const taxModels=["111","115","123","130-131","303","349","182","347","202"];
 const annualTaxModels=["190","180","390"];
 const annualTaxSource={"190":"111","180":"115","390":"303"};
 function sourceTaxModel(model){return annualTaxSource[model]||model}
