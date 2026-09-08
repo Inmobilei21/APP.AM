@@ -316,3 +316,12 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   #newClientForm .registry-tab-panel::-webkit-scrollbar{width:6px}
   #newClientForm .registry-tab-panel::-webkit-scrollbar-thumb{background:#aeb7c8;border-radius:8px}
 }
+
+
+/* Modelo 111: estado no obligada */
+.tax-table .not-required-cell{min-width:122px}
+.tax-table .not-required-cell label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#536078;white-space:nowrap;cursor:pointer}
+.tax-table .not-required-cell input[type="checkbox"]{width:18px;height:18px;min-width:18px;accent-color:var(--blue);cursor:pointer}
+.tax-table .not-required-row td{background:#f7f8fb}
+.tax-table .not-required-row td:not(.not-required-cell){opacity:.58}
+.tax-tabs button[hidden]{display:none}
