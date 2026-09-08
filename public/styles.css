@@ -287,3 +287,20 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   [data-registry-panel="bancos"] .registry-add-button{align-self:end;justify-self:stretch;width:40px;height:38px;padding:0;white-space:nowrap;font-size:20px;line-height:1}
   [data-registry-panel="bancos"] .registry-fields input,[data-registry-panel="bancos"] .registry-fields select{height:38px}
 }
+
+
+/* Iconos de documentos reconocibles por formato */
+.file-type-icon{--file-color:#596174;position:relative;flex:0 0 42px;width:42px;height:42px;border-radius:11px;background:#eef1f5;display:grid;place-items:center;overflow:hidden}
+.file-type-icon .file-sheet{position:absolute;left:10px;top:6px;width:23px;height:30px;border:1.5px solid var(--file-color);border-radius:3px;background:#fff;box-shadow:0 2px 5px rgba(24,35,64,.1)}
+.file-type-icon .file-sheet::after{content:"";position:absolute;right:-1.5px;top:-1.5px;width:8px;height:8px;background:linear-gradient(225deg,transparent 49%,var(--file-color) 50%,var(--file-color) 58%,#fff 59%);border-radius:0 2px 0 0}
+.file-type-icon b{position:relative;z-index:1;max-width:22px;margin-top:9px;overflow:hidden;color:var(--file-color);font-size:7.5px;line-height:1;font-weight:900;letter-spacing:-.02em;text-align:center}
+.file-type-icon.pdf{--file-color:#d93025;background:#fdeceb}
+.file-type-icon.word{--file-color:#185abd;background:#e7f0fd}
+.file-type-icon.excel{--file-color:#107c41;background:#e5f5ec}
+.file-type-icon.powerpoint{--file-color:#d24726;background:#fcebe6}
+.file-type-icon.image{--file-color:#7c3aed;background:#f0e9ff}
+.file-type-icon.certificate{--file-color:#087f8c;background:#e4f5f7}
+.file-type-icon.archive{--file-color:#b86700;background:#fff2dc}
+.file-type-icon.text{--file-color:#536277;background:#edf1f5}
+.file-type-icon.code{--file-color:#6653b5;background:#eeeafd}
+.file-type-icon.other{--file-color:#596174;background:#eef1f5}
