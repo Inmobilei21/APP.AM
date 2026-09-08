@@ -192,7 +192,8 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   #newClientForm .digital-signature-section>p{grid-column:1/-1}
   #newClientForm .digital-signature-document{grid-column:1}
   #newClientForm .digital-signature-section .signature-data{grid-column:2;margin-top:0;grid-template-columns:1fr}
-  #newClientForm .commercial-registry-section{grid-area:registry;margin:0}\n  #newClientForm .form-message{grid-area:message;margin:0}
+  #newClientForm .commercial-registry-section{grid-area:registry;margin:0}
+  #newClientForm .form-message{grid-area:message;margin:0}
   #newClientForm .modal-actions{grid-area:actions;margin-top:0}
   #newClientForm .internal-client-data,#newClientForm .fiscal-obligations,#newClientForm .courtesy-obligation,#newClientForm .digital-signature-section{padding:13px 14px}
   #newClientForm .internal-section-heading{margin-bottom:10px}
