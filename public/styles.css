@@ -136,3 +136,5 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   .sidebar nav button.active .nav-icon svg{stroke:currentColor}
   .sidebar nav .holded-nav.active .holded-mark img{filter:none!important;opacity:1}
 }
+
+.signature-status{display:inline-flex;align-items:center;justify-content:center;min-width:92px;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}.signature-status.valid{color:#087443;background:#dff5e9}.signature-status.imminent{color:#287a49;background:#effaf3;border:1px solid #ccebd8}.signature-status.urgent{color:#a54a00;background:#fff0dc}.signature-status.expired{color:#b42318;background:#fee7e5}.signature-status.no-date{color:#697386;background:#eef1f5}
