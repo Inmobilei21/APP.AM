@@ -605,17 +605,27 @@ async function renderAnnualClosings(){
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Cierres anuales</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="annual-closing-panel">
-      <div class="annual-closing-heading"><div><p class="eyebrow">CONTROL SOCIETARIO</p><h2>Cierres anuales</h2><p>Seguimiento por etapas de todas las personas jurídicas · ${year}</p></div><span class="annual-year">${year}</span></div>
-      <div class="annual-closing-deadlines">
-        <article><span>01</span><div><small>PLAZO DE FORMULACIÓN</small><strong>30 de septiembre de ${year}</strong></div></article>
-        <article><span>02</span><div><small>PLAZO DE APROBACIÓN</small><strong>30 de junio de ${year}</strong></div></article>
-        <article><span>03</span><div><small>PLAZO DE INSCRIPCIÓN</small><strong>31 de julio de ${year}</strong></div></article>
+      <div class="annual-closing-heading">
+        <div><p class="eyebrow">CONTROL SOCIETARIO</p><h2>Cierres anuales</h2><p>Seguimiento por etapas de todas las personas jurídicas.</p></div>
+        <div class="annual-heading-controls">
+          <div class="annual-closing-deadlines compact">
+            <article><div><small>FORMULACIÓN</small><strong>30 de septiembre</strong></div></article>
+            <article><div><small>APROBACIÓN</small><strong>30 de junio</strong></div></article>
+            <article><div><small>INSCRIPCIÓN</small><strong>31 de julio</strong></div></article>
+          </div>
+          <span class="annual-year">${year}</span>
+        </div>
       </div>
+      <div class="annual-closing-search"><div><strong>Buscar empresa</strong><small>Filtra por nombre del cliente o CIF.</small></div><label><span>⌕</span><input id="annualClosingSearch" type="search" autocomplete="off" placeholder="Buscar empresa o CIF…"></label></div>
       <div class="annual-closing-table-wrap"><table class="annual-closing-table"><thead><tr><th>Cliente</th>${annualClosingStages.map(stage=>`<th>${stage.label}</th>`).join("")}</tr></thead><tbody id="annualClosingRows"><tr><td colspan="4" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>
     <div class="modal-shell annual-closing-shell" id="annualClosingModal" aria-hidden="true"><div class="modal-backdrop" data-close-annual></div><section class="annual-closing-modal" role="dialog" aria-modal="true" aria-labelledby="annualClosingTitle"><div class="modal-heading"><div><p class="eyebrow">CIERRE ANUAL · ${year}</p><h2 id="annualClosingTitle">Ficha del cliente</h2></div><button class="modal-close" type="button" data-close-annual>×</button></div><div class="annual-stage-tabs" id="annualStageTabs"></div><div class="annual-stage-content" id="annualStageContent"></div><div class="modal-actions"><button type="button" class="secondary-button" data-close-annual>Cerrar</button></div></section></div>`;
   bindHeader();
   document.querySelectorAll("[data-close-annual]").forEach(button=>button.addEventListener("click",closeAnnualClosingModal));
+  document.querySelector("#annualClosingSearch").addEventListener("input",event=>{
+    const query=event.target.value.trim().toLocaleLowerCase("es");
+    document.querySelectorAll("#annualClosingRows [data-annual-client]").forEach(row=>{row.hidden=Boolean(query)&&!row.textContent.toLocaleLowerCase("es").includes(query)});
+  });
   try{
     const clients=(await getAllClientMetadata()).filter(client=>(client.personType||"juridica")==="juridica").sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
     const body=document.querySelector("#annualClosingRows");
