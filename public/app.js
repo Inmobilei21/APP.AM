@@ -578,7 +578,7 @@ function renderWorkers(){
 
 
 const annualClosingStages=[
-  {id:"accounting",label:"Cierre contable",tasks:["Aplicación del resultado anterior","Revisión de facturas emitidas al 100 %","Conciliación de bancos","Revisión de saldos pendientes","Periodificación de préstamos de largo a corto plazo","Dotación de amortización","Imputación de subvenciones","Revisión de facturas periódicas"]},
+  {id:"accounting",label:"Cierre contable",tasks:["Aplicación del resultado anterior","Revisión de facturas emitidas al 100 %","Conciliación de bancos","Revisión de saldos pendientes","Periodificación de préstamos de largo a corto plazo","Dotación de amortización","Imputación de subvenciones","Revisión de facturas periódicas","Tabla de amortización CCAA","Tabla de pagos en 5 años","Clasificación de A. Fros. y P. Fros. CCAA"]},
   {id:"review",label:"Revisión contable",tasks:[]},
   {id:"annual",label:"Cierre anual",tasks:["Formulación de cuentas","Legalización de libros","Presentación y depósito final"]}
 ];
