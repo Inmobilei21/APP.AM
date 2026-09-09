@@ -7,6 +7,8 @@ let folderHistory=[];
 let activeFolderConfig=null;
 let currentDirectoryHandle=null;
 let managementUnlocked=false;
+const FOLDER_VIEW_STORAGE_KEY="app-am-folder-view";
+let folderViewMode=localStorage.getItem(FOLDER_VIEW_STORAGE_KEY)==="list"?"list":"grid";
 const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIONES","ESCRITURAS","LIBROS OFICIALES","OTRA DOCUMENTACIÓN"];
 
 document.querySelector("#menu").addEventListener("click",openMenu);
@@ -1466,7 +1468,7 @@ function renderFolderView(name){
     <section class="folder-panel">
       <div class="folder-toolbar">
         <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
-        <div class="folder-actions"><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button></div>
+        <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button></div>
       </div>
       <div class="folder-grid" id="folderGrid">
         <div class="empty folder-empty"><span>▤</span><h4>Carpeta aún no conectada</h4><p>Pulsa “${config.button}” y selecciona ${config.path}.</p></div>
@@ -1477,7 +1479,16 @@ function renderFolderView(name){
   document.querySelector("#clientSearch").addEventListener("input",filterFolders);
   document.querySelector("#folderBack").addEventListener("click",goBackFolder);
   document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
+  document.querySelectorAll("[data-folder-view]").forEach(button=>button.addEventListener("click",()=>setFolderViewMode(button.dataset.folderView)));
+  setFolderViewMode(folderViewMode,false);
   restoreFolder(config);
+}
+
+function setFolderViewMode(mode,persist=true){
+  folderViewMode=mode==="list"?"list":"grid";
+  if(persist)localStorage.setItem(FOLDER_VIEW_STORAGE_KEY,folderViewMode);
+  document.querySelector("#folderGrid")?.classList.toggle("list-view",folderViewMode==="list");
+  document.querySelectorAll("[data-folder-view]").forEach(button=>{const active=button.dataset.folderView===folderViewMode;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active))});
 }
 
 async function connectFolder(config){
