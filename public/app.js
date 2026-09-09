@@ -47,6 +47,26 @@ function openProtectedManagement(){
   renderManagement();
 }
 
+function openPasswordDialog({id,eyebrow,title,copy,icon,onSuccess}){
+  document.querySelector(`#${id}`)?.remove();
+  const shell=document.createElement("div");shell.id=id;shell.className="access-shell";
+  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true" aria-labelledby="${id}Title"><button class="access-close" type="button" aria-label="Cerrar">×</button><div class="access-icon">${icon}</div><p class="eyebrow">${eyebrow}</p><h2 id="${id}Title">${title}</h2><p class="access-copy">${copy}</p><form><label>Contraseña</label><div class="access-input"><span>●</span><input type="password" autocomplete="current-password" required></div><p class="access-error" role="alert"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
+  document.body.appendChild(shell);
+  const input=shell.querySelector("input"),error=shell.querySelector(".access-error"),submit=shell.querySelector('button[type="submit"]');
+  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
+  shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
+  shell.querySelector("form").addEventListener("submit",async event=>{
+    event.preventDefault();error.textContent="";submit.disabled=true;submit.textContent="Comprobando…";
+    try{
+      const response=await fetch("/api/verify-record-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:input.value})});
+      if(response.ok){close();setTimeout(onSuccess,180);return}
+      const result=await response.json().catch(()=>({}));error.textContent=result.error||"La contraseña no es correcta.";input.select();
+    }catch{error.textContent="No se pudo comprobar la contraseña."}
+    finally{submit.disabled=false;submit.textContent="Desbloquear"}
+  });
+  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>input.focus(),250);
+}
+
 function renderManagement(){
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Gestión</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
@@ -389,9 +409,19 @@ async function homeClientCount(){
 async function homeContactCount(){
   try{return(await getAllClientMetadata()).reduce((total,client)=>total+contactLines(client.phones).length,0)}catch{return 0}
 }
+let homeNewsArticles=[];
+let activeHomeNewsTopic="Todas";
+const homeNewsFallbackImages={AEAT:"https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=75",IVA:"https://images.unsplash.com/photo-1554224154-26032ffc0d07?auto=format&fit=crop&w=900&q=75",IRPF:"https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=900&q=75","Contabilidad e ICAC":"https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=900&q=75","Normativa fiscal":"https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=900&q=75"};
 function homeNewsMarkup(article){
   const date=article.date?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short"}).format(new Date(article.date)):"Hoy";
-  return `<a class="news-card" href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer"><div class="news-card-meta"><span>${escapeHtml(article.source||"Actualidad")}</span><time>${escapeHtml(date)}</time></div><h4>${escapeHtml(article.title)}</h4><p>${escapeHtml(article.topic||"Fiscal y contable")}</p><b>Leer noticia <span>↗</span></b></a>`;
+  const image=article.image||homeNewsFallbackImages[article.topic]||homeNewsFallbackImages["Normativa fiscal"];
+  const mailto=`mailto:?subject=${encodeURIComponent(article.title)}&body=${encodeURIComponent(`${article.title}\n\n${article.link}`)}`;
+  return `<article class="news-card"><a class="news-card-image" href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(image)}" alt="" loading="lazy"></a><div class="news-card-body"><div class="news-card-meta"><span>${escapeHtml(article.source||"Actualidad")}</span><time>${escapeHtml(date)}</time></div><h4>${escapeHtml(article.title)}</h4><p>${escapeHtml(article.topic||"Fiscal y contable")}</p><div class="news-card-actions"><a href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer">Leer noticia <span>↗</span></a><a href="${escapeHtml(mailto)}" class="news-email-share" title="Compartir por correo">✉ Correo</a></div></div></article>`;
+}
+function renderFilteredHomeNews(){
+  const container=document.querySelector("#homeNews");if(!container)return;
+  const articles=activeHomeNewsTopic==="Todas"?homeNewsArticles:homeNewsArticles.filter(article=>article.topic===activeHomeNewsTopic);
+  container.innerHTML=articles.length?articles.map(homeNewsMarkup).join(""):'<div class="news-empty"><strong>No hay noticias en esta categoría</strong><p>Prueba con otro filtro.</p></div>';
 }
 async function loadHomeNews(force=false){
   const container=document.querySelector("#homeNews"),button=document.querySelector("#refreshHomeNews");if(!container)return;
@@ -399,8 +429,7 @@ async function loadHomeNews(force=false){
   container.innerHTML='<div class="news-loading"><span></span><strong>Buscando las últimas noticias…</strong></div>';
   try{
     const response=await fetch(`/api/news${force?"?refresh=1":""}`);if(!response.ok)throw new Error();
-    const articles=await response.json();
-    container.innerHTML=articles.length?articles.map(homeNewsMarkup).join(""):'<div class="news-empty"><strong>No hay noticias nuevas</strong><p>Vuelve a actualizar dentro de unos minutos.</p></div>';
+    homeNewsArticles=await response.json();renderFilteredHomeNews();
   }catch{container.innerHTML='<div class="news-empty"><strong>No se pudieron cargar las noticias</strong><p>Comprueba la conexión y pulsa Actualizar.</p></div>'}
   finally{if(button){button.disabled=false;button.classList.remove("loading")}}
 }
@@ -413,6 +442,7 @@ async function initHome(){
   tasks.textContent=String(getTasks().filter(task=>task.status!=="done").length);workersCount.textContent=String(workers.length);
   document.querySelector("#homeNewTask")?.addEventListener("click",()=>{document.querySelector('nav button[data-title="Tareas"]')?.click();setTimeout(()=>document.querySelector("#openTaskModal")?.click(),0)});
   document.querySelector("#refreshHomeNews")?.addEventListener("click",()=>loadHomeNews(true));
+  document.querySelectorAll("[data-news-topic]").forEach(button=>button.addEventListener("click",()=>{activeHomeNewsTopic=button.dataset.newsTopic;document.querySelector("[data-news-topic].active")?.classList.remove("active");button.classList.add("active");renderFilteredHomeNews()}));
   loadHomeNews();
 }
 function updateTaskNavAlert(){
@@ -952,9 +982,10 @@ function applyAnnualRecordLock(clientId){
   document.querySelector("#unlockAnnualRecord")?.addEventListener("click",()=>openAnnualRecordUnlock(clientId));
 }
 function openAnnualRecordUnlock(clientId){
-  annualClosingUnlocks.add(clientId);
-  const active=document.querySelector("[data-annual-stage].active")?.dataset.annualStage||"accounting";
-  renderAnnualClosingStage(active);updateAnnualClosingTableRow(clientId,annualClosingState(clientId));
+  openPasswordDialog({
+    id:"annualRecordAccess",eyebrow:"FICHA PRESENTADA",title:"Desbloquear edición",copy:"Introduce la contraseña para modificar este cierre anual.",icon:"🔒",
+    onSuccess:()=>{annualClosingUnlocks.add(clientId);const active=document.querySelector("[data-annual-stage].active")?.dataset.annualStage||"accounting";renderAnnualClosingStage(active);updateAnnualClosingTableRow(clientId,annualClosingState(clientId))}
+  });
 }
 function updateAnnualClosingTableRow(clientId,state){
   const row=[...document.querySelectorAll("[data-annual-client]")].find(item=>item.dataset.annualClient===clientId);if(!row)return;
@@ -1344,7 +1375,10 @@ function renderTaxLock(state,model,period,type){
   document.querySelector("#unlockTax")?.addEventListener("click",()=>openTaxUnlock(model,period,type));
 }
 function openTaxUnlock(model,period,type){
-  taxUnlocks.add(model+"-"+type+"-"+period);loadTaxModel(model);
+  openPasswordDialog({
+    id:"taxAccess",eyebrow:"PERIODO CERRADO",title:"Desbloquear periodo",copy:"Introduce la contraseña para modificar este periodo fiscal.",icon:"✓",
+    onSuccess:()=>{taxUnlocks.add(model+"-"+type+"-"+period);loadTaxModel(model)}
+  });
 }
 function saveDeclarationRow(event){
   const row=event.target.closest("tr"),data={};
@@ -1426,7 +1460,10 @@ function renderHistoryLock(unlocked,model){
   document.querySelector("#unlockHistory").addEventListener("click",()=>openHistoryUnlock(model));
 }
 function openHistoryUnlock(model){
-  historyUnlocks.add(activeHistoryYear+"-"+activeHistoryType+"-"+activeHistoryQuarter+"-"+model);loadHistoricalModel(model);
+  openPasswordDialog({
+    id:"historyAccess",eyebrow:"HISTÓRICO PROTEGIDO",title:"Desbloquear histórico",copy:"Introduce la contraseña para modificar este ejercicio y periodo.",icon:"◷",
+    onSuccess:()=>{historyUnlocks.add(activeHistoryYear+"-"+activeHistoryType+"-"+activeHistoryQuarter+"-"+model);loadHistoricalModel(model)}
+  });
 }
 function saveHistoricalRow(event){
   const row=event.target.closest("tr"),data={};
