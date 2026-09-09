@@ -579,7 +579,7 @@ function renderWorkers(){
 
 const annualClosingStages=[
   {id:"accounting",label:"Cierre contable",tasks:["Aplicación del resultado anterior","Revisión de facturas emitidas al 100 %","Conciliación de bancos","Revisión de saldos pendientes","Periodificación de préstamos de largo a corto plazo","Dotación de amortización","Imputación de subvenciones","Revisión de facturas periódicas"]},
-  {id:"review",label:"Revisión contable",tasks:["Balance y cuenta de resultados revisados","Impuestos y cuentas vinculadas comprobados","Documentación final validada"]},
+  {id:"review",label:"Revisión contable",tasks:[]},
   {id:"annual",label:"Cierre anual",tasks:["Formulación de cuentas","Legalización de libros","Presentación y depósito final"]}
 ];
 function annualClosingKey(clientId,year=new Date().getFullYear()){return `app-am-annual-closing-${year}-${clientId}`}
@@ -588,12 +588,21 @@ function annualClosingState(clientId){
     const stored=JSON.parse(localStorage.getItem(annualClosingKey(clientId))||"{}");
     const state={};
     annualClosingStages.forEach(stage=>state[stage.id]=stage.tasks.map((_,index)=>Boolean(stored[stage.id]?.[index])));
+    state.reviewCorrections=Array.isArray(stored.reviewCorrections)?stored.reviewCorrections.map(item=>({id:item.id||Date.now()+Math.random(),title:String(item.title||""),comment:String(item.comment||""),done:Boolean(item.done)})):[];
+    state.reviewNoCorrections=Boolean(stored.reviewNoCorrections);
     return state;
   }catch{
-    return Object.fromEntries(annualClosingStages.map(stage=>[stage.id,stage.tasks.map(()=>false)]));
+    const state=Object.fromEntries(annualClosingStages.map(stage=>[stage.id,stage.tasks.map(()=>false)]));
+    state.reviewCorrections=[];state.reviewNoCorrections=false;return state;
   }
 }
+function saveAnnualClosingState(clientId,state){localStorage.setItem(annualClosingKey(clientId),JSON.stringify(state))}
 function annualStageProgress(state,stage){
+  if(stage.id==="review"){
+    const corrections=state.reviewCorrections||[];
+    if(corrections.length)return Math.round(corrections.filter(item=>item.done).length/corrections.length*100);
+    return state.reviewNoCorrections?100:0;
+  }
   const values=state[stage.id]||[];
   return values.length?Math.round(values.filter(Boolean).length/values.length*100):0;
 }
@@ -670,15 +679,58 @@ function renderAnnualClosingStage(stageId){
   }).join("");
   document.querySelectorAll("[data-annual-stage]").forEach(button=>button.addEventListener("click",()=>renderAnnualClosingStage(button.dataset.annualStage)));
   const stage=annualClosingStages.find(item=>item.id===stageId),progress=annualStageProgress(state,stage);
+  if(stage.id==="review"){renderAnnualReviewContent(clientId,state,stage,progress);return}
   document.querySelector("#annualStageContent").innerHTML=`
     <div class="annual-stage-summary"><div><small>PROGRESO DE LA ETAPA</small><h3>${stage.label}</h3></div>${annualProgressMarkup(progress)}</div>
     <div class="annual-checklist">${stage.tasks.map((task,index)=>`<label><input type="checkbox" data-annual-check="${index}" ${state[stage.id][index]?"checked":""}><span><strong>${escapeHtml(task)}</strong><small>${state[stage.id][index]?"Completado":"Pendiente"}</small></span></label>`).join("")}</div>`;
   document.querySelectorAll("[data-annual-check]").forEach(check=>check.addEventListener("change",()=>{
     const updated=annualClosingState(clientId);
     updated[stage.id][Number(check.dataset.annualCheck)]=check.checked;
-    localStorage.setItem(annualClosingKey(clientId),JSON.stringify(updated));
+    saveAnnualClosingState(clientId,updated);
     updateAnnualClosingTableRow(clientId,updated);
     renderAnnualClosingStage(stage.id);
+  }));
+}
+function renderAnnualReviewContent(clientId,state,stage,progress){
+  const corrections=state.reviewCorrections||[];
+  document.querySelector("#annualStageContent").innerHTML=`
+    <div class="annual-stage-summary"><div><small>PROGRESO DE LA ETAPA</small><h3>${stage.label}</h3></div>${annualProgressMarkup(progress)}</div>
+    <div class="review-corrections-toolbar"><div><strong>Correcciones de la revisión</strong><small>El revisor puede indicar los ajustes que debe solucionar el compañero.</small></div><button type="button" id="addReviewCorrection">＋ Añadir corrección</button></div>
+    <form class="review-correction-form" id="reviewCorrectionForm" hidden>
+      <label>Encabezado<input id="reviewCorrectionTitle" type="text" maxlength="100" placeholder="Ej. Revisar saldo del proveedor" required></label>
+      <label>Explicación<textarea id="reviewCorrectionComment" rows="4" maxlength="800" placeholder="Explica qué debe corregirse y cualquier indicación útil…" required></textarea></label>
+      <div><button type="button" class="secondary-button" id="cancelReviewCorrection">Cancelar</button><button type="submit" class="primary blue-button">Guardar corrección</button></div>
+    </form>
+    <div class="review-corrections-list">${corrections.length?corrections.map(item=>`
+      <article class="review-correction ${item.done?"resolved":""}">
+        <label><input type="checkbox" data-review-correction="${escapeHtml(String(item.id))}" ${item.done?"checked":""}><span><strong>${escapeHtml(item.title)}</strong><small>${item.done?"Solucionada":"Pendiente de solucionar"}</small></span></label>
+        <p>${escapeHtml(item.comment)}</p>
+        <button type="button" data-remove-review-correction="${escapeHtml(String(item.id))}" aria-label="Eliminar corrección" title="Eliminar corrección">×</button>
+      </article>`).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;
+  const form=document.querySelector("#reviewCorrectionForm");
+  document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.hidden=false;document.querySelector("#reviewCorrectionTitle").focus()});
+  document.querySelector("#cancelReviewCorrection").addEventListener("click",()=>{form.reset();form.hidden=true});
+  form.addEventListener("submit",event=>{
+    event.preventDefault();
+    const title=document.querySelector("#reviewCorrectionTitle").value.trim(),comment=document.querySelector("#reviewCorrectionComment").value.trim();
+    if(!title||!comment)return;
+    const updated=annualClosingState(clientId);
+    updated.reviewNoCorrections=false;
+    updated.reviewCorrections.push({id:Date.now(),title,comment,done:false});
+    saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
+  });
+  document.querySelector("#reviewWithoutCorrections")?.addEventListener("change",event=>{
+    const updated=annualClosingState(clientId);updated.reviewNoCorrections=event.target.checked;
+    saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
+  });
+  document.querySelectorAll("[data-review-correction]").forEach(check=>check.addEventListener("change",()=>{
+    const updated=annualClosingState(clientId),item=updated.reviewCorrections.find(entry=>String(entry.id)===check.dataset.reviewCorrection);
+    if(item)item.done=check.checked;
+    saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
+  }));
+  document.querySelectorAll("[data-remove-review-correction]").forEach(button=>button.addEventListener("click",()=>{
+    const updated=annualClosingState(clientId);updated.reviewCorrections=updated.reviewCorrections.filter(item=>String(item.id)!==button.dataset.removeReviewCorrection);
+    saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
   }));
 }
 function updateAnnualClosingTableRow(clientId,state){
