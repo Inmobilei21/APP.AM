@@ -452,3 +452,12 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   .review-correction-form>div{flex-direction:column-reverse}
   .review-correction-form>div button{width:100%}
 }
+
+
+/* Avisos de correcciones pendientes en cierres anuales */
+.annual-closing-table td[data-annual-progress="review"]{position:relative;padding-right:54px}
+.annual-review-alert{position:absolute;right:15px;top:50%;width:30px;height:30px;transform:translateY(-50%);display:grid;place-items:center;color:#e27a12}
+.annual-review-alert>span{font-size:25px;line-height:1;filter:drop-shadow(0 2px 3px rgba(182,91,0,.16))}
+.annual-review-alert>b{position:absolute;right:-5px;top:-7px;min-width:19px;height:19px;padding:0 5px;border:2px solid #fff;border-radius:999px;background:#d92d20;color:#fff;display:grid;place-items:center;font-size:9px;font-weight:900;box-shadow:0 3px 8px rgba(180,35,24,.28)}
+.annual-client-row:has(.annual-review-alert){background:#fffaf4}
+.annual-client-row:has(.annual-review-alert):hover{background:#fff5e8}
