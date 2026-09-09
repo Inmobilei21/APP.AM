@@ -599,6 +599,13 @@ const annualClosingStages=[
   {id:"review",label:"Revisión contable",tasks:[]},
   {id:"annual",label:"Cierre anual",tasks:["Formulación de cuentas","Legalización de libros","Presentación y depósito final"]}
 ];
+const annualClosingDocuments=[
+  {id:"submissionReceipt",label:"Acuse presentación"},
+  {id:"submissionEntry",label:"Asiento presentación"},
+  {id:"minutes",label:"Actas"},
+  {id:"invoice",label:"Factura"},
+  {id:"depositProofs",label:"Justificaciones depósito"}
+];
 function annualClosingKey(clientId,year=new Date().getFullYear()){return `app-am-annual-closing-${year}-${clientId}`}
 function annualClosingState(clientId){
   try{
@@ -607,11 +614,11 @@ function annualClosingState(clientId){
     annualClosingStages.forEach(stage=>state[stage.id]=stage.tasks.map((_,index)=>Boolean(stored[stage.id]?.[index])));
     state.reviewCorrections=Array.isArray(stored.reviewCorrections)?stored.reviewCorrections.map(item=>({id:item.id||Date.now()+Math.random(),title:String(item.title||""),comment:String(item.comment||""),done:Boolean(item.done)})):[];
     state.reviewNoCorrections=Boolean(stored.reviewNoCorrections);
-    state.presented=Boolean(stored.presented);state.presentedDate=String(stored.presentedDate||"");
+    state.presented=Boolean(stored.presented);state.presentedDate=String(stored.presentedDate||"");state.documents=Object.fromEntries(annualClosingDocuments.map(document=>[document.id,Boolean(stored.documents?.[document.id])]));
     return state;
   }catch{
     const state=Object.fromEntries(annualClosingStages.map(stage=>[stage.id,stage.tasks.map(()=>false)]));
-    state.reviewCorrections=[];state.reviewNoCorrections=false;state.presented=false;state.presentedDate="";return state;
+    state.reviewCorrections=[];state.reviewNoCorrections=false;state.presented=false;state.presentedDate="";state.documents=Object.fromEntries(annualClosingDocuments.map(document=>[document.id,false]));return state;
   }
 }
 function saveAnnualClosingState(clientId,state){localStorage.setItem(annualClosingKey(clientId),JSON.stringify(state))}
@@ -645,7 +652,7 @@ async function renderAnnualClosings(){
         </div>
       </div>
       <div class="annual-closing-search"><div><strong>Buscar empresa</strong><small>Filtra por nombre del cliente o CIF.</small></div><label><span>⌕</span><input id="annualClosingSearch" type="search" autocomplete="off" placeholder="Buscar empresa o CIF…"></label></div>
-      <div class="annual-closing-table-wrap"><table class="annual-closing-table"><thead><tr><th>Cliente</th>${annualClosingStages.map(stage=>`<th>${stage.label}</th>`).join("")}<th>Presentado</th></tr></thead><tbody id="annualClosingRows"><tr><td colspan="5" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
+      <div class="annual-closing-table-wrap"><table class="annual-closing-table"><thead><tr><th>Cliente</th>${annualClosingStages.map(stage=>`<th>${stage.label}</th>`).join("")}<th>Presentado</th>${annualClosingDocuments.map(document=>`<th>${document.label}</th>`).join("")}</tr></thead><tbody id="annualClosingRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>
     <div class="modal-shell annual-closing-shell" id="annualClosingModal" aria-hidden="true"><div class="modal-backdrop" data-close-annual></div><section class="annual-closing-modal" role="dialog" aria-modal="true" aria-labelledby="annualClosingTitle"><div class="modal-heading"><div><p class="eyebrow">CIERRE ANUAL · ${year}</p><h2 id="annualClosingTitle">Ficha del cliente</h2></div><button class="modal-close" type="button" data-close-annual>×</button></div><div class="annual-stage-tabs" id="annualStageTabs"></div><div class="annual-record-lock" id="annualRecordLock" hidden></div><div class="annual-stage-content" id="annualStageContent"></div><div class="modal-actions"><button type="button" class="secondary-button" data-close-annual>Cerrar</button></div></section></div>`;
   bindHeader();
@@ -663,17 +670,18 @@ async function renderAnnualClosings(){
     body.innerHTML=clients.length?clients.map(client=>{
       const state=annualClosingState(client.id||client.name);
       const pending=annualPendingCorrections(state);
-      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}" data-pending-corrections="${pending}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}${stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span class="annual-review-alert-icon"><svg viewBox="0 0 32 30" aria-hidden="true"><path fill="#d92d20" d="M12.8 4.2c1.4-2.5 5-2.5 6.4 0l11.9 20.5c1.4 2.4-.4 5.3-3.1 5.3H4c-2.7 0-4.5-2.9-3.1-5.3L12.8 4.2Z"/><path fill="#ffffff" d="M14.45 9.7h3.1l-.5 10.4h-2.1l-.5-10.4ZM16 25.4a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"/></svg></span><b>${pending}</b></span>`:""}</td>`).join("")}<td data-annual-submission>${annualSubmissionMarkup(state,client.id||client.name)}</td></tr>`;
-    }).join(""):'<tr><td colspan="4" class="table-empty">No hay personas jurídicas registradas.</td></tr>';
+      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}" data-pending-corrections="${pending}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}${stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span class="annual-review-alert-icon"><svg viewBox="0 0 32 30" aria-hidden="true"><path fill="#d92d20" d="M12.8 4.2c1.4-2.5 5-2.5 6.4 0l11.9 20.5c1.4 2.4-.4 5.3-3.1 5.3H4c-2.7 0-4.5-2.9-3.1-5.3L12.8 4.2Z"/><path fill="#ffffff" d="M14.45 9.7h3.1l-.5 10.4h-2.1l-.5-10.4ZM16 25.4a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"/></svg></span><b>${pending}</b></span>`:""}</td>`).join("")}<td data-annual-submission>${annualSubmissionMarkup(state,client.id||client.name)}</td>${annualClosingDocuments.map(document=>`<td data-annual-document-cell="${document.id}">${annualDocumentMarkup(state,document)}</td>`).join("")}</tr>`;
+    }).join(""):'<tr><td colspan="10" class="table-empty">No hay personas jurídicas registradas.</td></tr>';
     body.querySelectorAll("[data-annual-client]").forEach(row=>{
       const client=clients.find(item=>(item.id||item.name)===row.dataset.annualClient);
       bindAnnualSubmissionControls(row,client.id||client.name);
+      bindAnnualDocumentControls(row,client.id||client.name);
       const open=()=>openAnnualClosingModal(client);
       row.addEventListener("click",open);
       row.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();open()}});
     });
   }catch{
-    document.querySelector("#annualClosingRows").innerHTML='<tr><td colspan="5" class="table-empty">No se pudieron cargar los clientes.</td></tr>';
+    document.querySelector("#annualClosingRows").innerHTML='<tr><td colspan="10" class="table-empty">No se pudieron cargar los clientes.</td></tr>';
   }
 }
 function annualSubmissionMarkup(state,clientId){
@@ -693,6 +701,18 @@ function bindAnnualSubmissionControls(row,clientId){
     saveAnnualClosingState(clientId,state);updateAnnualClosingTableRow(clientId,state);
   };
   check?.addEventListener("change",save);date?.addEventListener("change",save);
+}
+function annualDocumentMarkup(state,document){
+  const checked=Boolean(state.documents?.[document.id]);
+  return `<label class="annual-document-check ${checked?"complete":""}" title="${checked?"Completado":"Pendiente"}"><input type="checkbox" data-annual-document="${document.id}" ${checked?"checked":""}><span aria-hidden="true">${checked?"✓":""}</span><small>${checked?"Hecho":"Pendiente"}</small></label>`;
+}
+function bindAnnualDocumentControls(row,clientId){
+  row.querySelectorAll("[data-annual-document]").forEach(control=>{
+    control.addEventListener("click",event=>event.stopPropagation());
+    control.addEventListener("change",()=>{
+      const state=annualClosingState(clientId);state.documents[control.dataset.annualDocument]=control.checked;saveAnnualClosingState(clientId,state);updateAnnualClosingTableRow(clientId,state);
+    });
+  });
 }
 function closeAnnualClosingModal(){
   const modal=document.querySelector("#annualClosingModal");if(!modal)return;
@@ -803,6 +823,11 @@ function updateAnnualClosingTableRow(clientId,state){
     cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))+(stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span class="annual-review-alert-icon"><svg viewBox="0 0 32 30" aria-hidden="true"><path fill="#d92d20" d="M12.8 4.2c1.4-2.5 5-2.5 6.4 0l11.9 20.5c1.4 2.4-.4 5.3-3.1 5.3H4c-2.7 0-4.5-2.9-3.1-5.3L12.8 4.2Z"/><path fill="#ffffff" d="M14.45 9.7h3.1l-.5 10.4h-2.1l-.5-10.4ZM16 25.4a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"/></svg></span><b>${pending}</b></span>`:"");
   });
   const submission=row.querySelector("[data-annual-submission]");if(submission){submission.innerHTML=annualSubmissionMarkup(state,clientId);bindAnnualSubmissionControls(row,clientId)}
+  annualClosingDocuments.forEach(document=>{
+    const cell=row.querySelector(`[data-annual-document-cell="${document.id}"]`);
+    if(cell)cell.innerHTML=annualDocumentMarkup(state,document);
+  });
+  bindAnnualDocumentControls(row,clientId);
   reorderAnnualClosingRows();
 }
 function reorderAnnualClosingRows(){

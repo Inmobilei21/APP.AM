@@ -464,9 +464,10 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 
 
 /* Presentación y bloqueo de fichas de cierres anuales */
-.annual-closing-table{min-width:1120px}
-.annual-closing-table th:first-child{width:25%}
-.annual-closing-table th:last-child{width:190px}
+.annual-closing-table{min-width:1850px}
+.annual-closing-table th:first-child{width:250px}
+.annual-closing-table th:nth-child(5){width:190px}
+.annual-closing-table th:nth-child(n+6){width:155px;text-align:center}
 .annual-submission{display:grid;gap:8px;min-width:155px}
 .annual-submission label{display:flex;align-items:center;gap:7px;color:#536078;font-size:11px;font-weight:800;cursor:pointer}
 .annual-submission label input{width:17px;height:17px;accent-color:var(--blue)}
@@ -487,6 +488,15 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 
 .annual-submission.waiting{opacity:.55}
 .annual-submission.waiting label,.annual-submission.waiting input{cursor:not-allowed}
+.annual-closing-table td[data-annual-document-cell]{text-align:center}
+.annual-document-check{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:112px;padding:7px 9px;border:1px solid #dfe4ed;border-radius:10px;background:#f8f9fc;color:#697386;cursor:pointer;transition:.18s ease}
+.annual-document-check:hover{border-color:#aeb8ca;background:#fff}
+.annual-document-check input{position:absolute;opacity:0}
+.annual-document-check span{width:22px;height:22px;flex:0 0 22px;border:1.5px solid #c8cfdb;border-radius:7px;background:#fff;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:900}
+.annual-document-check small{font-size:10px;font-weight:800}
+.annual-document-check.complete{border-color:#bfe5d0;background:#f2fbf6;color:#087443}
+.annual-document-check.complete span{border-color:#159455;background:#159455}
+.annual-document-check:focus-within{outline:3px solid rgba(35,54,184,.12);border-color:#7283e8}
 
 
 /* Periodicidad, días de cortesía y marco financiero */
