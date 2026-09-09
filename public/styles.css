@@ -484,3 +484,6 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 .annual-stage-content.locked{background:#f6f7f9}
 .annual-stage-content.locked input,.annual-stage-content.locked textarea,.annual-stage-content.locked button{cursor:not-allowed}
 @media(max-width:600px){.annual-record-lock{align-items:flex-start;flex-wrap:wrap}.annual-record-lock>button{width:100%}}
+
+.annual-submission.waiting{opacity:.55}
+.annual-submission.waiting label,.annual-submission.waiting input{cursor:not-allowed}
