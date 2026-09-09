@@ -578,7 +578,7 @@ function renderWorkers(){
 
 
 const annualClosingStages=[
-  {id:"accounting",label:"Cierre contable",tasks:["Conciliación y saldos revisados","Amortizaciones y periodificaciones","Asiento de regularización y cierre"]},
+  {id:"accounting",label:"Cierre contable",tasks:["Aplicación del resultado anterior","Revisión de facturas emitidas al 100 %","Conciliación de bancos","Revisión de saldos pendientes","Periodificación de préstamos de largo a corto plazo","Dotación de amortización","Imputación de subvenciones","Revisión de facturas periódicas"]},
   {id:"review",label:"Revisión contable",tasks:["Balance y cuenta de resultados revisados","Impuestos y cuentas vinculadas comprobados","Documentación final validada"]},
   {id:"annual",label:"Cierre anual",tasks:["Formulación de cuentas","Legalización de libros","Presentación y depósito final"]}
 ];
