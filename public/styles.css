@@ -464,10 +464,9 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 
 
 /* Presentación y bloqueo de fichas de cierres anuales */
-.annual-closing-table{min-width:1850px}
-.annual-closing-table th:first-child{width:250px}
-.annual-closing-table th:nth-child(5){width:190px}
-.annual-closing-table th:nth-child(n+6){width:155px;text-align:center}
+.annual-closing-table{min-width:1120px}
+.annual-closing-table th:first-child{width:25%}
+.annual-closing-table th:last-child{width:190px}
 .annual-submission{display:grid;gap:8px;min-width:155px}
 .annual-submission label{display:flex;align-items:center;gap:7px;color:#536078;font-size:11px;font-weight:800;cursor:pointer}
 .annual-submission label input{width:17px;height:17px;accent-color:var(--blue)}
@@ -488,15 +487,26 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 
 .annual-submission.waiting{opacity:.55}
 .annual-submission.waiting label,.annual-submission.waiting input{cursor:not-allowed}
-.annual-closing-table td[data-annual-document-cell]{text-align:center}
-.annual-document-check{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:112px;padding:7px 9px;border:1px solid #dfe4ed;border-radius:10px;background:#f8f9fc;color:#697386;cursor:pointer;transition:.18s ease}
-.annual-document-check:hover{border-color:#aeb8ca;background:#fff}
-.annual-document-check input{position:absolute;opacity:0}
-.annual-document-check span{width:22px;height:22px;flex:0 0 22px;border:1.5px solid #c8cfdb;border-radius:7px;background:#fff;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:900}
-.annual-document-check small{font-size:10px;font-weight:800}
-.annual-document-check.complete{border-color:#bfe5d0;background:#f2fbf6;color:#087443}
-.annual-document-check.complete span{border-color:#159455;background:#159455}
-.annual-document-check:focus-within{outline:3px solid rgba(35,54,184,.12);border-color:#7283e8}
+.annual-closing-modal{width:min(980px,calc(100vw - 32px))}
+.annual-folder-source{margin:15px 0}
+.annual-files-list{display:grid;gap:10px}
+.annual-files-loading{padding:24px;border:1px dashed #d9dfeb;border-radius:13px;background:#fff;color:var(--muted);text-align:center;font-size:12px}
+.annual-file-row{display:grid;grid-template-columns:minmax(210px,1fr) minmax(170px,.7fr) 130px;align-items:center;gap:14px;padding:13px 14px;border:1px solid #e1e5ee;border-left:4px solid #d5dae4;border-radius:13px;background:#fff}
+.annual-file-row.complete{border-left-color:#159455;background:#fbfefc}
+.annual-file-concept{min-width:0;display:flex;align-items:center;gap:11px}
+.annual-file-concept>span{width:28px;height:28px;flex:0 0 28px;border:1.5px solid #cbd2de;border-radius:9px;background:#f7f8fa;color:#fff;display:grid;place-items:center;font-size:13px;font-weight:900}
+.annual-file-row.complete .annual-file-concept>span{border-color:#159455;background:#159455}
+.annual-file-concept>div{min-width:0}
+.annual-file-concept strong,.annual-file-concept small{display:block}
+.annual-file-concept strong{font-size:13px}
+.annual-file-concept small{margin-top:4px;color:#7a8497;font-size:10px}
+.annual-file-row.complete .annual-file-concept small{color:#087443}
+.annual-file-date{padding:8px 10px;border:1px solid #d8def2;border-radius:11px;background:#f4f6ff;display:grid;grid-template-columns:1fr;gap:5px;color:#344480;font-size:10px;font-weight:850}
+.annual-file-date input{width:100%;height:34px;border:1px solid #d8deeb;border-radius:8px;background:#fff;padding:0 8px;color:var(--ink);font:inherit;font-size:11px}
+.annual-file-signed{justify-self:start;display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #d8deeb;border-radius:10px;background:#f8f9fc;color:#536078;font-size:11px;font-weight:800;cursor:pointer}
+.annual-file-signed input{width:18px;height:18px;accent-color:var(--blue)}
+.annual-file-document{grid-column:3;justify-self:end}
+@media(max-width:760px){.annual-file-row{grid-template-columns:1fr}.annual-file-date,.annual-file-signed,.annual-file-document{width:100%;justify-self:stretch}.annual-file-document{grid-column:1}.annual-file-document .declaration-document-actions{width:100%}.annual-file-document .declaration-document-actions a:first-child{flex:1;justify-content:center}}
 
 
 /* Periodicidad, días de cortesía y marco financiero */

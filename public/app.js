@@ -594,31 +594,32 @@ function renderWorkers(){
 
 
 const annualClosingUnlocks=new Set();
+const annualClosingFiles=[
+  {id:"formulationMinutes",label:"Acta formulación",aliases:["ACTA FORMULACION","ACTAS FORMULACION"]},
+  {id:"submissionReceipt",label:"Acuse presentación",aliases:["ACUSE PRESENTACION","ACUSES PRESENTACION"]},
+  {id:"submissionEntry",label:"Asiento presentación",aliases:["ASIENTO PRESENTACION","ASIENTOS PRESENTACION"]},
+  {id:"certifications",label:"Certificaciones",aliases:["CERTIFICACION","CERTIFICACIONES"]},
+  {id:"invoices",label:"Facturas",aliases:["FACTURA","FACTURAS"]},
+  {id:"proofs",label:"Justificantes",aliases:["JUSTIFICANTE","JUSTIFICANTES"]}
+];
 const annualClosingStages=[
   {id:"accounting",label:"Cierre contable",tasks:["Aplicación del resultado anterior","Revisión de facturas emitidas al 100 %","Conciliación de bancos","Revisión de saldos pendientes","Periodificación de préstamos de largo a corto plazo","Dotación de amortización","Imputación de subvenciones","Revisión de facturas periódicas","Tabla de amortización CCAA","Tabla de pagos en 5 años","Clasificación de A. Fros. y P. Fros. CCAA"]},
   {id:"review",label:"Revisión contable",tasks:[]},
-  {id:"annual",label:"Cierre anual",tasks:["Formulación de cuentas","Legalización de libros","Presentación y depósito final"]}
-];
-const annualClosingDocuments=[
-  {id:"submissionReceipt",label:"Acuse presentación"},
-  {id:"submissionEntry",label:"Asiento presentación"},
-  {id:"minutes",label:"Actas"},
-  {id:"invoice",label:"Factura"},
-  {id:"depositProofs",label:"Justificaciones depósito"}
+  {id:"annual",label:"Cierre anual",tasks:annualClosingFiles.map(file=>file.label)}
 ];
 function annualClosingKey(clientId,year=new Date().getFullYear()){return `app-am-annual-closing-${year}-${clientId}`}
 function annualClosingState(clientId){
   try{
     const stored=JSON.parse(localStorage.getItem(annualClosingKey(clientId))||"{}");
     const state={};
-    annualClosingStages.forEach(stage=>state[stage.id]=stage.tasks.map((_,index)=>Boolean(stored[stage.id]?.[index])));
+    annualClosingStages.forEach(stage=>state[stage.id]=stage.tasks.map((_,index)=>stage.id==="annual"&&stored.annualFilesVersion!==1?false:Boolean(stored[stage.id]?.[index])));
     state.reviewCorrections=Array.isArray(stored.reviewCorrections)?stored.reviewCorrections.map(item=>({id:item.id||Date.now()+Math.random(),title:String(item.title||""),comment:String(item.comment||""),done:Boolean(item.done)})):[];
     state.reviewNoCorrections=Boolean(stored.reviewNoCorrections);
-    state.presented=Boolean(stored.presented);state.presentedDate=String(stored.presentedDate||"");state.documents=Object.fromEntries(annualClosingDocuments.map(document=>[document.id,Boolean(stored.documents?.[document.id])]));
+    state.presented=Boolean(stored.presented);state.presentedDate=String(stored.presentedDate||"");state.formulationDate=String(stored.formulationDate||"");state.certificationSigned=Boolean(stored.certificationSigned);state.annualFilesVersion=stored.annualFilesVersion===1?1:0;
     return state;
   }catch{
     const state=Object.fromEntries(annualClosingStages.map(stage=>[stage.id,stage.tasks.map(()=>false)]));
-    state.reviewCorrections=[];state.reviewNoCorrections=false;state.presented=false;state.presentedDate="";state.documents=Object.fromEntries(annualClosingDocuments.map(document=>[document.id,false]));return state;
+    state.reviewCorrections=[];state.reviewNoCorrections=false;state.presented=false;state.presentedDate="";state.formulationDate="";state.certificationSigned=false;state.annualFilesVersion=0;return state;
   }
 }
 function saveAnnualClosingState(clientId,state){localStorage.setItem(annualClosingKey(clientId),JSON.stringify(state))}
@@ -652,7 +653,7 @@ async function renderAnnualClosings(){
         </div>
       </div>
       <div class="annual-closing-search"><div><strong>Buscar empresa</strong><small>Filtra por nombre del cliente o CIF.</small></div><label><span>⌕</span><input id="annualClosingSearch" type="search" autocomplete="off" placeholder="Buscar empresa o CIF…"></label></div>
-      <div class="annual-closing-table-wrap"><table class="annual-closing-table"><thead><tr><th>Cliente</th>${annualClosingStages.map(stage=>`<th>${stage.label}</th>`).join("")}<th>Presentado</th>${annualClosingDocuments.map(document=>`<th>${document.label}</th>`).join("")}</tr></thead><tbody id="annualClosingRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
+      <div class="annual-closing-table-wrap"><table class="annual-closing-table"><thead><tr><th>Cliente</th>${annualClosingStages.map(stage=>`<th>${stage.label}</th>`).join("")}<th>Presentado</th></tr></thead><tbody id="annualClosingRows"><tr><td colspan="5" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>
     <div class="modal-shell annual-closing-shell" id="annualClosingModal" aria-hidden="true"><div class="modal-backdrop" data-close-annual></div><section class="annual-closing-modal" role="dialog" aria-modal="true" aria-labelledby="annualClosingTitle"><div class="modal-heading"><div><p class="eyebrow">CIERRE ANUAL · ${year}</p><h2 id="annualClosingTitle">Ficha del cliente</h2></div><button class="modal-close" type="button" data-close-annual>×</button></div><div class="annual-stage-tabs" id="annualStageTabs"></div><div class="annual-record-lock" id="annualRecordLock" hidden></div><div class="annual-stage-content" id="annualStageContent"></div><div class="modal-actions"><button type="button" class="secondary-button" data-close-annual>Cerrar</button></div></section></div>`;
   bindHeader();
@@ -670,18 +671,17 @@ async function renderAnnualClosings(){
     body.innerHTML=clients.length?clients.map(client=>{
       const state=annualClosingState(client.id||client.name);
       const pending=annualPendingCorrections(state);
-      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}" data-pending-corrections="${pending}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}${stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span class="annual-review-alert-icon"><svg viewBox="0 0 32 30" aria-hidden="true"><path fill="#d92d20" d="M12.8 4.2c1.4-2.5 5-2.5 6.4 0l11.9 20.5c1.4 2.4-.4 5.3-3.1 5.3H4c-2.7 0-4.5-2.9-3.1-5.3L12.8 4.2Z"/><path fill="#ffffff" d="M14.45 9.7h3.1l-.5 10.4h-2.1l-.5-10.4ZM16 25.4a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"/></svg></span><b>${pending}</b></span>`:""}</td>`).join("")}<td data-annual-submission>${annualSubmissionMarkup(state,client.id||client.name)}</td>${annualClosingDocuments.map(document=>`<td data-annual-document-cell="${document.id}">${annualDocumentMarkup(state,document)}</td>`).join("")}</tr>`;
-    }).join(""):'<tr><td colspan="10" class="table-empty">No hay personas jurídicas registradas.</td></tr>';
+      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}" data-pending-corrections="${pending}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}${stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span class="annual-review-alert-icon"><svg viewBox="0 0 32 30" aria-hidden="true"><path fill="#d92d20" d="M12.8 4.2c1.4-2.5 5-2.5 6.4 0l11.9 20.5c1.4 2.4-.4 5.3-3.1 5.3H4c-2.7 0-4.5-2.9-3.1-5.3L12.8 4.2Z"/><path fill="#ffffff" d="M14.45 9.7h3.1l-.5 10.4h-2.1l-.5-10.4ZM16 25.4a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"/></svg></span><b>${pending}</b></span>`:""}</td>`).join("")}<td data-annual-submission>${annualSubmissionMarkup(state,client.id||client.name)}</td></tr>`;
+    }).join(""):'<tr><td colspan="5" class="table-empty">No hay personas jurídicas registradas.</td></tr>';
     body.querySelectorAll("[data-annual-client]").forEach(row=>{
       const client=clients.find(item=>(item.id||item.name)===row.dataset.annualClient);
       bindAnnualSubmissionControls(row,client.id||client.name);
-      bindAnnualDocumentControls(row,client.id||client.name);
       const open=()=>openAnnualClosingModal(client);
       row.addEventListener("click",open);
       row.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();open()}});
     });
   }catch{
-    document.querySelector("#annualClosingRows").innerHTML='<tr><td colspan="10" class="table-empty">No se pudieron cargar los clientes.</td></tr>';
+    document.querySelector("#annualClosingRows").innerHTML='<tr><td colspan="5" class="table-empty">No se pudieron cargar los clientes.</td></tr>';
   }
 }
 function annualSubmissionMarkup(state,clientId){
@@ -702,17 +702,96 @@ function bindAnnualSubmissionControls(row,clientId){
   };
   check?.addEventListener("change",save);date?.addEventListener("change",save);
 }
-function annualDocumentMarkup(state,document){
-  const checked=Boolean(state.documents?.[document.id]);
-  return `<label class="annual-document-check ${checked?"complete":""}" title="${checked?"Completado":"Pendiente"}"><input type="checkbox" data-annual-document="${document.id}" ${checked?"checked":""}><span aria-hidden="true">${checked?"✓":""}</span><small>${checked?"Hecho":"Pendiente"}</small></label>`;
+let annualClosingFilesCache=null;
+let annualClosingFilesRoot=null;
+let annualClosingFileUrls=[];
+async function collectAnnualClosingPdfs(directory,path=directory.name,depth=0){
+  if(depth>6)return[];
+  const documents=[];
+  for await(const entry of directory.values()){
+    const nextPath=`${path}/${entry.name}`;
+    if(entry.kind==="directory")documents.push(...await collectAnnualClosingPdfs(entry,nextPath,depth+1));
+    else if(/\.pdf$/i.test(entry.name))documents.push({handle:entry,path:nextPath,name:entry.name,normalized:normalizeFiscalText(nextPath)});
+  }
+  return documents;
 }
-function bindAnnualDocumentControls(row,clientId){
-  row.querySelectorAll("[data-annual-document]").forEach(control=>{
-    control.addEventListener("click",event=>event.stopPropagation());
-    control.addEventListener("change",()=>{
-      const state=annualClosingState(clientId);state.documents[control.dataset.annualDocument]=control.checked;saveAnnualClosingState(clientId,state);updateAnnualClosingTableRow(clientId,state);
-    });
+async function getAnnualClosingPdfs(force=false){
+  const root=await getSavedHandle("annual-closings-folder");
+  if(!root||await root.queryPermission({mode:"read"})!=="granted")return[];
+  if(force||root!==annualClosingFilesRoot||!annualClosingFilesCache){
+    annualClosingFilesRoot=root;
+    annualClosingFilesCache=await collectAnnualClosingPdfs(root);
+  }
+  return annualClosingFilesCache;
+}
+async function annualClosingDocumentsForClient(clientName,year,force=false){
+  annualClosingFileUrls.forEach(url=>URL.revokeObjectURL(url));annualClosingFileUrls=[];
+  const yearText=String(year),all=await getAnnualClosingPdfs(force);
+  const result=new Map();
+  for(const definition of annualClosingFiles){
+    const candidates=all.filter(document=>document.normalized.includes(yearText)&&definition.aliases.some(alias=>document.normalized.includes(alias)));
+    let best=null,bestScore=0;
+    candidates.forEach(document=>{const score=declarationClientScore(clientName,document.normalized);if(score>bestScore){best=document;bestScore=score}});
+    if(best&&bestScore>=.6){
+      try{const file=await best.handle.getFile();best.url=URL.createObjectURL(file);annualClosingFileUrls.push(best.url);result.set(definition.id,best)}catch{}
+    }
+  }
+  return result;
+}
+function annualClosingFileComplete(definition,document,state){
+  if(!document)return false;
+  if(definition.id==="formulationMinutes")return Boolean(state.formulationDate);
+  if(definition.id==="certifications")return Boolean(state.certificationSigned);
+  return true;
+}
+function annualClosingFileStatus(definition,document,state){
+  if(!document)return"PDF no encontrado";
+  if(definition.id==="formulationMinutes"&&!state.formulationDate)return"PDF localizado · falta indicar la fecha";
+  if(definition.id==="certifications"&&!state.certificationSigned)return"PDF localizado · pendiente de firma";
+  return"Documento completado";
+}
+async function setupAnnualClosingFolderSource(clientId){
+  const panel=document.querySelector("#annualClosingFolderSource");if(!panel)return;
+  let root=null,connected=false;
+  try{root=await getSavedHandle("annual-closings-folder");connected=Boolean(root&&await root.queryPermission({mode:"read"})==="granted")}catch{}
+  panel.innerHTML=connected
+    ?'<div><span class="declaration-source-icon">✓</span><p><strong>Carpeta de cierres anuales conectada</strong><small>Buscando en 2026 y sus subcarpetas.</small></p></div><button type="button">Cambiar carpeta</button>'
+    :'<div><span class="declaration-source-icon">▰</span><p><strong>Conecta Gestión → Cierres anuales</strong><small>La aplicación buscará los PDF dentro de 2026.</small></p></div><button type="button">Conectar carpeta</button>';
+  panel.classList.toggle("connected",connected);
+  panel.querySelector("button").addEventListener("click",async()=>{
+    try{
+      const selected=await window.showDirectoryPicker({mode:"read"});
+      await saveHandle("annual-closings-folder",selected);
+      annualClosingFilesCache=null;annualClosingFilesRoot=null;
+      await renderAnnualClosingFilesContent(clientId,true);
+    }catch(error){if(error?.name!=="AbortError")panel.querySelector("small").textContent="No se pudo acceder a la carpeta seleccionada."}
   });
+}
+async function renderAnnualClosingFilesContent(clientId,force=false){
+  const content=document.querySelector("#annualStageContent"),year=new Date().getFullYear();if(!content)return;
+  const initialState=annualClosingState(clientId);
+  content.innerHTML=`<div class="annual-stage-summary"><div><small>PROGRESO DE LA ETAPA</small><h3>Cierre anual</h3></div>${annualProgressMarkup(annualStageProgress(initialState,annualClosingStages.find(stage=>stage.id==="annual")))}</div><div class="declaration-folder-source annual-folder-source" id="annualClosingFolderSource"></div><div class="annual-files-list" id="annualClosingFilesList"><div class="annual-files-loading">Buscando documentos de la empresa…</div></div>`;
+  await setupAnnualClosingFolderSource(clientId);
+  let documents=new Map();
+  try{documents=await annualClosingDocumentsForClient(document.querySelector("#annualClosingModal")?.dataset.clientName||clientId,year,force)}catch{}
+  const modal=document.querySelector("#annualClosingModal");
+  if(!modal||modal.dataset.clientId!==clientId||document.querySelector("[data-annual-stage].active")?.dataset.annualStage!=="annual")return;
+  const state=annualClosingState(clientId);
+  state.annual=annualClosingFiles.map(definition=>annualClosingFileComplete(definition,documents.get(definition.id),state));
+  state.annualFilesVersion=1;
+  saveAnnualClosingState(clientId,state);
+  const list=document.querySelector("#annualClosingFilesList");
+  list.innerHTML=annualClosingFiles.map(definition=>{
+    const file=documents.get(definition.id),complete=annualClosingFileComplete(definition,file,state);
+    const extra=definition.id==="formulationMinutes"?`<label class="annual-file-date"><span>Fecha de formulación</span><input type="date" id="annualFormulationDate" value="${escapeHtml(state.formulationDate)}"></label>`:definition.id==="certifications"?`<label class="annual-file-signed"><input type="checkbox" id="annualCertificationSigned" ${state.certificationSigned?"checked":""}><span>Firmado</span></label>`:"";
+    return `<article class="annual-file-row ${complete?"complete":""}"><div class="annual-file-concept"><span>${complete?"✓":""}</span><div><strong>${definition.label}</strong><small>${annualClosingFileStatus(definition,file,state)}</small></div></div>${extra}<div class="annual-file-document">${declarationDocumentMarkup(file)}</div></article>`;
+  }).join("");
+  const progress=annualStageProgress(state,annualClosingStages.find(stage=>stage.id==="annual"));
+  document.querySelector("#annualStageContent .annual-stage-summary>.annual-progress").outerHTML=annualProgressMarkup(progress);
+  document.querySelector("#annualFormulationDate")?.addEventListener("change",event=>{const updated=annualClosingState(clientId);updated.formulationDate=event.target.value;saveAnnualClosingState(clientId,updated);renderAnnualClosingFilesContent(clientId)});
+  document.querySelector("#annualCertificationSigned")?.addEventListener("change",event=>{const updated=annualClosingState(clientId);updated.certificationSigned=event.target.checked;saveAnnualClosingState(clientId,updated);renderAnnualClosingFilesContent(clientId)});
+  updateAnnualClosingTableRow(clientId,state);
+  applyAnnualRecordLock(clientId);
 }
 function closeAnnualClosingModal(){
   const modal=document.querySelector("#annualClosingModal");if(!modal)return;
@@ -742,6 +821,7 @@ function renderAnnualClosingStage(stageId){
   document.querySelectorAll("[data-annual-stage]").forEach(button=>button.addEventListener("click",()=>renderAnnualClosingStage(button.dataset.annualStage)));
   const stage=annualClosingStages.find(item=>item.id===stageId),progress=annualStageProgress(state,stage);
   if(stage.id==="review"){renderAnnualReviewContent(clientId,state,stage,progress);applyAnnualRecordLock(clientId);return}
+  if(stage.id==="annual"){renderAnnualClosingFilesContent(clientId);return}
   document.querySelector("#annualStageContent").innerHTML=`
     <div class="annual-stage-summary"><div><small>PROGRESO DE LA ETAPA</small><h3>${stage.label}</h3></div>${annualProgressMarkup(progress)}</div>
     <div class="annual-checklist">${stage.tasks.map((task,index)=>`<label><input type="checkbox" data-annual-check="${index}" ${state[stage.id][index]?"checked":""}><span><strong>${escapeHtml(task)}</strong><small>${state[stage.id][index]?"Completado":"Pendiente"}</small></span></label>`).join("")}</div>`;
@@ -823,11 +903,6 @@ function updateAnnualClosingTableRow(clientId,state){
     cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))+(stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span class="annual-review-alert-icon"><svg viewBox="0 0 32 30" aria-hidden="true"><path fill="#d92d20" d="M12.8 4.2c1.4-2.5 5-2.5 6.4 0l11.9 20.5c1.4 2.4-.4 5.3-3.1 5.3H4c-2.7 0-4.5-2.9-3.1-5.3L12.8 4.2Z"/><path fill="#ffffff" d="M14.45 9.7h3.1l-.5 10.4h-2.1l-.5-10.4ZM16 25.4a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"/></svg></span><b>${pending}</b></span>`:"");
   });
   const submission=row.querySelector("[data-annual-submission]");if(submission){submission.innerHTML=annualSubmissionMarkup(state,clientId);bindAnnualSubmissionControls(row,clientId)}
-  annualClosingDocuments.forEach(document=>{
-    const cell=row.querySelector(`[data-annual-document-cell="${document.id}"]`);
-    if(cell)cell.innerHTML=annualDocumentMarkup(state,document);
-  });
-  bindAnnualDocumentControls(row,clientId);
   reorderAnnualClosingRows();
 }
 function reorderAnnualClosingRows(){
