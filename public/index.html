@@ -40,25 +40,20 @@
 
     <section class="welcome">
       <div><p class="eyebrow light">RESUMEN GENERAL</p><h2>Buenos días</h2><p>Toda la actividad del despacho, organizada en un único lugar.</p></div>
-      <button class="primary">+ Nueva tarea</button>
+      <button class="primary" id="homeNewTask">+ Nueva tarea</button>
     </section>
 
     <section class="metrics">
-      <article><span class="metric-icon blue">♙</span><div><small>Clientes activos</small><strong>—</strong><p>Sin datos todavía</p></div></article>
-      <article><span class="metric-icon violet">▣</span><div><small>Contactos registrados</small><strong>—</strong><p>Sin datos todavía</p></div></article>
-      <article><span class="metric-icon amber">✓</span><div><small>Tareas pendientes</small><strong>—</strong><p>Sin datos todavía</p></div></article>
-      <article><span class="metric-icon green">€</span><div><small>Facturación mensual</small><strong>—</strong><p>Sin datos todavía</p></div></article>
+      <article><span class="metric-icon blue">♙</span><div><small>Clientes</small><strong id="homeClientsCount">—</strong><p>Carpetas de clientes</p></div></article>
+      <article><span class="metric-icon violet">▣</span><div><small>Contactos</small><strong id="homeContactsCount">—</strong><p>Contactos registrados</p></div></article>
+      <article><span class="metric-icon amber">✓</span><div><small>Tareas pendientes</small><strong id="homeTasksCount">—</strong><p>Sin terminar</p></div></article>
+      <article><span class="metric-icon green">♟</span><div><small>Trabajadores</small><strong id="homeWorkersCount">—</strong><p>Equipo del despacho</p></div></article>
     </section>
 
-    <section class="grid">
-      <article class="panel">
-        <div class="panel-title"><div><p class="eyebrow">ORGANIZACIÓN</p><h3>Actividad reciente</h3></div><button>Ver todo</button></div>
-        <div class="empty"><span>▤</span><h4>Aún no hay actividad</h4><p>Las novedades del despacho aparecerán aquí.</p></div>
-      </article>
-      <article class="panel">
-        <div class="panel-title"><div><p class="eyebrow">HOY</p><h3>Próximas tareas</h3></div><button>Agenda</button></div>
-        <div class="empty compact"><span>✓</span><h4>Todo al día</h4><p>No hay tareas programadas.</p></div>
-      </article>
+    <section class="news-portal panel">
+      <div class="news-portal-heading"><div><p class="eyebrow">ACTUALIDAD FISCAL Y CONTABLE</p><h3>Noticias de interés</h3><p>AEAT, IVA, IRPF, normativa, cuentas anuales e ICAC.</p></div><button type="button" id="refreshHomeNews">↻ Actualizar</button></div>
+      <div class="news-source-strip"><span>El Confidencial</span><span>El Mundo</span><span>elEconomista</span><span>The Objective</span></div>
+      <div class="news-grid" id="homeNews"><div class="news-loading"><span></span><strong>Cargando actualidad…</strong></div></div>
     </section>
   </main>
   <div class="overlay" id="overlay"></div>

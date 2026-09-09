@@ -6,7 +6,6 @@ let currentEntries=[];
 let folderHistory=[];
 let activeFolderConfig=null;
 let currentDirectoryHandle=null;
-let managementUnlocked=false;
 const FOLDER_VIEW_STORAGE_KEY="app-am-folder-view";
 let folderViewMode=localStorage.getItem(FOLDER_VIEW_STORAGE_KEY)==="list"?"list":"grid";
 const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIONES","ESCRITURAS","LIBROS OFICIALES","OTRA DOCUMENTACIÓN"];
@@ -45,45 +44,7 @@ const views={
 };
 
 function openProtectedManagement(){
-  if(managementUnlocked){renderManagement();return}
-  document.querySelector("#managementAccess")?.remove();
-  const shell=document.createElement("div");
-  shell.id="managementAccess";
-  shell.className="access-shell";
-  shell.innerHTML=`
-    <div class="access-backdrop"></div>
-    <section class="access-card" role="dialog" aria-modal="true" aria-labelledby="accessTitle">
-      <button class="access-close" type="button" aria-label="Cerrar">×</button>
-      <div class="access-icon">⌘</div>
-      <p class="eyebrow">ACCESO PROTEGIDO</p>
-      <h2 id="accessTitle">Entrar en Gestión</h2>
-      <p class="access-copy">Introduce la contraseña para acceder a la gestión de clientes.</p>
-      <form>
-        <label for="managementPassword">Contraseña</label>
-        <div class="access-input"><span>●</span><input id="managementPassword" type="password" autocomplete="current-password" placeholder="Introduce la contraseña" required></div>
-        <p class="access-error" role="alert"></p>
-        <button class="primary blue-button" type="submit">Acceder</button>
-      </form>
-    </section>`;
-  document.body.appendChild(shell);
-  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
-  shell.querySelector(".access-close").addEventListener("click",close);
-  shell.querySelector(".access-backdrop").addEventListener("click",close);
-  shell.querySelector("form").addEventListener("submit",event=>{
-    event.preventDefault();
-    const input=shell.querySelector("#managementPassword");
-    if(input.value==="1234"){
-      managementUnlocked=true;
-      close();
-      setTimeout(renderManagement,180);
-    }else{
-      shell.querySelector(".access-error").textContent="La contraseña no es correcta.";
-      input.classList.add("invalid");
-      input.select();
-    }
-  });
-  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));
-  setTimeout(()=>shell.querySelector("#managementPassword").focus(),280);
+  renderManagement();
 }
 
 function renderManagement(){
@@ -415,6 +376,45 @@ function getTasks(){
   catch{return[]}
 }
 function saveTasks(tasks){localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(tasks));updateTaskNavAlert()}
+async function homeClientCount(){
+  try{
+    const root=await getSavedHandle("clients-folder");
+    if(root&&await root.queryPermission({mode:"read"})==="granted"){
+      let count=0;for await(const entry of root.values())if(entry.kind==="directory")count++;
+      return count;
+    }
+  }catch{}
+  try{return(await getAllClientMetadata()).length}catch{return 0}
+}
+async function homeContactCount(){
+  try{return(await getAllClientMetadata()).reduce((total,client)=>total+contactLines(client.phones).length,0)}catch{return 0}
+}
+function homeNewsMarkup(article){
+  const date=article.date?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short"}).format(new Date(article.date)):"Hoy";
+  return `<a class="news-card" href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer"><div class="news-card-meta"><span>${escapeHtml(article.source||"Actualidad")}</span><time>${escapeHtml(date)}</time></div><h4>${escapeHtml(article.title)}</h4><p>${escapeHtml(article.topic||"Fiscal y contable")}</p><b>Leer noticia <span>↗</span></b></a>`;
+}
+async function loadHomeNews(force=false){
+  const container=document.querySelector("#homeNews"),button=document.querySelector("#refreshHomeNews");if(!container)return;
+  if(button){button.disabled=true;button.classList.add("loading")}
+  container.innerHTML='<div class="news-loading"><span></span><strong>Buscando las últimas noticias…</strong></div>';
+  try{
+    const response=await fetch(`/api/news${force?"?refresh=1":""}`);if(!response.ok)throw new Error();
+    const articles=await response.json();
+    container.innerHTML=articles.length?articles.map(homeNewsMarkup).join(""):'<div class="news-empty"><strong>No hay noticias nuevas</strong><p>Vuelve a actualizar dentro de unos minutos.</p></div>';
+  }catch{container.innerHTML='<div class="news-empty"><strong>No se pudieron cargar las noticias</strong><p>Comprueba la conexión y pulsa Actualizar.</p></div>'}
+  finally{if(button){button.disabled=false;button.classList.remove("loading")}}
+}
+async function initHome(){
+  const clients=document.querySelector("#homeClientsCount");if(!clients)return;
+  const contacts=document.querySelector("#homeContactsCount"),tasks=document.querySelector("#homeTasksCount"),workersCount=document.querySelector("#homeWorkersCount");
+  const [clientCount,contactCount]=await Promise.all([homeClientCount(),homeContactCount()]);
+  if(!document.querySelector("#homeClientsCount"))return;
+  clients.textContent=String(clientCount);contacts.textContent=String(contactCount);
+  tasks.textContent=String(getTasks().filter(task=>task.status!=="done").length);workersCount.textContent=String(workers.length);
+  document.querySelector("#homeNewTask")?.addEventListener("click",()=>{document.querySelector('nav button[data-title="Tareas"]')?.click();setTimeout(()=>document.querySelector("#openTaskModal")?.click(),0)});
+  document.querySelector("#refreshHomeNews")?.addEventListener("click",()=>loadHomeNews(true));
+  loadHomeNews();
+}
 function updateTaskNavAlert(){
   const button=document.querySelector('nav button[data-title="Tareas"]');if(!button)return;
   const count=getTasks().filter(task=>task.status!=="done").length;
@@ -948,18 +948,13 @@ function applyAnnualRecordLock(clientId){
   content.classList.toggle("locked",locked);
   content.querySelectorAll("input,textarea,button").forEach(control=>control.disabled=locked);
   banner.hidden=!locked;
-  banner.innerHTML=locked?`<span>🔒</span><div><strong>Ficha presentada y bloqueada</strong><small>Presentada el ${new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(new Date(state.presentedDate+"T12:00:00"))}. Puedes consultarla, pero necesitas contraseña para modificarla.</small></div><button type="button" id="unlockAnnualRecord">Desbloquear edición</button>`:"";
+  banner.innerHTML=locked?`<span>🔒</span><div><strong>Ficha presentada y bloqueada</strong><small>Presentada el ${new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(new Date(state.presentedDate+"T12:00:00"))}. Puedes consultarla o desbloquearla para modificarla.</small></div><button type="button" id="unlockAnnualRecord">Desbloquear edición</button>`:"";
   document.querySelector("#unlockAnnualRecord")?.addEventListener("click",()=>openAnnualRecordUnlock(clientId));
 }
 function openAnnualRecordUnlock(clientId){
-  document.querySelector("#annualRecordAccess")?.remove();
-  const shell=document.createElement("div");shell.id="annualRecordAccess";shell.className="access-shell";
-  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true"><button class="access-close" type="button">×</button><div class="access-icon">🔒</div><p class="eyebrow">FICHA PRESENTADA</p><h2>Desbloquear edición</h2><p class="access-copy">Introduce la contraseña para modificar este cierre anual.</p><form><label for="annualRecordPassword">Contraseña</label><div class="access-input"><span>●</span><input id="annualRecordPassword" type="password" required></div><p class="access-error"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
-  document.body.appendChild(shell);
-  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
-  shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
-  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#annualRecordPassword");if(input.value==="1234"){annualClosingUnlocks.add(clientId);close();const active=document.querySelector("[data-annual-stage].active")?.dataset.annualStage||"accounting";setTimeout(()=>{renderAnnualClosingStage(active);const state=annualClosingState(clientId);updateAnnualClosingTableRow(clientId,state)},180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
-  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>shell.querySelector("#annualRecordPassword").focus(),250);
+  annualClosingUnlocks.add(clientId);
+  const active=document.querySelector("[data-annual-stage].active")?.dataset.annualStage||"accounting";
+  renderAnnualClosingStage(active);updateAnnualClosingTableRow(clientId,annualClosingState(clientId));
 }
 function updateAnnualClosingTableRow(clientId,state){
   const row=[...document.querySelectorAll("[data-annual-client]")].find(item=>item.dataset.annualClient===clientId);if(!row)return;
@@ -1349,14 +1344,7 @@ function renderTaxLock(state,model,period,type){
   document.querySelector("#unlockTax")?.addEventListener("click",()=>openTaxUnlock(model,period,type));
 }
 function openTaxUnlock(model,period,type){
-  document.querySelector("#taxAccess")?.remove();
-  const shell=document.createElement("div");shell.id="taxAccess";shell.className="access-shell";
-  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true" aria-labelledby="taxAccessTitle"><button class="access-close" type="button" aria-label="Cerrar">×</button><div class="access-icon">✓</div><p class="eyebrow">PERIODO CERRADO</p><h2 id="taxAccessTitle">Desbloquear periodo</h2><p class="access-copy">Introduce la contraseña para modificar este periodo fiscal.</p><form><label for="taxPassword">Contraseña</label><div class="access-input"><span>●</span><input id="taxPassword" type="password" required></div><p class="access-error" role="alert"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
-  document.body.appendChild(shell);
-  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
-  shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
-  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#taxPassword");if(input.value==="1234"){taxUnlocks.add(model+"-"+type+"-"+period);close();setTimeout(()=>loadTaxModel(model),180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
-  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>shell.querySelector("#taxPassword").focus(),250);
+  taxUnlocks.add(model+"-"+type+"-"+period);loadTaxModel(model);
 }
 function saveDeclarationRow(event){
   const row=event.target.closest("tr"),data={};
@@ -1438,14 +1426,7 @@ function renderHistoryLock(unlocked,model){
   document.querySelector("#unlockHistory").addEventListener("click",()=>openHistoryUnlock(model));
 }
 function openHistoryUnlock(model){
-  document.querySelector("#historyAccess")?.remove();
-  const shell=document.createElement("div");shell.id="historyAccess";shell.className="access-shell";
-  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true" aria-labelledby="historyAccessTitle"><button class="access-close" type="button" aria-label="Cerrar">×</button><div class="access-icon">◷</div><p class="eyebrow">HISTÓRICO PROTEGIDO</p><h2 id="historyAccessTitle">Desbloquear histórico</h2><p class="access-copy">Introduce la contraseña para modificar este ejercicio y periodo.</p><form><label for="historyPassword">Contraseña</label><div class="access-input"><span>●</span><input id="historyPassword" type="password" required></div><p class="access-error" role="alert"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
-  document.body.appendChild(shell);
-  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
-  shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
-  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#historyPassword");if(input.value==="1234"){historyUnlocks.add(activeHistoryYear+"-"+activeHistoryType+"-"+activeHistoryQuarter+"-"+model);close();setTimeout(()=>loadHistoricalModel(model),180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
-  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>shell.querySelector("#historyPassword").focus(),250);
+  historyUnlocks.add(activeHistoryYear+"-"+activeHistoryType+"-"+activeHistoryQuarter+"-"+model);loadHistoricalModel(model);
 }
 function saveHistoricalRow(event){
   const row=event.target.closest("tr"),data={};
@@ -1707,6 +1688,7 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
     bindHeader();
     const title=document.querySelector("#pageTitle");
     if(title) title.textContent=button.dataset.title;
+    if(button.dataset.title==="Inicio")initHome();
   }
 }));
 
@@ -1780,3 +1762,4 @@ function sendChatMessage(event){
 }
 
 createWorkerChat();
+initHome();
