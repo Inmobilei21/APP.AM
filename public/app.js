@@ -406,12 +406,23 @@ const taskStatuses=[
   {id:"progress",label:"En proceso"},
   {id:"done",label:"Final"}
 ];
+let taskEditHandler=null;
 
 function getTasks(){
   try{return JSON.parse(localStorage.getItem(TASKS_STORAGE_KEY)||"[]")}
   catch{return[]}
 }
-function saveTasks(tasks){localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(tasks))}
+function saveTasks(tasks){localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(tasks));updateTaskNavAlert()}
+function updateTaskNavAlert(){
+  const button=document.querySelector('nav button[data-title="Tareas"]');if(!button)return;
+  const count=getTasks().filter(task=>task.status!=="done").length;
+  let alert=button.querySelector(".task-nav-alert");
+  if(!count){alert?.remove();button.classList.remove("has-task-alert");return}
+  if(!alert){alert=document.createElement("span");alert.className="task-nav-alert";alert.setAttribute("aria-label","Tareas pendientes");button.appendChild(alert)}
+  alert.textContent=count>99?"99+":String(count);button.classList.add("has-task-alert");
+}
+window.addEventListener("storage",event=>{if(event.key===TASKS_STORAGE_KEY)updateTaskNavAlert()});
+queueMicrotask(updateTaskNavAlert);
 function taskDateLabel(value){return value?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(new Date(value+"T12:00:00")):"Sin plazo"}
 function taskCountdown(value){
   if(!value)return{label:"Sin plazo final",className:""};
@@ -437,7 +448,7 @@ function taskCardMarkup(task){
   const countdown=taskCountdown(task.finalDate);
   const concept=task.concept==="Otro"?(task.customConcept||"Otro"):task.concept;
   return `<article class="task-note" draggable="true" data-task-id="${escapeHtml(task.id)}">
-    <div class="task-note-top"><span class="task-concept">${escapeHtml(concept||"Sin concepto")}</span><span class="task-grip" aria-hidden="true">⠿</span></div>
+    <div class="task-note-top"><span class="task-concept">${escapeHtml(concept||"Sin concepto")}</span><div><button type="button" class="task-edit-button" data-edit-task="${escapeHtml(task.id)}" aria-label="Editar tarea" title="Editar tarea">✎</button><span class="task-grip" aria-hidden="true">⠿</span></div></div>
     <h4>${escapeHtml(task.client||"Sin cliente")}</h4>
     <div class="task-deadline"><span>Plazo: ${taskDateLabel(task.finalDate)}</span><strong class="${countdown.className}">${countdown.label}</strong></div>
     ${task.description?`<p>${escapeHtml(task.description)}</p>`:""}
@@ -463,6 +474,7 @@ function renderTaskBoard(){
     });
     card.addEventListener("dragend",()=>card.classList.remove("dragging"));
   });
+  document.querySelectorAll("[data-edit-task]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();taskEditHandler?.(button.dataset.editTask)}));
   document.querySelectorAll("[data-task-list]").forEach(list=>{
     list.addEventListener("dragover",event=>{event.preventDefault();event.dataTransfer.dropEffect="move";list.closest(".task-column").classList.add("drag-over")});
     list.addEventListener("dragleave",event=>{if(!list.contains(event.relatedTarget))list.closest(".task-column").classList.remove("drag-over")});
@@ -483,7 +495,7 @@ function syncTaskToAnnualCorrection(task){
   if(task.sourceType!=="annualCorrection"||!task.sourceClientId||!task.sourceCorrectionId)return;
   const year=Number(task.sourceYear)||new Date().getFullYear(),state=annualClosingState(task.sourceClientId,year);
   const correction=state.reviewCorrections.find(item=>String(item.id)===String(task.sourceCorrectionId));if(!correction)return;
-  correction.done=task.status==="done";
+  correction.done=task.status==="done";correction.assigned=task.assigned||"";correction.dueDate=task.finalDate||"";
   saveAnnualClosingState(task.sourceClientId,state,year);
 }
 async function renderTasks(){
@@ -502,7 +514,7 @@ async function renderTasks(){
     <div class="modal-shell task-modal-shell" id="taskModal" aria-hidden="true">
       <div class="modal-backdrop" data-close-task></div>
       <section class="client-modal task-modal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
-        <div class="client-modal-head"><div><p class="eyebrow">NUEVA TAREA</p><h2 id="taskModalTitle">Añadir tarea</h2></div><button class="modal-close" type="button" data-close-task aria-label="Cerrar">×</button></div>
+        <div class="client-modal-head"><div><p class="eyebrow" id="taskModalEyebrow">NUEVA TAREA</p><h2 id="taskModalTitle">Añadir tarea</h2></div><button class="modal-close" type="button" data-close-task aria-label="Cerrar">×</button></div>
         <form id="taskForm">
           <div class="task-form-grid">
             <label class="task-client-field">Cliente<div class="task-client-combobox"><span class="task-search-icon">⌕</span><input id="taskClient" type="search" autocomplete="off" placeholder="Buscar cliente…" required aria-autocomplete="list" aria-controls="taskClientResults"><div class="task-client-results" id="taskClientResults" role="listbox" hidden></div></div></label>
@@ -514,17 +526,18 @@ async function renderTasks(){
             <label class="task-description-field">Descripción<textarea id="taskDescription" rows="4" maxlength="600" placeholder="Información útil para orientar la tarea"></textarea></label>
           </div>
           <p class="form-message" id="taskFormMessage"></p>
-          <div class="modal-actions"><button class="task-cancel-button" type="button" data-close-task><span aria-hidden="true">×</span> Cancelar</button><button class="primary blue-button" type="submit">Guardar tarea</button></div>
+          <div class="modal-actions"><button class="task-cancel-button" type="button" data-close-task><span aria-hidden="true">×</span> Cancelar</button><button class="primary blue-button" id="taskSaveButton" type="submit">Guardar tarea</button></div>
         </form>
       </section>
     </div>`;
   bindHeader();renderTaskBoard();
   const modal=document.querySelector("#taskModal"),form=document.querySelector("#taskForm");
   let taskClientNames=[];
-  const close=()=>{modal.classList.remove("open");modal.setAttribute("aria-hidden","true")};
+  const close=()=>{modal.classList.remove("open");modal.setAttribute("aria-hidden","true");form.dataset.editTaskId=""};
   document.querySelectorAll("[data-close-task]").forEach(button=>button.addEventListener("click",close));
   const clientInput=document.querySelector("#taskClient"),clientResults=document.querySelector("#taskClientResults");
   function renderTaskClientResults(query){
+    if(clientInput.readOnly){clientResults.hidden=true;return}
     const normalized=query.trim().toLocaleLowerCase("es");
     const matches=taskClientNames.filter(name=>name.toLocaleLowerCase("es").includes(normalized)).slice(0,10);
     clientResults.innerHTML=matches.length?matches.map(name=>`<button type="button" role="option" data-task-client="${escapeHtml(name)}"><span>⌕</span><strong>${escapeHtml(name)}</strong></button>`).join(""):`<div class="task-client-no-results">${taskClientNames.length?"No se encontraron clientes":"No hay clientes disponibles"}</div>`;
@@ -544,18 +557,34 @@ async function renderTasks(){
     const option=event.target.closest("[data-task-client]");if(!option)return;
     event.preventDefault();clientInput.value=option.dataset.taskClient;clientResults.hidden=true;
   });
-  document.querySelector("#openTaskModal").addEventListener("click",async()=>{
+  const openTaskForm=async(task=null)=>{
     form.reset();
     const today=new Date().toISOString().slice(0,10);
-    document.querySelector("#taskStartDate").value=today;
-    document.querySelector("#taskFinalDate").min=today;
-    document.querySelector("#customConceptField").hidden=true;
+    form.dataset.editTaskId=task?.id||"";
+    document.querySelector("#taskModalEyebrow").textContent=task?"EDITAR TAREA":"NUEVA TAREA";
+    document.querySelector("#taskModalTitle").textContent=task?"Editar tarea":"Añadir tarea";
+    document.querySelector("#taskSaveButton").textContent=task?"Guardar cambios":"Guardar tarea";
+    document.querySelector("#taskStartDate").value=task?.startDate?.slice(0,10)||today;
+    document.querySelector("#taskFinalDate").min=task?"":today;
     taskClientNames=await getTaskClientNames();
-    clientInput.value="";
+    clientInput.value=task?.client||"";
+    document.querySelector("#taskAssigned").value=task?.assigned||"";
+    document.querySelector("#taskConcept").value=task?.concept||"";
+    document.querySelector("#taskCustomConcept").value=task?.customConcept||"";
+    document.querySelector("#taskFinalDate").value=task?.finalDate||"";
+    document.querySelector("#taskDescription").value=task?.description||"";
+    document.querySelector("#customConceptField").hidden=task?.concept!=="Otro";
+    document.querySelector("#taskCustomConcept").required=task?.concept==="Otro";
+    const linked=task?.sourceType==="annualCorrection";
+    clientInput.readOnly=linked;
+    document.querySelector("#taskConcept").disabled=linked;
+    document.querySelector("#taskCustomConcept").readOnly=linked;
     modal.classList.add("open");modal.setAttribute("aria-hidden","false");
     renderTaskClientResults("");
     setTimeout(()=>clientInput.focus(),180);
-  });
+  };
+  document.querySelector("#openTaskModal").addEventListener("click",()=>openTaskForm());
+  taskEditHandler=id=>{const task=getTasks().find(item=>item.id===id);if(task)openTaskForm(task)};
   document.querySelector("#taskConcept").addEventListener("change",event=>{
     const custom=document.querySelector("#customConceptField"),input=document.querySelector("#taskCustomConcept");
     custom.hidden=event.target.value!=="Otro";input.required=event.target.value==="Otro";
@@ -564,18 +593,18 @@ async function renderTasks(){
   form.addEventListener("submit",event=>{
     event.preventDefault();
     const concept=document.querySelector("#taskConcept").value;
-    const task={
-      id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    const taskData={
       client:document.querySelector("#taskClient").value.trim(),
       assigned:document.querySelector("#taskAssigned").value,
       concept,
       customConcept:document.querySelector("#taskCustomConcept").value.trim(),
       description:document.querySelector("#taskDescription").value.trim(),
-      startDate:new Date().toISOString(),
       finalDate:document.querySelector("#taskFinalDate").value,
-      status:"pending"
     };
-    const tasks=getTasks();tasks.push(task);saveTasks(tasks);close();renderTaskBoard();
+    const tasks=getTasks(),existing=tasks.find(item=>item.id===form.dataset.editTaskId);
+    if(existing){Object.assign(existing,taskData);syncTaskToAnnualCorrection(existing)}
+    else tasks.push({id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,startDate:new Date().toISOString(),...taskData,status:"pending"});
+    saveTasks(tasks);close();renderTaskBoard();
   });
 }
 
@@ -841,6 +870,12 @@ function renderAnnualClosingStage(stageId){
   }));
   applyAnnualRecordLock(clientId);
 }
+function upsertAnnualCorrectionTask(clientId,clientName,correction){
+  const tasks=getTasks();let task=tasks.find(item=>item.id===correction.taskId);
+  if(!task){correction.taskId=`annual-correction-${correction.id}-${Math.random().toString(36).slice(2,7)}`;task={id:correction.taskId,startDate:new Date().toISOString(),status:correction.done?"done":"pending"};tasks.push(task)}
+  Object.assign(task,{client:clientName||clientId,assigned:correction.assigned,concept:"Cuentas Anuales",customConcept:"",description:`Corrección: ${correction.title}\n${correction.comment}`,finalDate:correction.dueDate,sourceType:"annualCorrection",sourceClientId:clientId,sourceYear:new Date().getFullYear(),sourceCorrectionId:String(correction.id)});
+  saveTasks(tasks);
+}
 function renderAnnualReviewContent(clientId,state,stage,progress){
   const corrections=state.reviewCorrections||[];
   document.querySelector("#annualStageContent").innerHTML=`
@@ -850,27 +885,29 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
       <label>Encabezado<input id="reviewCorrectionTitle" type="text" maxlength="100" placeholder="Ej. Revisar saldo del proveedor" required></label>
       <label>Explicación<textarea id="reviewCorrectionComment" rows="4" maxlength="800" placeholder="Explica qué debe corregirse y cualquier indicación útil…" required></textarea></label>
       <div class="review-correction-assignment"><label>Responsable<select id="reviewCorrectionAssigned" required><option value="">Selecciona una persona…</option>${workers.map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><label>Fecha límite<input id="reviewCorrectionDueDate" type="date" required></label></div>
-      <div><button type="button" class="secondary-button" id="cancelReviewCorrection">Cancelar</button><button type="submit" class="primary blue-button">Guardar corrección</button></div>
+      <div><button type="button" class="secondary-button" id="cancelReviewCorrection">Cancelar</button><button type="submit" class="primary blue-button" id="saveReviewCorrection">Guardar corrección</button></div>
     </form>
     <div class="review-corrections-list">${corrections.length?corrections.map(item=>`
       <article class="review-correction ${item.done?"resolved":""}">
         <label><input type="checkbox" data-review-correction="${escapeHtml(String(item.id))}" ${item.done?"checked":""}><span><strong>${escapeHtml(item.title)}</strong><small>${item.done?"Solucionada":"Pendiente de solucionar"}</small></span></label>
         <div class="review-correction-task-meta"><span>♟ ${escapeHtml(item.assigned||"Sin responsable")}</span><span>◷ ${item.dueDate?taskDateLabel(item.dueDate):"Sin fecha límite"}</span></div>
         <p>${escapeHtml(item.comment)}</p>
-        <button type="button" data-remove-review-correction="${escapeHtml(String(item.id))}" aria-label="Eliminar corrección" title="Eliminar corrección">×</button>
+        <div class="review-correction-actions"><button type="button" data-edit-review-correction="${escapeHtml(String(item.id))}" aria-label="Editar corrección" title="Editar corrección">✎</button><button type="button" data-remove-review-correction="${escapeHtml(String(item.id))}" aria-label="Eliminar corrección" title="Eliminar corrección">×</button></div>
       </article>`).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;
   const form=document.querySelector("#reviewCorrectionForm");
-  document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.hidden=false;document.querySelector("#reviewCorrectionDueDate").min=new Date().toISOString().slice(0,10);document.querySelector("#reviewCorrectionTitle").focus()});
-  document.querySelector("#cancelReviewCorrection").addEventListener("click",()=>{form.reset();form.hidden=true});
+  const resetCorrectionForm=()=>{form.reset();form.dataset.editingId="";form.hidden=true;document.querySelector("#saveReviewCorrection").textContent="Guardar corrección"};
+  document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.reset();form.dataset.editingId="";form.hidden=false;document.querySelector("#reviewCorrectionDueDate").min=new Date().toISOString().slice(0,10);document.querySelector("#saveReviewCorrection").textContent="Guardar corrección";document.querySelector("#reviewCorrectionTitle").focus()});
+  document.querySelector("#cancelReviewCorrection").addEventListener("click",resetCorrectionForm);
   form.addEventListener("submit",event=>{
     event.preventDefault();
     const title=document.querySelector("#reviewCorrectionTitle").value.trim(),comment=document.querySelector("#reviewCorrectionComment").value.trim(),assigned=document.querySelector("#reviewCorrectionAssigned").value,dueDate=document.querySelector("#reviewCorrectionDueDate").value;
     if(!title||!comment||!assigned||!dueDate)return;
     const updated=annualClosingState(clientId);
     updated.reviewNoCorrections=false;
-    const correctionId=Date.now(),taskId=`annual-correction-${correctionId}-${Math.random().toString(36).slice(2,7)}`;
-    updated.reviewCorrections.push({id:correctionId,title,comment,assigned,dueDate,taskId,done:false});
-    const tasks=getTasks();tasks.push({id:taskId,client:document.querySelector("#annualClosingModal")?.dataset.clientName||clientId,assigned,concept:"Cuentas Anuales",customConcept:"",description:`Corrección: ${title}\n${comment}`,startDate:new Date().toISOString(),finalDate:dueDate,status:"pending",sourceType:"annualCorrection",sourceClientId:clientId,sourceYear:new Date().getFullYear(),sourceCorrectionId:String(correctionId)});saveTasks(tasks);
+    let correction=updated.reviewCorrections.find(item=>String(item.id)===form.dataset.editingId);
+    if(correction)Object.assign(correction,{title,comment,assigned,dueDate});
+    else{correction={id:Date.now(),title,comment,assigned,dueDate,taskId:"",done:false};updated.reviewCorrections.push(correction)}
+    upsertAnnualCorrectionTask(clientId,document.querySelector("#annualClosingModal")?.dataset.clientName||clientId,correction);
     saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
   });
   document.querySelector("#reviewWithoutCorrections")?.addEventListener("change",event=>{
@@ -881,6 +918,17 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
     const updated=annualClosingState(clientId),item=updated.reviewCorrections.find(entry=>String(entry.id)===check.dataset.reviewCorrection);
     if(item){item.done=check.checked;const tasks=getTasks(),task=tasks.find(entry=>entry.id===item.taskId);if(task){task.status=check.checked?"done":"pending";saveTasks(tasks)}}
     saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
+  }));
+  document.querySelectorAll("[data-edit-review-correction]").forEach(button=>button.addEventListener("click",()=>{
+    const item=annualClosingState(clientId).reviewCorrections.find(entry=>String(entry.id)===button.dataset.editReviewCorrection);if(!item)return;
+    form.dataset.editingId=String(item.id);form.hidden=false;
+    document.querySelector("#reviewCorrectionTitle").value=item.title;
+    document.querySelector("#reviewCorrectionComment").value=item.comment;
+    document.querySelector("#reviewCorrectionAssigned").value=item.assigned||"";
+    document.querySelector("#reviewCorrectionDueDate").min="";
+    document.querySelector("#reviewCorrectionDueDate").value=item.dueDate||"";
+    document.querySelector("#saveReviewCorrection").textContent="Guardar cambios";
+    form.scrollIntoView({block:"nearest",behavior:"smooth"});document.querySelector("#reviewCorrectionTitle").focus();
   }));
   document.querySelectorAll("[data-remove-review-correction]").forEach(button=>button.addEventListener("click",()=>{
     const updated=annualClosingState(clientId),removed=updated.reviewCorrections.find(item=>String(item.id)===button.dataset.removeReviewCorrection);updated.reviewCorrections=updated.reviewCorrections.filter(item=>String(item.id)!==button.dataset.removeReviewCorrection);
