@@ -414,7 +414,8 @@ let activeHomeNewsTopic="Todas";
 const homeNewsFallbackImages={AEAT:"https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=75",IVA:"https://images.unsplash.com/photo-1554224154-26032ffc0d07?auto=format&fit=crop&w=900&q=75",IRPF:"https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=900&q=75","Contabilidad e ICAC":"https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=900&q=75","Normativa fiscal":"https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=900&q=75"};
 function homeNewsMarkup(article){
   const date=article.date?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short"}).format(new Date(article.date)):"Hoy";
-  const image=article.image||homeNewsFallbackImages[article.topic]||homeNewsFallbackImages["Normativa fiscal"];
+  const isGooglePlaceholder=/(?:news\.google|googleusercontent|gstatic|google\.com)/i.test(article.image||"");
+  const image=!isGooglePlaceholder&&article.image?article.image:homeNewsFallbackImages[article.topic]||homeNewsFallbackImages["Normativa fiscal"];
   const mailto=`mailto:?subject=${encodeURIComponent(article.title)}&body=${encodeURIComponent(`${article.title}\n\n${article.link}`)}`;
   return `<article class="news-card"><a class="news-card-image" href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(image)}" alt="" loading="lazy"></a><div class="news-card-body"><div class="news-card-meta"><span>${escapeHtml(article.source||"Actualidad")}</span><time>${escapeHtml(date)}</time></div><h4>${escapeHtml(article.title)}</h4><p>${escapeHtml(article.topic||"Fiscal y contable")}</p><div class="news-card-actions"><a href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer">Leer noticia <span>↗</span></a><a href="${escapeHtml(mailto)}" class="news-email-share" title="Compartir por correo">✉ Correo</a></div></div></article>`;
 }

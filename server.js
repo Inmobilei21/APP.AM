@@ -22,15 +22,54 @@ function newsTopic(title) {
   if(/AEAT|Hacienda|Agencia Tributaria/i.test(title)) return "AEAT";
   return "Normativa fiscal";
 }
-async function articleImage(url) {
+function googleNewsArticleId(url) {
   try {
-    const response = await fetch(url, { redirect: "follow", headers: { "User-Agent": "Mozilla/5.0 APP-AM/1.0" }, signal: AbortSignal.timeout(6000) });
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/(?:rss\/)?articles\/([^/?]+)/i);
+    return match?.[1] || "";
+  } catch { return ""; }
+}
+function tagAttribute(tag, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return decodeXml(tag.match(new RegExp(`${escaped}=["']([^"']+)["']`, "i"))?.[1] || "");
+}
+async function originalArticleUrl(url) {
+  const articleId = googleNewsArticleId(url);
+  if (!articleId) return url;
+  try {
+    const page = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 APP-AM/1.0" }, signal: AbortSignal.timeout(6000) });
+    const html = await page.text();
+    const escapedId = articleId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const tag = html.match(new RegExp(`<[^>]+data-n-a-id=["']${escapedId}["'][^>]*>`, "i"))?.[0] || "";
+    const signature = tagAttribute(tag, "data-n-a-sg");
+    const timestamp = Number(tagAttribute(tag, "data-n-a-ts"));
+    if (!signature || !timestamp) return url;
+    const request = ["garturlreq", [["X", "X", ["X", "X"], null, null, 1, 1, "ES:es", null, 1, null, null, null, null, null, 0, 1], "X", "X", 1, [1, 1, 1], 1, 1, null, 0, 0, null, 0], articleId, timestamp, signature];
+    const body = new URLSearchParams({ "f.req": JSON.stringify([[["Fbv4je", JSON.stringify(request)]]]) }).toString();
+    const response = await fetch("https://news.google.com/_/DotsSplashUi/data/batchexecute", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "User-Agent": "Mozilla/5.0 APP-AM/1.0" },
+      body,
+      signal: AbortSignal.timeout(6000)
+    });
+    const raw = await response.text();
+    const jsonStart = raw.indexOf("[[");
+    if (jsonStart < 0) return url;
+    const result = JSON.parse(JSON.parse(raw.slice(jsonStart))[0][2]);
+    return /^https?:\/\//i.test(result?.[1]) ? result[1] : url;
+  } catch { return url; }
+}
+async function articleMetadata(url) {
+  const link = await originalArticleUrl(url);
+  try {
+    const response = await fetch(link, { redirect: "follow", headers: { "User-Agent": "Mozilla/5.0 APP-AM/1.0" }, signal: AbortSignal.timeout(6000) });
     const html = await response.text();
     const first = html.match(/<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)/i);
     const second = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:image["']/i);
     const image = decodeXml(first?.[1] || second?.[1] || "");
-    return /^https?:\/\//i.test(image) ? image : "";
-  } catch { return ""; }
+    const isGooglePlaceholder = /(?:news\.google|googleusercontent|gstatic|google\.com)/i.test(image);
+    return { link, image: /^https?:\/\//i.test(image) && !isGooglePlaceholder ? image : "" };
+  } catch { return { link, image: "" }; }
 }
 async function getNews(force = false) {
   if (!force && newsCache.expires > Date.now()) return newsCache.articles;
@@ -43,7 +82,7 @@ async function getNews(force = false) {
     const escapedSource = source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return { title: title.replace(new RegExp(`\\s+-\\s+${escapedSource}$`, "i"), ""), link: xmlTag(item, "link"), source, date: xmlTag(item, "pubDate"), topic: newsTopic(title) };
   }).filter(article => article.title && article.link).slice(0, 12);
-  const enriched = await Promise.all(articles.map(async article => ({ ...article, image: await articleImage(article.link) })));
+  const enriched = await Promise.all(articles.map(async article => ({ ...article, ...await articleMetadata(article.link) })));
   newsCache = { expires: Date.now() + 30 * 60 * 1000, articles: enriched };
   return enriched;
 }
