@@ -477,7 +477,14 @@ function renderTaskBoard(){
 function changeTaskStatus(id,status){
   const tasks=getTasks(),task=tasks.find(item=>item.id===id);
   if(!task||!taskStatuses.some(item=>item.id===status))return;
-  task.status=status;saveTasks(tasks);renderTaskBoard();
+  task.status=status;saveTasks(tasks);syncTaskToAnnualCorrection(task);renderTaskBoard();
+}
+function syncTaskToAnnualCorrection(task){
+  if(task.sourceType!=="annualCorrection"||!task.sourceClientId||!task.sourceCorrectionId)return;
+  const year=Number(task.sourceYear)||new Date().getFullYear(),state=annualClosingState(task.sourceClientId,year);
+  const correction=state.reviewCorrections.find(item=>String(item.id)===String(task.sourceCorrectionId));if(!correction)return;
+  correction.done=task.status==="done";
+  saveAnnualClosingState(task.sourceClientId,state,year);
 }
 async function renderTasks(){
   main.innerHTML=`
@@ -608,12 +615,12 @@ const annualClosingStages=[
   {id:"annual",label:"Cierre anual",tasks:annualClosingFiles.map(file=>file.label)}
 ];
 function annualClosingKey(clientId,year=new Date().getFullYear()){return `app-am-annual-closing-${year}-${clientId}`}
-function annualClosingState(clientId){
+function annualClosingState(clientId,year=new Date().getFullYear()){
   try{
-    const stored=JSON.parse(localStorage.getItem(annualClosingKey(clientId))||"{}");
+    const stored=JSON.parse(localStorage.getItem(annualClosingKey(clientId,year))||"{}");
     const state={};
     annualClosingStages.forEach(stage=>state[stage.id]=stage.tasks.map((_,index)=>stage.id==="annual"&&stored.annualFilesVersion!==1?false:Boolean(stored[stage.id]?.[index])));
-    state.reviewCorrections=Array.isArray(stored.reviewCorrections)?stored.reviewCorrections.map(item=>({id:item.id||Date.now()+Math.random(),title:String(item.title||""),comment:String(item.comment||""),done:Boolean(item.done)})):[];
+    state.reviewCorrections=Array.isArray(stored.reviewCorrections)?stored.reviewCorrections.map(item=>({id:item.id||Date.now()+Math.random(),title:String(item.title||""),comment:String(item.comment||""),assigned:String(item.assigned||""),dueDate:String(item.dueDate||""),taskId:String(item.taskId||""),done:Boolean(item.done)})):[];
     state.reviewNoCorrections=Boolean(stored.reviewNoCorrections);
     state.presented=Boolean(stored.presented);state.presentedDate=String(stored.presentedDate||"");state.formulationDate=String(stored.formulationDate||"");state.certificationSigned=Boolean(stored.certificationSigned);state.annualFilesVersion=stored.annualFilesVersion===1?1:0;
     return state;
@@ -622,7 +629,7 @@ function annualClosingState(clientId){
     state.reviewCorrections=[];state.reviewNoCorrections=false;state.presented=false;state.presentedDate="";state.formulationDate="";state.certificationSigned=false;state.annualFilesVersion=0;return state;
   }
 }
-function saveAnnualClosingState(clientId,state){localStorage.setItem(annualClosingKey(clientId),JSON.stringify(state))}
+function saveAnnualClosingState(clientId,state,year=new Date().getFullYear()){localStorage.setItem(annualClosingKey(clientId,year),JSON.stringify(state))}
 function annualPendingCorrections(state){return(state.reviewCorrections||[]).filter(item=>!item.done).length}
 function annualStageProgress(state,stage){
   if(stage.id==="review"){
@@ -842,24 +849,28 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
     <form class="review-correction-form" id="reviewCorrectionForm" hidden>
       <label>Encabezado<input id="reviewCorrectionTitle" type="text" maxlength="100" placeholder="Ej. Revisar saldo del proveedor" required></label>
       <label>Explicación<textarea id="reviewCorrectionComment" rows="4" maxlength="800" placeholder="Explica qué debe corregirse y cualquier indicación útil…" required></textarea></label>
+      <div class="review-correction-assignment"><label>Responsable<select id="reviewCorrectionAssigned" required><option value="">Selecciona una persona…</option>${workers.map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><label>Fecha límite<input id="reviewCorrectionDueDate" type="date" required></label></div>
       <div><button type="button" class="secondary-button" id="cancelReviewCorrection">Cancelar</button><button type="submit" class="primary blue-button">Guardar corrección</button></div>
     </form>
     <div class="review-corrections-list">${corrections.length?corrections.map(item=>`
       <article class="review-correction ${item.done?"resolved":""}">
         <label><input type="checkbox" data-review-correction="${escapeHtml(String(item.id))}" ${item.done?"checked":""}><span><strong>${escapeHtml(item.title)}</strong><small>${item.done?"Solucionada":"Pendiente de solucionar"}</small></span></label>
+        <div class="review-correction-task-meta"><span>♟ ${escapeHtml(item.assigned||"Sin responsable")}</span><span>◷ ${item.dueDate?taskDateLabel(item.dueDate):"Sin fecha límite"}</span></div>
         <p>${escapeHtml(item.comment)}</p>
         <button type="button" data-remove-review-correction="${escapeHtml(String(item.id))}" aria-label="Eliminar corrección" title="Eliminar corrección">×</button>
       </article>`).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;
   const form=document.querySelector("#reviewCorrectionForm");
-  document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.hidden=false;document.querySelector("#reviewCorrectionTitle").focus()});
+  document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.hidden=false;document.querySelector("#reviewCorrectionDueDate").min=new Date().toISOString().slice(0,10);document.querySelector("#reviewCorrectionTitle").focus()});
   document.querySelector("#cancelReviewCorrection").addEventListener("click",()=>{form.reset();form.hidden=true});
   form.addEventListener("submit",event=>{
     event.preventDefault();
-    const title=document.querySelector("#reviewCorrectionTitle").value.trim(),comment=document.querySelector("#reviewCorrectionComment").value.trim();
-    if(!title||!comment)return;
+    const title=document.querySelector("#reviewCorrectionTitle").value.trim(),comment=document.querySelector("#reviewCorrectionComment").value.trim(),assigned=document.querySelector("#reviewCorrectionAssigned").value,dueDate=document.querySelector("#reviewCorrectionDueDate").value;
+    if(!title||!comment||!assigned||!dueDate)return;
     const updated=annualClosingState(clientId);
     updated.reviewNoCorrections=false;
-    updated.reviewCorrections.push({id:Date.now(),title,comment,done:false});
+    const correctionId=Date.now(),taskId=`annual-correction-${correctionId}-${Math.random().toString(36).slice(2,7)}`;
+    updated.reviewCorrections.push({id:correctionId,title,comment,assigned,dueDate,taskId,done:false});
+    const tasks=getTasks();tasks.push({id:taskId,client:document.querySelector("#annualClosingModal")?.dataset.clientName||clientId,assigned,concept:"Cuentas Anuales",customConcept:"",description:`Corrección: ${title}\n${comment}`,startDate:new Date().toISOString(),finalDate:dueDate,status:"pending",sourceType:"annualCorrection",sourceClientId:clientId,sourceYear:new Date().getFullYear(),sourceCorrectionId:String(correctionId)});saveTasks(tasks);
     saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
   });
   document.querySelector("#reviewWithoutCorrections")?.addEventListener("change",event=>{
@@ -868,11 +879,12 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
   });
   document.querySelectorAll("[data-review-correction]").forEach(check=>check.addEventListener("change",()=>{
     const updated=annualClosingState(clientId),item=updated.reviewCorrections.find(entry=>String(entry.id)===check.dataset.reviewCorrection);
-    if(item)item.done=check.checked;
+    if(item){item.done=check.checked;const tasks=getTasks(),task=tasks.find(entry=>entry.id===item.taskId);if(task){task.status=check.checked?"done":"pending";saveTasks(tasks)}}
     saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
   }));
   document.querySelectorAll("[data-remove-review-correction]").forEach(button=>button.addEventListener("click",()=>{
-    const updated=annualClosingState(clientId);updated.reviewCorrections=updated.reviewCorrections.filter(item=>String(item.id)!==button.dataset.removeReviewCorrection);
+    const updated=annualClosingState(clientId),removed=updated.reviewCorrections.find(item=>String(item.id)===button.dataset.removeReviewCorrection);updated.reviewCorrections=updated.reviewCorrections.filter(item=>String(item.id)!==button.dataset.removeReviewCorrection);
+    if(removed?.taskId)saveTasks(getTasks().filter(task=>task.id!==removed.taskId));
     saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
   }));
 }

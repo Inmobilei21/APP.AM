@@ -427,8 +427,11 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 .review-correction-form>label{display:grid;gap:7px;margin-bottom:12px;font-size:12px;font-weight:800}
 .review-correction-form input,.review-correction-form textarea{width:100%;border:1px solid #dce1eb;border-radius:11px;background:#fff;padding:10px 12px;color:var(--ink);font:inherit;outline:0}
 .review-correction-form input{height:43px}
+.review-correction-form select{width:100%;height:43px;border:1px solid #dce1eb;border-radius:11px;background:#fff;padding:0 12px;color:var(--ink);font:inherit;outline:0}
 .review-correction-form textarea{resize:vertical;min-height:92px}
-.review-correction-form input:focus,.review-correction-form textarea:focus{border-color:#91a0ff;box-shadow:0 0 0 3px rgba(35,54,184,.08)}
+.review-correction-form input:focus,.review-correction-form select:focus,.review-correction-form textarea:focus{border-color:#91a0ff;box-shadow:0 0 0 3px rgba(35,54,184,.08)}
+.review-correction-assignment{display:grid!important;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.review-correction-assignment label{display:grid;gap:7px;font-size:12px;font-weight:800}
 .review-correction-form>div{display:flex;justify-content:flex-end;gap:9px}
 .review-corrections-list{display:grid;gap:10px;margin-top:15px}
 .review-correction{position:relative;border:1px solid #e1e5ee;border-left:4px solid #e8a23b;border-radius:13px;background:#fff;padding:13px 45px 13px 14px}
@@ -439,6 +442,8 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 .review-correction>label small{margin-top:3px;color:#a45a00;font-size:10px}
 .review-correction.resolved>label small{color:#168456}
 .review-correction>p{margin:10px 0 0 29px;color:#59657a;font-size:12px;line-height:1.45;white-space:pre-wrap}
+.review-correction-task-meta{display:flex;align-items:center;gap:8px;margin:9px 0 0 29px}
+.review-correction-task-meta span{padding:5px 8px;border-radius:8px;background:#f0f3f8;color:#59657a;font-size:10px;font-weight:750}
 .review-correction>button{position:absolute;right:11px;top:11px;width:28px;height:28px;border:0;border-radius:8px;background:#f0f2f6;color:#8a3540;font-size:17px;cursor:pointer}
 .review-empty{text-align:center;padding:24px 16px;border:1px dashed #d9dfeb;border-radius:14px;background:#fff}
 .review-empty>span{display:grid;place-items:center;width:38px;height:38px;margin:0 auto 9px;border-radius:11px;background:#e8ecff;color:var(--blue);font-weight:900}
@@ -451,6 +456,8 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
   .review-corrections-toolbar>button{width:100%}
   .review-correction-form>div{flex-direction:column-reverse}
   .review-correction-form>div button{width:100%}
+  .review-correction-assignment{grid-template-columns:1fr!important}
+  .review-correction-task-meta{align-items:flex-start;flex-direction:column}
 }
 
 
