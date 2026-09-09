@@ -661,8 +661,11 @@ async function renderAnnualClosings(){
   }
 }
 function annualSubmissionMarkup(state,clientId){
-  const locked=state.presented&&state.presentedDate&&!annualClosingUnlocks.has(clientId);
-  return `<div class="annual-submission ${state.presented?"complete":""}"><label><input type="checkbox" data-annual-presented ${state.presented?"checked":""} ${locked?"disabled":""}><span>Presentado</span></label><input type="date" data-annual-presented-date value="${escapeHtml(state.presentedDate||"")}" ${locked?"disabled":""}></div>`;
+  const stagesComplete=annualClosingStages.every(stage=>annualStageProgress(state,stage)===100);
+  const recordLocked=state.presented&&state.presentedDate&&!annualClosingUnlocks.has(clientId);
+  const disabled=!stagesComplete||recordLocked;
+  const hint=!stagesComplete?"Completa las tres etapas al 100 % para habilitar la presentación":recordLocked?"Ficha presentada y bloqueada":"Indica que el cierre ha sido presentado";
+  return `<div class="annual-submission ${state.presented?"complete":""} ${!stagesComplete?"waiting":""}" title="${hint}"><label><input type="checkbox" data-annual-presented ${state.presented?"checked":""} ${disabled?"disabled":""}><span>Presentado</span></label><input type="date" data-annual-presented-date value="${escapeHtml(state.presentedDate||"")}" ${disabled?"disabled":""}></div>`;
 }
 function bindAnnualSubmissionControls(row,clientId){
   row.querySelectorAll("[data-annual-presented],[data-annual-presented-date]").forEach(control=>control.addEventListener("click",event=>event.stopPropagation()));
