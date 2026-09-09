@@ -597,6 +597,7 @@ function annualClosingState(clientId){
   }
 }
 function saveAnnualClosingState(clientId,state){localStorage.setItem(annualClosingKey(clientId),JSON.stringify(state))}
+function annualPendingCorrections(state){return(state.reviewCorrections||[]).filter(item=>!item.done).length}
 function annualStageProgress(state,stage){
   if(stage.id==="review"){
     const corrections=state.reviewCorrections||[];
@@ -636,11 +637,15 @@ async function renderAnnualClosings(){
     document.querySelectorAll("#annualClosingRows [data-annual-client]").forEach(row=>{row.hidden=Boolean(query)&&!row.textContent.toLocaleLowerCase("es").includes(query)});
   });
   try{
-    const clients=(await getAllClientMetadata()).filter(client=>(client.personType||"juridica")==="juridica").sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
+    const clients=(await getAllClientMetadata()).filter(client=>(client.personType||"juridica")==="juridica").sort((a,b)=>{
+      const pendingDifference=annualPendingCorrections(annualClosingState(b.id||b.name))-annualPendingCorrections(annualClosingState(a.id||a.name));
+      return pendingDifference||a.name.localeCompare(b.name,"es",{sensitivity:"base"});
+    });
     const body=document.querySelector("#annualClosingRows");
     body.innerHTML=clients.length?clients.map(client=>{
       const state=annualClosingState(client.id||client.name);
-      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}</td>`).join("")}</tr>`;
+      const pending=annualPendingCorrections(state);
+      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}" data-pending-corrections="${pending}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}${stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span>▲</span><b>${pending}</b></span>`:""}</td>`).join("")}</tr>`;
     }).join(""):'<tr><td colspan="4" class="table-empty">No hay personas jurídicas registradas.</td></tr>';
     body.querySelectorAll("[data-annual-client]").forEach(row=>{
       const client=clients.find(item=>(item.id||item.name)===row.dataset.annualClient);
@@ -735,7 +740,16 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
 }
 function updateAnnualClosingTableRow(clientId,state){
   const row=[...document.querySelectorAll("[data-annual-client]")].find(item=>item.dataset.annualClient===clientId);if(!row)return;
-  annualClosingStages.forEach(stage=>{const cell=row.querySelector(`[data-annual-progress="${stage.id}"]`);if(cell)cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))});
+  const pending=annualPendingCorrections(state);row.dataset.pendingCorrections=String(pending);
+  annualClosingStages.forEach(stage=>{
+    const cell=row.querySelector(`[data-annual-progress="${stage.id}"]`);if(!cell)return;
+    cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))+(stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span>▲</span><b>${pending}</b></span>`:"");
+  });
+  reorderAnnualClosingRows();
+}
+function reorderAnnualClosingRows(){
+  const body=document.querySelector("#annualClosingRows");if(!body)return;
+  [...body.querySelectorAll("[data-annual-client]")].sort((a,b)=>Number(b.dataset.pendingCorrections||0)-Number(a.dataset.pendingCorrections||0)||a.children[0].textContent.localeCompare(b.children[0].textContent,"es",{sensitivity:"base"})).forEach(row=>body.appendChild(row));
 }
 
 const taxModels=["111","115","123","130-131","303","349","182","347","202"];
