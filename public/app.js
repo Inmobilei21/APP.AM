@@ -433,6 +433,10 @@ function taskCountdown(value){
   if(days===0)return{label:"Vence hoy",className:"today"};
   return{label:`${days===1?"Queda":"Quedan"} ${days} ${days===1?"día":"días"}`,className:days<=3?"soon":""};
 }
+function taskStatusMarkup(status){
+  const labels={pending:"Sin empezar",progress:"En proceso",done:"Terminado"},safeStatus=labels[status]?status:"pending";
+  return `<span class="task-status-chip status-${safeStatus}"><i aria-hidden="true"></i>${labels[safeStatus]}</span>`;
+}
 async function getTaskClientNames(){
   const names=new Set();
   try{(await getAllClientMetadata()).forEach(client=>client?.name&&names.add(client.name))}catch{}
@@ -448,7 +452,7 @@ function taskCardMarkup(task){
   const countdown=taskCountdown(task.finalDate);
   const concept=task.concept==="Otro"?(task.customConcept||"Otro"):task.concept;
   return `<article class="task-note" draggable="true" data-task-id="${escapeHtml(task.id)}">
-    <div class="task-note-top"><span class="task-concept">${escapeHtml(concept||"Sin concepto")}</span><div><button type="button" class="task-edit-button" data-edit-task="${escapeHtml(task.id)}" aria-label="Editar tarea" title="Editar tarea">✎</button><span class="task-grip" aria-hidden="true">⠿</span></div></div>
+    <div class="task-note-top"><div class="task-heading-badges"><span class="task-concept">${escapeHtml(concept||"Sin concepto")}</span>${taskStatusMarkup(task.status)}</div><div><button type="button" class="task-edit-button" data-edit-task="${escapeHtml(task.id)}" aria-label="Editar tarea" title="Editar tarea">✎</button><span class="task-grip" aria-hidden="true">⠿</span></div></div>
     <h4>${escapeHtml(task.client||"Sin cliente")}</h4>
     <div class="task-deadline"><span>Plazo: ${taskDateLabel(task.finalDate)}</span><strong class="${countdown.className}">${countdown.label}</strong></div>
     ${task.description?`<p>${escapeHtml(task.description)}</p>`:""}
@@ -887,13 +891,13 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
       <div class="review-correction-assignment"><label>Responsable<select id="reviewCorrectionAssigned" required><option value="">Selecciona una persona…</option>${workers.map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label><label>Fecha límite<input id="reviewCorrectionDueDate" type="date" required></label></div>
       <div><button type="button" class="secondary-button" id="cancelReviewCorrection">Cancelar</button><button type="submit" class="primary blue-button" id="saveReviewCorrection">Guardar corrección</button></div>
     </form>
-    <div class="review-corrections-list">${corrections.length?corrections.map(item=>`
+    <div class="review-corrections-list">${corrections.length?corrections.map(item=>{const linkedTask=getTasks().find(task=>task.id===item.taskId),linkedStatus=linkedTask?.status||(item.done?"done":"pending");return`
       <article class="review-correction ${item.done?"resolved":""}">
-        <label><input type="checkbox" data-review-correction="${escapeHtml(String(item.id))}" ${item.done?"checked":""}><span><strong>${escapeHtml(item.title)}</strong><small>${item.done?"Solucionada":"Pendiente de solucionar"}</small></span></label>
+        <label><input type="checkbox" data-review-correction="${escapeHtml(String(item.id))}" ${item.done?"checked":""}><span><span class="review-correction-title"><strong>${escapeHtml(item.title)}</strong>${taskStatusMarkup(linkedStatus)}</span><small>${item.done?"Solucionada":"Pendiente de solucionar"}</small></span></label>
         <div class="review-correction-task-meta"><span>♟ ${escapeHtml(item.assigned||"Sin responsable")}</span><span>◷ ${item.dueDate?taskDateLabel(item.dueDate):"Sin fecha límite"}</span></div>
         <p>${escapeHtml(item.comment)}</p>
         <div class="review-correction-actions"><button type="button" data-edit-review-correction="${escapeHtml(String(item.id))}" aria-label="Editar corrección" title="Editar corrección">✎</button><button type="button" data-remove-review-correction="${escapeHtml(String(item.id))}" aria-label="Eliminar corrección" title="Eliminar corrección">×</button></div>
-      </article>`).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;
+      </article>`}).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;
   const form=document.querySelector("#reviewCorrectionForm");
   const resetCorrectionForm=()=>{form.reset();form.dataset.editingId="";form.hidden=true;document.querySelector("#saveReviewCorrection").textContent="Guardar corrección"};
   document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.reset();form.dataset.editingId="";form.hidden=false;document.querySelector("#reviewCorrectionDueDate").min=new Date().toISOString().slice(0,10);document.querySelector("#saveReviewCorrection").textContent="Guardar corrección";document.querySelector("#reviewCorrectionTitle").focus()});
