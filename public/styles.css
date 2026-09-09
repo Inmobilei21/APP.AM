@@ -487,3 +487,23 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 
 .annual-submission.waiting{opacity:.55}
 .annual-submission.waiting label,.annual-submission.waiting input{cursor:not-allowed}
+
+
+/* Periodicidad, días de cortesía y marco financiero */
+.fiscal-settings-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
+.fiscal-settings-row .fiscal-periodicity{min-width:0;margin:0;padding:11px 12px;gap:10px}
+.fiscal-settings-row .fiscal-periodicity select{min-width:120px}
+.fiscal-courtesy-inline{min-width:0;display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid #dfe4ff;border-radius:13px;background:#eef1ff;cursor:pointer}
+.fiscal-courtesy-inline input{width:18px;height:18px;flex:0 0 18px;accent-color:var(--blue)}
+.fiscal-courtesy-inline span,.fiscal-courtesy-inline strong,.fiscal-courtesy-inline small{display:block}
+.fiscal-courtesy-inline small{margin-top:3px;color:var(--muted);font-size:11px;font-weight:400}
+.financial-framework{margin:18px 0;border:1px solid #dfe4ee;border-radius:16px;padding:13px 16px 16px;min-width:0}
+.financial-framework legend{padding:0 8px;font-weight:850;color:var(--ink)}
+.financial-framework label{display:grid;gap:7px;font-size:12px;font-weight:750}
+.financial-framework textarea{width:100%;min-height:78px;border:1px solid #dfe4ed;border-radius:12px;background:#f8f9fc;padding:11px 12px;color:var(--ink);font:inherit;resize:vertical;outline:0}
+.financial-framework textarea:focus{background:#fff;border-color:#91a0ff;box-shadow:0 0 0 3px rgba(35,54,184,.08)}
+@media(min-width:1100px){
+  #newClientForm .financial-framework{grid-area:courtesy;margin:0;padding:13px 14px}
+  #newClientForm .fiscal-settings-row{margin-bottom:10px}
+}
+@media(max-width:760px){.fiscal-settings-row{grid-template-columns:1fr}}
