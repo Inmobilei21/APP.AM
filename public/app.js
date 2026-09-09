@@ -702,7 +702,7 @@ function renderAnnualClosingStage(stageId){
   }).join("");
   document.querySelectorAll("[data-annual-stage]").forEach(button=>button.addEventListener("click",()=>renderAnnualClosingStage(button.dataset.annualStage)));
   const stage=annualClosingStages.find(item=>item.id===stageId),progress=annualStageProgress(state,stage);
-  if(stage.id==="review"){renderAnnualReviewContent(clientId,state,stage,progress);return}
+  if(stage.id==="review"){renderAnnualReviewContent(clientId,state,stage,progress);applyAnnualRecordLock(clientId);return}
   document.querySelector("#annualStageContent").innerHTML=`
     <div class="annual-stage-summary"><div><small>PROGRESO DE LA ETAPA</small><h3>${stage.label}</h3></div>${annualProgressMarkup(progress)}</div>
     <div class="annual-checklist">${stage.tasks.map((task,index)=>`<label><input type="checkbox" data-annual-check="${index}" ${state[stage.id][index]?"checked":""}><span><strong>${escapeHtml(task)}</strong><small>${state[stage.id][index]?"Completado":"Pendiente"}</small></span></label>`).join("")}</div>`;
@@ -713,6 +713,7 @@ function renderAnnualClosingStage(stageId){
     updateAnnualClosingTableRow(clientId,updated);
     renderAnnualClosingStage(stage.id);
   }));
+  applyAnnualRecordLock(clientId);
 }
 function renderAnnualReviewContent(clientId,state,stage,progress){
   const corrections=state.reviewCorrections||[];
@@ -756,6 +757,25 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
     saveAnnualClosingState(clientId,updated);updateAnnualClosingTableRow(clientId,updated);renderAnnualClosingStage("review");
   }));
 }
+function applyAnnualRecordLock(clientId){
+  const state=annualClosingState(clientId),locked=state.presented&&state.presentedDate&&!annualClosingUnlocks.has(clientId);
+  const banner=document.querySelector("#annualRecordLock"),content=document.querySelector("#annualStageContent");if(!banner||!content)return;
+  content.classList.toggle("locked",locked);
+  content.querySelectorAll("input,textarea,button").forEach(control=>control.disabled=locked);
+  banner.hidden=!locked;
+  banner.innerHTML=locked?`<span>🔒</span><div><strong>Ficha presentada y bloqueada</strong><small>Presentada el ${new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(new Date(state.presentedDate+"T12:00:00"))}. Puedes consultarla, pero necesitas contraseña para modificarla.</small></div><button type="button" id="unlockAnnualRecord">Desbloquear edición</button>`:"";
+  document.querySelector("#unlockAnnualRecord")?.addEventListener("click",()=>openAnnualRecordUnlock(clientId));
+}
+function openAnnualRecordUnlock(clientId){
+  document.querySelector("#annualRecordAccess")?.remove();
+  const shell=document.createElement("div");shell.id="annualRecordAccess";shell.className="access-shell";
+  shell.innerHTML=`<div class="access-backdrop"></div><section class="access-card" role="dialog" aria-modal="true"><button class="access-close" type="button">×</button><div class="access-icon">🔒</div><p class="eyebrow">FICHA PRESENTADA</p><h2>Desbloquear edición</h2><p class="access-copy">Introduce la contraseña para modificar este cierre anual.</p><form><label for="annualRecordPassword">Contraseña</label><div class="access-input"><span>●</span><input id="annualRecordPassword" type="password" required></div><p class="access-error"></p><button class="primary blue-button" type="submit">Desbloquear</button></form></section>`;
+  document.body.appendChild(shell);
+  const close=()=>{shell.classList.remove("open");setTimeout(()=>shell.remove(),260)};
+  shell.querySelector(".access-close").addEventListener("click",close);shell.querySelector(".access-backdrop").addEventListener("click",close);
+  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const input=shell.querySelector("#annualRecordPassword");if(input.value==="1234"){annualClosingUnlocks.add(clientId);close();const active=document.querySelector("[data-annual-stage].active")?.dataset.annualStage||"accounting";setTimeout(()=>{renderAnnualClosingStage(active);const state=annualClosingState(clientId);updateAnnualClosingTableRow(clientId,state)},180)}else{shell.querySelector(".access-error").textContent="La contraseña no es correcta.";input.select()}});
+  requestAnimationFrame(()=>requestAnimationFrame(()=>shell.classList.add("open")));setTimeout(()=>shell.querySelector("#annualRecordPassword").focus(),250);
+}
 function updateAnnualClosingTableRow(clientId,state){
   const row=[...document.querySelectorAll("[data-annual-client]")].find(item=>item.dataset.annualClient===clientId);if(!row)return;
   const pending=annualPendingCorrections(state);row.dataset.pendingCorrections=String(pending);
@@ -763,6 +783,7 @@ function updateAnnualClosingTableRow(clientId,state){
     const cell=row.querySelector(`[data-annual-progress="${stage.id}"]`);if(!cell)return;
     cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))+(stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span class="annual-review-alert-icon"><svg viewBox="0 0 32 30" aria-hidden="true"><path fill="#d92d20" d="M12.8 4.2c1.4-2.5 5-2.5 6.4 0l11.9 20.5c1.4 2.4-.4 5.3-3.1 5.3H4c-2.7 0-4.5-2.9-3.1-5.3L12.8 4.2Z"/><path fill="#ffffff" d="M14.45 9.7h3.1l-.5 10.4h-2.1l-.5-10.4ZM16 25.4a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"/></svg></span><b>${pending}</b></span>`:"");
   });
+  const submission=row.querySelector("[data-annual-submission]");if(submission){submission.innerHTML=annualSubmissionMarkup(state,clientId);bindAnnualSubmissionControls(row,clientId)}
   reorderAnnualClosingRows();
 }
 function reorderAnnualClosingRows(){
