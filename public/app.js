@@ -645,7 +645,7 @@ async function renderAnnualClosings(){
     body.innerHTML=clients.length?clients.map(client=>{
       const state=annualClosingState(client.id||client.name);
       const pending=annualPendingCorrections(state);
-      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}" data-pending-corrections="${pending}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}${stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span>▲</span><b>${pending}</b></span>`:""}</td>`).join("")}</tr>`;
+      return `<tr class="annual-client-row" tabindex="0" data-annual-client="${escapeHtml(client.id||client.name)}" data-pending-corrections="${pending}"><td><strong title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</strong><small>${escapeHtml(client.cif||"Sin CIF")}</small></td>${annualClosingStages.map(stage=>`<td data-annual-progress="${stage.id}">${annualProgressMarkup(annualStageProgress(state,stage))}${stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span>!</span><b>${pending}</b></span>`:""}</td>`).join("")}</tr>`;
     }).join(""):'<tr><td colspan="4" class="table-empty">No hay personas jurídicas registradas.</td></tr>';
     body.querySelectorAll("[data-annual-client]").forEach(row=>{
       const client=clients.find(item=>(item.id||item.name)===row.dataset.annualClient);
@@ -743,7 +743,7 @@ function updateAnnualClosingTableRow(clientId,state){
   const pending=annualPendingCorrections(state);row.dataset.pendingCorrections=String(pending);
   annualClosingStages.forEach(stage=>{
     const cell=row.querySelector(`[data-annual-progress="${stage.id}"]`);if(!cell)return;
-    cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))+(stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span>▲</span><b>${pending}</b></span>`:"");
+    cell.innerHTML=annualProgressMarkup(annualStageProgress(state,stage))+(stage.id==="review"&&pending?`<span class="annual-review-alert" title="${pending} corrección${pending===1?"":"es"} pendiente${pending===1?"":"s"}"><span>!</span><b>${pending}</b></span>`:"");
   });
   reorderAnnualClosingRows();
 }
