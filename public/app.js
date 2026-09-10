@@ -1797,7 +1797,7 @@ function createWorkerChat(){
   widget.className="worker-chat";
   widget.innerHTML=`
     <button class="perplexity-launcher" id="perplexityLauncher" type="button" aria-label="Abrir Perplexity" title="Perplexity">
-      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5v38M9 17h30v22H9zM9 17l15 14 15-14M24 5 9 17M24 5l15 12M15 9v30l9-8 9 8V9"/></svg>
+      <img src="/perplexity-logo.png" alt="" aria-hidden="true">
     </button>
     <button class="chat-launcher" id="chatLauncher" type="button" aria-label="Abrir chat de trabajadores">
       <span class="chat-launcher-icon">✉</span><span class="chat-launcher-label">Chat</span>
