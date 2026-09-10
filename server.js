@@ -5,7 +5,14 @@ const crypto = require("crypto");
 
 const root = path.join(__dirname, "public");
 const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml" };
-const newsQuery = '(AEAT OR IVA OR IRPF OR "cuentas anuales" OR ICAC OR "normativa fiscal") (site:elconfidencial.com OR site:elmundo.es OR site:eleconomista.es OR site:theobjective.com)';
+const newsTopicsQuery = '(AEAT OR IVA OR IRPF OR "Impuesto sobre Sociedades" OR "cuentas anuales" OR ICAC OR "normativa fiscal" OR Verifactu OR autónomos OR pymes OR "Seguridad Social" OR subvenciones)';
+const newsSourceGroups = [
+  ["eleconomista.es", "expansion.com", "cincodias.elpais.com", "autonomosyemprendedor.es"],
+  ["iberley.es", "noticias.juridicas.com", "legaltoday.com", "confilegal.com"],
+  ["economistjurist.es", "elderecho.com", "diariojuridico.com", "fiscal-impuestos.com"],
+  ["economistas.es", "aedaf.es", "agenciatributaria.gob.es", "boe.es"],
+  ["juntadeandalucia.es", "andaluciatrade.es"]
+];
 let newsCache = { expires: 0, articles: [] };
 
 function decodeXml(value = "") {
@@ -71,17 +78,30 @@ async function articleMetadata(url) {
     return { link, image: /^https?:\/\//i.test(image) && !isGooglePlaceholder ? image : "" };
   } catch { return { link, image: "" }; }
 }
-async function getNews(force = false) {
-  if (!force && newsCache.expires > Date.now()) return newsCache.articles;
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(newsQuery)}&hl=es&gl=ES&ceid=ES:es`;
-  const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 APP-AM/1.0" }, signal: AbortSignal.timeout(10000) });
-  if (!response.ok) throw new Error("News unavailable");
+async function fetchNewsFeed(domains) {
+  const sources = domains.map(domain => `site:${domain}`).join(" OR ");
+  const query = `${newsTopicsQuery} (${sources})`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es&gl=ES&ceid=ES:es`;
+  const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 APP-AM/1.0" }, signal: AbortSignal.timeout(20000) });
+  if (!response.ok) throw new Error("News source unavailable");
   const xml = await response.text();
-  const articles = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map(match => {
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map(match => {
     const item = match[1], title = xmlTag(item, "title"), source = xmlTag(item, "source");
     const escapedSource = source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return { title: title.replace(new RegExp(`\\s+-\\s+${escapedSource}$`, "i"), ""), link: xmlTag(item, "link"), source, date: xmlTag(item, "pubDate"), topic: newsTopic(title) };
-  }).filter(article => article.title && article.link).slice(0, 12);
+  }).filter(article => article.title && article.link);
+}
+async function getNews(force = false) {
+  if (!force && newsCache.expires > Date.now()) return newsCache.articles;
+  const results = await Promise.allSettled(newsSourceGroups.map(fetchNewsFeed));
+  const combined = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
+  if (!combined.length) throw new Error("News unavailable");
+  const seen = new Set();
+  const articles = combined.sort((a,b) => new Date(b.date) - new Date(a.date)).filter(article => {
+    const key = article.title.toLocaleLowerCase("es").replace(/\s+/g, " ").trim();
+    if (seen.has(key)) return false;
+    seen.add(key);return true;
+  }).slice(0, 18);
   const enriched = await Promise.all(articles.map(async article => ({ ...article, ...await articleMetadata(article.link) })));
   newsCache = { expires: Date.now() + 30 * 60 * 1000, articles: enriched };
   return enriched;
