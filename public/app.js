@@ -1620,6 +1620,7 @@ function saveHistoricalRow(event){
 
 function renderFolderView(name){
   const config=views[name];
+  currentDirectoryHandle=null;currentEntries=[];folderHistory=[];activeFolderConfig=config;
   main.innerHTML=`
     <header>
       <button class="menu" id="menu" aria-label="Abrir menú">☰</button>
@@ -1645,8 +1646,22 @@ function renderFolderView(name){
   document.querySelector("#folderBack").addEventListener("click",goBackFolder);
   document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
   document.querySelectorAll("[data-folder-view]").forEach(button=>button.addEventListener("click",()=>setFolderViewMode(button.dataset.folderView)));
+  if(name==="Clientes") setupClientFolderDropZone();
   setFolderViewMode(folderViewMode,false);
   restoreFolder(config);
+}
+
+function setupClientFolderDropZone(){
+  const panel=document.querySelector(".folder-panel");if(!panel)return;
+  const overlay=document.createElement("div");overlay.className="folder-drop-overlay";overlay.id="folderDropOverlay";overlay.setAttribute("aria-hidden","true");overlay.innerHTML='<span aria-hidden="true">⇩</span><strong>Suelta aquí la documentación</strong><small>Se guardará en la carpeta que tienes abierta</small>';panel.appendChild(overlay);
+  let dragDepth=0;
+  const hasFiles=event=>[...(event.dataTransfer?.types||[])].includes("Files");
+  const show=()=>{overlay.classList.add("active");overlay.setAttribute("aria-hidden","false")};
+  const hide=()=>{dragDepth=0;overlay.classList.remove("active");overlay.setAttribute("aria-hidden","true")};
+  panel.addEventListener("dragenter",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;dragDepth++;show()});
+  panel.addEventListener("dragover",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;event.dataTransfer.dropEffect="copy";show()});
+  panel.addEventListener("dragleave",()=>{if(dragDepth>0)dragDepth--;if(!dragDepth)hide()});
+  panel.addEventListener("drop",async event=>{if(!hasFiles(event))return;event.preventDefault();hide();if(!currentDirectoryHandle){document.querySelector("#folderStatus").textContent="Conecta primero la carpeta de clientes para guardar documentación.";return}const items=[...(event.dataTransfer.items||[])],files=items.length?items.filter(item=>item.kind==="file").map(item=>item.getAsFile()).filter(Boolean):[...(event.dataTransfer.files||[])];if(!files.length)return;await addDocumentsToCurrentFolder(files)});
 }
 
 function setFolderViewMode(mode,persist=true){
@@ -1783,19 +1798,24 @@ async function uploadDocuments(){
     const permission=await currentDirectoryHandle.requestPermission({mode:"readwrite"});
     if(permission!=="granted") return;
     const fileHandles=await window.showOpenFilePicker({multiple:true});
-    for(const sourceHandle of fileHandles){
-      const file=await sourceHandle.getFile();
-      const destination=await currentDirectoryHandle.getFileHandle(file.name,{create:true});
-      const writable=await destination.createWritable();
-      await writable.write(file);
-      await writable.close();
-    }
-    await displayFolder(currentDirectoryHandle,activeFolderConfig,true);
-    document.querySelector("#folderStatus").textContent=fileHandles.length===1
-      ? "Documento añadido correctamente."
-      : `${fileHandles.length} documentos añadidos correctamente.`;
+    await addDocumentsToCurrentFolder(await Promise.all(fileHandles.map(sourceHandle=>sourceHandle.getFile())),true);
   }catch(error){
     if(error.name!=="AbortError") alert("No se pudieron añadir los documentos. Comprueba el permiso de escritura.");
+  }
+}
+
+async function addDocumentsToCurrentFolder(files,permissionGranted=false){
+  if(!currentDirectoryHandle||!files.length)return;
+  try{
+    if(!permissionGranted&&await currentDirectoryHandle.requestPermission({mode:"readwrite"})!=="granted")return;
+    for(const file of files)await copyNamedFile(file,currentDirectoryHandle,file.name);
+    const destination=currentDirectoryHandle.name;
+    await displayFolder(currentDirectoryHandle,activeFolderConfig,true);
+    document.querySelector("#folderStatus").textContent=files.length===1
+      ? `Documento guardado en “${destination}”.`
+      : `${files.length} documentos guardados en “${destination}”.`;
+  }catch(error){
+    if(error.name!=="AbortError")alert("No se pudieron guardar los documentos. Comprueba el permiso de escritura de la carpeta.");
   }
 }
 
