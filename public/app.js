@@ -1796,21 +1796,31 @@ function createWorkerChat(){
   const widget=document.createElement("div");
   widget.className="worker-chat";
   widget.innerHTML=`
+    <button class="perplexity-launcher" id="perplexityLauncher" type="button" aria-label="Abrir Perplexity" title="Perplexity">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5v38M9 17h30v22H9zM9 17l15 14 15-14M24 5 9 17M24 5l15 12M15 9v30l9-8 9 8V9"/></svg>
+    </button>
     <button class="chat-launcher" id="chatLauncher" type="button" aria-label="Abrir chat de trabajadores">
       <span class="chat-launcher-icon">✉</span><span class="chat-launcher-label">Chat</span>
     </button>
     <section class="chat-panel" id="chatPanel" aria-hidden="true">
-      <header class="chat-header"><div><span class="chat-kicker" id="chatKicker">EQUIPO</span><h2 id="chatTitle">Chat de trabajadores</h2></div><div class="chat-header-actions"><button class="chat-perplexity-button" id="openPerplexity" type="button" aria-label="Abrir Perplexity"><span aria-hidden="true">✦</span> Perplexity</button><button id="closeChat" type="button" aria-label="Cerrar chat">×</button></div></header>
+      <header class="chat-header"><div><span class="chat-kicker">EQUIPO</span><h2>Chat de trabajadores</h2></div><button id="closeChat" type="button" aria-label="Cerrar chat">×</button></header>
       <div id="chatContent"></div>
+    </section>
+    <section class="chat-panel perplexity-panel" id="perplexityPanel" aria-hidden="true">
+      <header class="chat-header perplexity-header"><div><span class="chat-kicker">ASISTENTE WEB</span><h2>Perplexity</h2></div><button id="closePerplexity" type="button" aria-label="Cerrar Perplexity">×</button></header>
+      <div class="perplexity-toolbar"><p><strong>Pregunta directamente a Perplexity</strong><small>Inicia sesión si te lo solicita.</small></p><a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Abrir aparte ↗</a></div>
+      <div class="perplexity-frame-wrap"><iframe data-src="https://www.perplexity.ai/" title="Perplexity" referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-read; clipboard-write"></iframe><div class="perplexity-frame-help"><strong>¿No aparece Perplexity?</strong><span>La web puede impedir que se muestre dentro de otras aplicaciones.</span><a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Abrir Perplexity en otra pestaña</a></div></div>
     </section>`;
   document.body.appendChild(widget);
   document.querySelector("#chatLauncher").addEventListener("click",toggleWorkerChat);
+  document.querySelector("#perplexityLauncher").addEventListener("click",togglePerplexity);
   document.querySelector("#closeChat").addEventListener("click",closeWorkerChat);
-  document.querySelector("#openPerplexity").addEventListener("click",()=>document.querySelector("#chatPanel")?.classList.contains("perplexity-mode")?renderChatContacts():renderPerplexity());
+  document.querySelector("#closePerplexity").addEventListener("click",closePerplexity);
   renderChatContacts();
 }
 
 function toggleWorkerChat(){
+  closePerplexity();
   const panel=document.querySelector("#chatPanel");
   const opening=!panel.classList.contains("open");
   panel.classList.toggle("open",opening);
@@ -1823,28 +1833,27 @@ function closeWorkerChat(){
   panel.setAttribute("aria-hidden","true");
   document.querySelector("#chatLauncher").classList.remove("active");
 }
+function togglePerplexity(){
+  closeWorkerChat();
+  const panel=document.querySelector("#perplexityPanel");
+  const opening=!panel.classList.contains("open");
+  if(opening){const frame=panel.querySelector("iframe");if(!frame.src)frame.src=frame.dataset.src}
+  panel.classList.toggle("open",opening);
+  panel.setAttribute("aria-hidden",String(!opening));
+  document.querySelector("#perplexityLauncher").classList.toggle("active",opening);
+}
+function closePerplexity(){
+  const panel=document.querySelector("#perplexityPanel");
+  if(!panel)return;
+  panel.classList.remove("open");
+  panel.setAttribute("aria-hidden","true");
+  document.querySelector("#perplexityLauncher")?.classList.remove("active");
+}
 function renderChatContacts(){
   activeChatWorker=null;
-  document.querySelector("#chatPanel")?.classList.remove("perplexity-mode");
-  document.querySelector("#chatKicker").textContent="EQUIPO";
-  document.querySelector("#chatTitle").textContent="Chat de trabajadores";
-  const perplexityButton=document.querySelector("#openPerplexity");
-  perplexityButton.classList.remove("active");
-  perplexityButton.innerHTML='<span aria-hidden="true">✦</span> Perplexity';
   const content=document.querySelector("#chatContent");
   content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Selecciona un trabajador para abrir el chat.</span></div><div class="chat-contacts">${chatWorkers.map(name=>`<button type="button" data-chat-worker="${escapeHtml(name)}"><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small>Abrir conversación</small></span><b>›</b></button>`).join("")}</div>`;
   content.querySelectorAll("[data-chat-worker]").forEach(button=>button.addEventListener("click",()=>renderConversation(button.dataset.chatWorker)));
-}
-function renderPerplexity(){
-  activeChatWorker=null;
-  document.querySelector("#chatPanel")?.classList.add("perplexity-mode");
-  document.querySelector("#chatKicker").textContent="ASISTENTE WEB";
-  document.querySelector("#chatTitle").textContent="Perplexity";
-  const perplexityButton=document.querySelector("#openPerplexity");
-  perplexityButton.classList.add("active");
-  perplexityButton.innerHTML='<span aria-hidden="true">←</span> Equipo';
-  const content=document.querySelector("#chatContent");
-  content.innerHTML=`<div class="perplexity-toolbar"><p><strong>Consulta directamente en Perplexity</strong><small>Inicia sesión en su web si te lo solicita.</small></p><a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Abrir aparte ↗</a></div><div class="perplexity-frame-wrap"><iframe src="https://www.perplexity.ai/" title="Perplexity" referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-read; clipboard-write"></iframe><div class="perplexity-frame-help"><strong>¿No aparece Perplexity?</strong><span>La web puede impedir que se muestre dentro de otras aplicaciones.</span><a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Abrir Perplexity en otra pestaña</a></div></div>`;
 }
 function renderConversation(name){
   activeChatWorker=name;
