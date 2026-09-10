@@ -1224,7 +1224,7 @@ function normalizeFiscalText(value){
 }
 function normalizeFiscalClient(value){
   return normalizeFiscalText(value)
-    .replace(/\b(SOCIEDAD LIMITADA PROFESIONAL|SOCIEDAD LIMITADA|SOCIEDAD ANONIMA|SLP|SLL|SL|SA|CB|SC|SCOOP)\b/g," ")
+    .replace(/\b(SOCIEDAD LIMITADA PROFESIONAL|SOCIEDAD LIMITADA|SOCIEDAD ANONIMA|S L P|S L L|S L|S A|SLP|SLL|SL|SA|CB|SC|SCOOP)\b/g," ")
     .replace(/\s+/g," ").trim();
 }
 function fiscalPeriodAliases(type,period){
@@ -1275,13 +1275,10 @@ function declarationClientScore(clientName,documentText){
 }
 async function declarationDocumentsForClients(clients,model,type,period,year){
   declarationObjectUrls.forEach(url=>URL.revokeObjectURL(url));declarationObjectUrls=[];
-  const all=await getDeclarationPdfs();
+  const all=await getDeclarationPdfs(true);
   if(!all.length)return new Map();
-  const typeWord=type==="mensual"?"MENSUAL":"TRIMESTRAL";
-  const hasTypeFolders=all.some(doc=>/\b(MENSUAL|TRIMESTRAL)\b/.test(doc.normalized));
   const aliases=fiscalPeriodAliases(type,period);
   const candidates=all.filter(doc=>{
-    if(hasTypeFolders&&!new RegExp(`(^| )${typeWord}( |$)`).test(doc.normalized))return false;
     if(!doc.normalized.includes(String(year)))return false;
     if(!fiscalModelMatches(doc.normalized,model))return false;
     return aliases.some(alias=>doc.normalized.includes(normalizeFiscalText(alias)));
