@@ -1444,6 +1444,24 @@ let activeHistoryYear=2025;
 let activeHistoryType="trimestral";
 let activeHistoryQuarter="1T";
 let activeHistoryModel="111";
+const historyControlColumnsKey="app-am-history-control-columns";
+
+function historyControlColumns(){try{return JSON.parse(localStorage.getItem(historyControlColumnsKey)||"[]")}catch{return[]}}
+function historyTableHeaders(){
+  const controls=historyControlColumns().map(column=>`<th class="history-control-heading" data-history-control="${escapeHtml(column.field)}"><span>${escapeHtml(column.label)}</span></th>`).join("");
+  return declarationTableHeaders("history")+controls+'<th class="history-add-column-heading"><button id="addHistoryColumn" type="button" aria-label="Añadir columna de control" title="Añadir columna de control">＋</button></th>';
+}
+function bindHistoryColumnCreator(){document.querySelector("#addHistoryColumn")?.addEventListener("click",event=>openHistoryColumnCreator(event.currentTarget))}
+function openHistoryColumnCreator(button){
+  document.querySelector(".excel-filter-popover")?.remove();
+  const panel=document.createElement("form");panel.className="excel-filter-popover history-column-creator";
+  panel.innerHTML='<div class="excel-filter-title"><span>Nueva columna</span><strong>Control personalizado</strong></div><label for="historyColumnName">Nombre de la columna</label><input id="historyColumnName" type="text" maxlength="40" placeholder="Ej. Revisado" required><div class="excel-filter-actions"><button type="button" data-cancel-column>Cancelar</button><button class="apply" type="submit">Añadir</button></div>';
+  document.body.appendChild(panel);
+  const rect=button.getBoundingClientRect();panel.style.left=Math.max(10,Math.min(rect.left-210,window.innerWidth-286))+"px";panel.style.top=Math.max(10,Math.min(rect.bottom+7,window.innerHeight-panel.offsetHeight-10))+"px";
+  const close=()=>panel.remove();panel.addEventListener("click",event=>event.stopPropagation());panel.querySelector("[data-cancel-column]").addEventListener("click",close);
+  panel.addEventListener("submit",event=>{event.preventDefault();const input=panel.querySelector("#historyColumnName"),label=input.value.trim();if(!label)return;const columns=historyControlColumns();columns.push({field:"control_"+Date.now(),label});localStorage.setItem(historyControlColumnsKey,JSON.stringify(columns));close();renderDeclarationHistory()});
+  panel.querySelector("#historyColumnName").focus();setTimeout(()=>document.addEventListener("click",close,{once:true}),0);
+}
 
 function historicalYears(){
   const now=new Date(),years=[];
@@ -1481,10 +1499,11 @@ function renderDeclarationHistory(){
       <div class="declaration-folder-source" id="historyDeclarationFolder"></div>
       <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner history-lock" id="historyLockBanner"></div>
-      <div class="tax-table-wrap"><table class="tax-table"><thead><tr>${declarationTableHeaders("history")}</tr></thead><tbody id="historyTaxRows"><tr><td colspan="10" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
+      <div class="tax-table-wrap"><table class="tax-table history-tax-table"><thead><tr>${historyTableHeaders()}</tr></thead><tbody id="historyTaxRows"><tr><td colspan="${11+historyControlColumns().length}" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
   setupDeclarationFilters("history","historyTaxRows");
+  bindHistoryColumnCreator();
   document.querySelector("#historyYear").value=String(activeHistoryYear);
   document.querySelector("#historyType").value=activeHistoryType;
   fillHistoryPeriodSelect();syncHistoryModelTabs();
@@ -1497,14 +1516,15 @@ function renderDeclarationHistory(){
 }
 async function loadHistoricalModel(model){
   const body=document.querySelector("#historyTaxRows"),key=activeHistoryYear+"-"+activeHistoryType+"-"+activeHistoryQuarter+"-"+model,unlocked=historyUnlocks.has(key);
+  const controlColumns=historyControlColumns(),columnCount=11+controlColumns.length;
   try{
     const clients=(await getAllClientMetadata()).filter(client=>(client.periodicity||"trimestral")===activeHistoryType&&client.obligations&&client.obligations[model]);
     const documents=await declarationDocumentsForClients(clients,model,activeHistoryType,activeHistoryQuarter,activeHistoryYear);
-    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeHistoryQuarter,client.name,activeHistoryYear);return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeHistoryQuarter}" data-tax-year-row="${activeHistoryYear}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeHistoryType==="mensual"?"Mensual":"Trimestral"} · ${activeHistoryYear}</small></td><td>${declarationDocumentMarkup(documents.get(client.name))}</td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td></tr>`}).join(""):`<tr><td colspan="10" class="table-empty">No hay clientes ${activeHistoryType==="mensual"?"mensuales":"trimestrales"} asignados al modelo ${escapeHtml(model)}.</td></tr>`;
+    body.innerHTML=clients.length?clients.sort((a,b)=>a.name.localeCompare(b.name,"es")).map(client=>{const d=declarationData(model,activeHistoryQuarter,client.name,activeHistoryYear),controls=controlColumns.map(column=>`<td class="history-control-cell"><input type="text" data-field="${escapeHtml(column.field)}" value="${escapeHtml(d[column.field]||"")}" placeholder="—"></td>`).join("");return `<tr data-tax-client="${escapeHtml(client.name)}" data-tax-model-row="${model}" data-tax-quarter-row="${activeHistoryQuarter}" data-tax-year-row="${activeHistoryYear}"><td><strong>${escapeHtml(client.name)}</strong><small>${activeHistoryType==="mensual"?"Mensual":"Trimestral"} · ${activeHistoryYear}</small></td><td>${declarationDocumentMarkup(documents.get(client.name))}</td><td>${escapeHtml(client.cif||"—")}</td><td><select data-field="manager">${workerOptions(d.manager)}</select></td><td><input type="date" data-field="prepared" value="${escapeHtml(d.prepared||"")}"></td><td><div class="amount-input"><input type="number" step="0.01" data-field="amount" value="${escapeHtml(d.amount||"")}" placeholder="0,00"><span>€</span></div></td><td><select data-field="payment"><option value="">Seleccionar…</option><option ${d.payment==="Domicil."?"selected":""}>Domicil.</option><option ${d.payment==="N.R.C."?"selected":""}>N.R.C.</option><option ${d.payment==="Cargo"?"selected":""}>Cargo</option><option ${d.payment==="Aplaz."?"selected":""}>Aplaz.</option><option ${d.payment==="Pte. Pago"?"selected":""}>Pte. Pago</option><option ${d.payment==="Negativa"?"selected":""}>Negativa</option><option ${d.payment==="Compensación"?"selected":""}>Compensación</option><option ${d.payment==="Devolver"?"selected":""}>Devolver</option><option ${d.payment==="Baja"?"selected":""}>Baja</option><option ${d.payment==="Cliente"?"selected":""}>Cliente</option></select></td><td><input type="date" data-field="submitted" value="${escapeHtml(d.submitted||"")}"></td><td><select data-field="submittedBy">${workerOptions(d.submittedBy)}</select></td><td><select data-field="reviewedBy">${workerOptions(d.reviewedBy)}</select></td>${controls}<td class="history-add-column-spacer"></td></tr>`}).join(""):`<tr><td colspan="${columnCount}" class="table-empty">No hay clientes ${activeHistoryType==="mensual"?"mensuales":"trimestrales"} asignados al modelo ${escapeHtml(model)}.</td></tr>`;
     body.querySelectorAll("input,select").forEach(control=>{control.disabled=!unlocked;control.addEventListener("change",event=>{saveHistoricalRow(event);applyDeclarationFilters("history","historyTaxRows")})});
     applyDeclarationFilters("history","historyTaxRows");
     renderHistoryLock(unlocked,model);
-  }catch{body.innerHTML='<tr><td colspan="10" class="table-empty">No se pudo cargar el histórico.</td></tr>'}
+  }catch{body.innerHTML=`<tr><td colspan="${columnCount}" class="table-empty">No se pudo cargar el histórico.</td></tr>`}
 }
 function renderHistoryLock(unlocked,model){
   const banner=document.querySelector("#historyLockBanner");
