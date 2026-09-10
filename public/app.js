@@ -646,6 +646,58 @@ async function renderTasks(){
 }
 
 
+const CALENDAR_STORAGE_KEY="app-am-calendar-reminders";
+let calendarView=localStorage.getItem("app-am-calendar-view")==="week"?"week":"month";
+let calendarAnchor=new Date();
+function localDateKey(date){return`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}
+function calendarMonday(date){const value=new Date(date.getFullYear(),date.getMonth(),date.getDate()),offset=(value.getDay()+6)%7;value.setDate(value.getDate()-offset);return value}
+function getCalendarItems(){try{const value=JSON.parse(localStorage.getItem(CALENDAR_STORAGE_KEY)||"[]");return Array.isArray(value)?value:[]}catch{return[]}}
+function saveCalendarItems(items){localStorage.setItem(CALENDAR_STORAGE_KEY,JSON.stringify(items))}
+function calendarItemsFor(date){const key=localDateKey(date);return getCalendarItems().filter(item=>item.date===key).sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||a.title.localeCompare(b.title,"es"))}
+function calendarEventMarkup(item,compact=false){return`<button type="button" class="calendar-event type-${escapeHtml(item.type||"reminder")}" data-calendar-event="${escapeHtml(item.id)}" title="${escapeHtml(item.title)}"><span>${item.time?escapeHtml(item.time):item.type==="notice"?"Aviso":"Todo el día"}</span><strong>${escapeHtml(item.title)}</strong>${!compact&&item.assigned?`<small>${escapeHtml(item.assigned)}</small>`:""}</button>`}
+function calendarMonthMarkup(){
+  const year=calendarAnchor.getFullYear(),month=calendarAnchor.getMonth(),first=new Date(year,month,1),start=new Date(first);start.setDate(1-(first.getDay()+6)%7);
+  const days=Array.from({length:42},(_,index)=>{const date=new Date(start);date.setDate(start.getDate()+index);return date});
+  return`<div class="calendar-weekdays">${["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"].map(day=>`<span>${day}</span>`).join("")}</div><div class="calendar-month-grid">${days.map(date=>{const outside=date.getMonth()!==month,today=localDateKey(date)===localDateKey(new Date()),items=calendarItemsFor(date);return`<section class="calendar-day${outside?" outside":""}${today?" today":""}" data-calendar-date="${localDateKey(date)}"><button type="button" class="calendar-day-number" data-new-calendar-item="${localDateKey(date)}">${date.getDate()}</button><div>${items.slice(0,3).map(item=>calendarEventMarkup(item,true)).join("")}${items.length>3?`<button class="calendar-more" type="button" data-new-calendar-item="${localDateKey(date)}">+${items.length-3} más</button>`:""}</div></section>`}).join("")}</div>`;
+}
+function calendarWeekMarkup(){
+  const start=calendarMonday(calendarAnchor),days=Array.from({length:7},(_,index)=>{const date=new Date(start);date.setDate(start.getDate()+index);return date});
+  return`<div class="calendar-week-grid">${days.map(date=>{const today=localDateKey(date)===localDateKey(new Date()),items=calendarItemsFor(date);return`<section class="calendar-week-day${today?" today":""}"><button type="button" class="calendar-week-heading" data-new-calendar-item="${localDateKey(date)}"><span>${new Intl.DateTimeFormat("es-ES",{weekday:"long"}).format(date)}</span><strong>${date.getDate()}</strong><small>${new Intl.DateTimeFormat("es-ES",{month:"short"}).format(date)}</small></button><div class="calendar-week-events">${items.length?items.map(item=>calendarEventMarkup(item)).join(""):`<button type="button" class="calendar-add-empty" data-new-calendar-item="${localDateKey(date)}">＋ Añadir</button>`}</div></section>`}).join("")}</div>`;
+}
+function calendarPeriodLabel(){
+  if(calendarView==="month")return new Intl.DateTimeFormat("es-ES",{month:"long",year:"numeric"}).format(calendarAnchor);
+  const start=calendarMonday(calendarAnchor),end=new Date(start);end.setDate(start.getDate()+6);
+  return`${new Intl.DateTimeFormat("es-ES",{day:"numeric",month:"short"}).format(start)} – ${new Intl.DateTimeFormat("es-ES",{day:"numeric",month:"short",year:"numeric"}).format(end)}`;
+}
+function bindCalendarGrid(){
+  document.querySelectorAll("[data-new-calendar-item]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();openCalendarItem(button.dataset.newCalendarItem)}));
+  document.querySelectorAll("[data-calendar-event]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();openCalendarItem("",button.dataset.calendarEvent)}));
+}
+function refreshCalendar(){const title=document.querySelector("#calendarPeriodTitle"),body=document.querySelector("#calendarBody");if(!title||!body)return;title.textContent=calendarPeriodLabel();body.innerHTML=calendarView==="month"?calendarMonthMarkup():calendarWeekMarkup();document.querySelectorAll("[data-calendar-view]").forEach(button=>button.classList.toggle("active",button.dataset.calendarView===calendarView));bindCalendarGrid()}
+function openCalendarItem(date="",id=""){
+  const modal=document.querySelector("#calendarModal"),form=document.querySelector("#calendarForm"),item=getCalendarItems().find(value=>value.id===id);if(!modal||!form)return;
+  form.reset();form.dataset.itemId=item?.id||"";document.querySelector("#calendarModalTitle").textContent=item?"Editar recordatorio":"Añadir recordatorio";document.querySelector("#calendarItemTitle").value=item?.title||"";document.querySelector("#calendarItemDate").value=item?.date||date||localDateKey(new Date());document.querySelector("#calendarItemTime").value=item?.time||"";document.querySelector("#calendarItemType").value=item?.type||"reminder";document.querySelector("#calendarItemAssigned").value=item?.assigned||"";document.querySelector("#calendarItemNotes").value=item?.notes||"";document.querySelector("#deleteCalendarItem").hidden=!item;modal.classList.add("open");modal.setAttribute("aria-hidden","false");setTimeout(()=>document.querySelector("#calendarItemTitle")?.focus(),150)
+}
+function closeCalendarItem(){const modal=document.querySelector("#calendarModal");if(modal){modal.classList.remove("open");modal.setAttribute("aria-hidden","true")}}
+function renderCalendar(){
+  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">ORGANIZACIÓN DEL DESPACHO</p><h1>Calendario</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <section class="calendar-shell panel"><div class="calendar-top"><div><p class="eyebrow">AGENDA COMPARTIDA</p><h2>Recordatorios y avisos</h2><p>Organiza los próximos vencimientos y recordatorios del equipo.</p></div><button class="primary blue-button" id="newCalendarItem">＋ Añadir recordatorio</button></div>
+    <div class="calendar-toolbar"><div class="calendar-navigation"><button type="button" id="calendarPrevious" aria-label="Periodo anterior">‹</button><button type="button" id="calendarToday">Hoy</button><button type="button" id="calendarNext" aria-label="Periodo siguiente">›</button><h3 id="calendarPeriodTitle"></h3></div><div class="calendar-view-switch"><button type="button" data-calendar-view="month">Mes</button><button type="button" data-calendar-view="week">Semana</button></div></div><div class="calendar-body" id="calendarBody"></div></section>
+    <div class="modal-shell" id="calendarModal" aria-hidden="true"><div class="modal-backdrop" data-close-calendar></div><section class="client-modal calendar-modal" role="dialog" aria-modal="true" aria-labelledby="calendarModalTitle"><div class="client-modal-head"><div><p class="eyebrow">AGENDA</p><h2 id="calendarModalTitle">Añadir recordatorio</h2></div><button class="modal-close" type="button" data-close-calendar aria-label="Cerrar">×</button></div><form id="calendarForm"><div class="calendar-form-grid"><label class="calendar-title-field">Título<input id="calendarItemTitle" maxlength="100" required placeholder="Ej. Presentar modelo 303"></label><label>Fecha<input id="calendarItemDate" type="date" required></label><label>Hora opcional<input id="calendarItemTime" type="time"></label><label>Tipo<select id="calendarItemType"><option value="reminder">Recordatorio</option><option value="notice">Aviso</option></select></label><label>Responsable<select id="calendarItemAssigned"><option value="">Todo el equipo</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label><label class="calendar-notes-field">Notas<textarea id="calendarItemNotes" rows="3" maxlength="400" placeholder="Información adicional"></textarea></label></div><div class="modal-actions calendar-modal-actions"><button type="button" class="calendar-delete" id="deleteCalendarItem" hidden>Eliminar</button><button type="button" class="secondary-button" data-close-calendar>Cancelar</button><button type="submit" class="primary blue-button">Guardar</button></div></form></section></div>`;
+  bindHeader();refreshCalendar();
+  document.querySelector("#newCalendarItem").addEventListener("click",()=>openCalendarItem(localDateKey(new Date())));
+  document.querySelector("#calendarPrevious").addEventListener("click",()=>{if(calendarView==="month"){calendarAnchor.setDate(1);calendarAnchor.setMonth(calendarAnchor.getMonth()-1)}else calendarAnchor.setDate(calendarAnchor.getDate()-7);refreshCalendar()});
+  document.querySelector("#calendarNext").addEventListener("click",()=>{if(calendarView==="month"){calendarAnchor.setDate(1);calendarAnchor.setMonth(calendarAnchor.getMonth()+1)}else calendarAnchor.setDate(calendarAnchor.getDate()+7);refreshCalendar()});
+  document.querySelector("#calendarToday").addEventListener("click",()=>{calendarAnchor=new Date();refreshCalendar()});
+  document.querySelectorAll("[data-calendar-view]").forEach(button=>button.addEventListener("click",()=>{calendarView=button.dataset.calendarView;localStorage.setItem("app-am-calendar-view",calendarView);refreshCalendar()}));
+  document.querySelectorAll("[data-close-calendar]").forEach(button=>button.addEventListener("click",closeCalendarItem));
+  document.querySelector("#calendarForm").addEventListener("submit",event=>{event.preventDefault();const form=event.currentTarget,items=getCalendarItems(),data={title:document.querySelector("#calendarItemTitle").value.trim(),date:document.querySelector("#calendarItemDate").value,time:document.querySelector("#calendarItemTime").value,type:document.querySelector("#calendarItemType").value,assigned:document.querySelector("#calendarItemAssigned").value,notes:document.querySelector("#calendarItemNotes").value.trim()},existing=items.find(item=>item.id===form.dataset.itemId);if(existing)Object.assign(existing,data);else items.push({id:`calendar-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,...data});saveCalendarItems(items);closeCalendarItem();refreshCalendar()});
+  document.querySelector("#deleteCalendarItem").addEventListener("click",()=>{const id=document.querySelector("#calendarForm").dataset.itemId;if(!id)return;saveCalendarItems(getCalendarItems().filter(item=>item.id!==id));closeCalendarItem();refreshCalendar()});
+}
+function renderRenta(){
+  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">CAMPAÑA FISCAL</p><h1>Renta</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="renta-hero"><div><p class="eyebrow light">CAMPAÑA DE RENTA</p><h2>Gestión de expedientes de renta</h2><p>Un espacio independiente para organizar la documentación y el estado de cada declaración cuando comience la campaña.</p></div><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5M17 16h.01M7 2v3M17 2v3"/></svg></span></section><section class="renta-status-grid"><article><span>01</span><h3>Documentación</h3><p>Recopilación de datos fiscales y justificantes.</p></article><article><span>02</span><h3>En preparación</h3><p>Seguimiento de las declaraciones que se están confeccionando.</p></article><article><span>03</span><h3>Presentadas</h3><p>Control de expedientes terminados y presentados.</p></article></section><section class="panel renta-ready"><span>✓</span><div><h3>Sección preparada</h3><p>La estructura de Renta ya está disponible en el menú. Cuando concretemos el modelo de trabajo, incorporaremos aquí los clientes, responsables, plazos y documentos.</p></div></section>`;bindHeader()
+}
+
 function renderWorkers(){
   main.innerHTML=`
     <header>
@@ -1717,6 +1769,8 @@ document.querySelectorAll("nav button").forEach(button=>button.addEventListener(
   else if(button.dataset.title==="Historial declaraciones") renderDeclarationHistory();
   else if(button.dataset.title==="Trabajadores") renderWorkers();
   else if(button.dataset.title==="Tareas") renderTasks();
+  else if(button.dataset.title==="Calendario") renderCalendar();
+  else if(button.dataset.title==="Renta") renderRenta();
   else if(button.dataset.title==="Contactos") renderContacts();
   else if(button.dataset.title==="Días de cortesía") renderCourtesyDays();
   else if(button.dataset.title==="Cierres anuales") renderAnnualClosings();
