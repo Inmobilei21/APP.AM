@@ -1,3 +1,32 @@
+document.documentElement.classList.add("auth-pending");
+let signedInUser=null;
+const teamUsers=[
+  {id:"manuel",name:"Manuel Molinero",role:"admin"},{id:"alvaro",name:"Álvaro Molinero",role:"admin"},
+  {id:"francisco",name:"Francisco Molinero",role:"user"},{id:"araceli",name:"Araceli Frías",role:"user"},{id:"jesus",name:"Jesús Carratalá",role:"user"}
+];
+function initials(name){return name.split(/\s+/).map(part=>part[0]).slice(0,2).join("").toUpperCase()}
+async function apiJson(url,options={}){const response=await fetch(url,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"No se pudo completar la operación.");return result}
+function updateProfileButtons(){
+  if(!signedInUser)return;
+  document.querySelectorAll(".profile").forEach(button=>{button.innerHTML=`<span>${initials(signedInUser.name)}</span><span class="profile-copy"><strong>${signedInUser.name}</strong><small>${signedInUser.role==="admin"?"Administrador":"Usuario"}</small></span>`;button.title=signedInUser.role==="admin"?"Administrar usuarios":"Mi cuenta";button.onclick=openAccountPanel});
+}
+function authCard({setup=false,users=[]}={}){
+  const available=(users.length?users:teamUsers).filter(user=>setup?user.role==="admin":user.passwordSet!==false);
+  const shell=document.createElement("div");shell.className="login-gate";
+  shell.innerHTML=`<section class="login-card"><div class="login-brand"><img src="/app-icon.png" alt=""><div><small>DESPACHO MOLINERO</small><h1>${setup?"Configurar acceso":"Iniciar sesión"}</h1></div></div><p>${setup?"Asigna la primera contraseña a Manuel o Álvaro. Después podrás establecer las del resto desde Mi cuenta.":"Accede con tu usuario y contraseña personal."}</p><form><label>Usuario<select required>${available.map(user=>`<option value="${user.id}">${user.name}</option>`).join("")}</select></label>${setup?'<label>Clave de configuración<input name="setupPassword" type="password" autocomplete="current-password" required></label>':""}<label>Contraseña<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><p class="login-error" role="alert"></p><button class="primary" type="submit">${setup?"Guardar y entrar":"Entrar"}</button></form></section>`;
+  document.body.appendChild(shell);document.documentElement.classList.remove("auth-pending");
+  shell.querySelector("form").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector("button"),error=form.querySelector(".login-error");error.textContent="";button.disabled=true;button.textContent="Comprobando…";try{const payload={userId:form.querySelector("select").value,password:form.password.value};if(setup)payload.setupPassword=form.setupPassword.value;const result=await apiJson(setup?"/api/auth/setup":"/api/auth/login",{method:"POST",body:JSON.stringify(payload)});signedInUser=result.user;shell.remove();updateProfileButtons()}catch(reason){error.textContent=reason.message}finally{button.disabled=false;button.textContent=setup?"Guardar y entrar":"Entrar"}});
+}
+async function checkAuthentication(){try{const status=await apiJson("/api/auth/status");if(status.user){signedInUser=status.user;document.documentElement.classList.remove("auth-pending");updateProfileButtons()}else authCard({setup:status.needsSetup,users:status.users})}catch{authCard()}}
+function openAccountPanel(){
+  document.querySelector("#accountPanel")?.remove();const shell=document.createElement("div");shell.id="accountPanel";shell.className="account-shell";
+  shell.innerHTML=`<div class="account-backdrop"></div><section class="account-card"><button class="account-close" aria-label="Cerrar">×</button><p class="eyebrow">MI CUENTA</p><h2>${signedInUser.name}</h2><p>${signedInUser.role==="admin"?"Administración de usuarios y contraseñas":"Sesión de usuario"}</p><div class="account-users">${signedInUser.role==="admin"?teamUsers.map(user=>`<form data-user-id="${user.id}"><div><strong>${user.name}</strong><small>${user.role==="admin"?"Administrador":"Usuario"}</small></div><input type="password" minlength="6" placeholder="Nueva contraseña" required><button type="submit">Guardar</button></form>`).join(""):""}</div><p class="account-message"></p><button class="logout-button" type="button">Cerrar sesión</button></section>`;document.body.appendChild(shell);
+  const close=()=>shell.remove();shell.querySelector(".account-close").onclick=close;shell.querySelector(".account-backdrop").onclick=close;
+  shell.querySelectorAll("[data-user-id]").forEach(form=>form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector("button"),message=shell.querySelector(".account-message");button.disabled=true;try{await apiJson(`/api/users/${form.dataset.userId}`,{method:"PUT",body:JSON.stringify({password:form.querySelector("input").value})});form.reset();message.textContent="Contraseña actualizada correctamente."}catch(reason){message.textContent=reason.message}finally{button.disabled=false}});
+  shell.querySelector(".logout-button").onclick=async()=>{await apiJson("/api/auth/logout",{method:"POST"});location.reload()};
+}
+checkAuthentication();
+
 const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
 const main=document.querySelector("main");
@@ -41,7 +70,7 @@ document.addEventListener("touchend",event=>{
   mobileSwipeStart=null;
   if(dx>=75&&dx>dy*1.3&&elapsed<900)openMenu();
 },{passive:true});
-function bindHeader(){document.querySelector("#menu")?.addEventListener("click",openMenu)}
+function bindHeader(){document.querySelector("#menu")?.addEventListener("click",openMenu);updateProfileButtons()}
 
 const views={
   "Clientes":{
