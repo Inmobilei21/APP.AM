@@ -53,10 +53,9 @@ const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIO
 
 document.querySelector("#menu").addEventListener("click",openMenu);
 overlay.addEventListener("click",closeMenu);
-if(window.matchMedia("(max-width:760px)").matches){sidebar.classList.add("open");overlay.classList.add("show")}
 
-function openMenu(){sidebar.classList.add("open");overlay.classList.add("show")}
-function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show")}
+function openMenu(){sidebar.classList.add("open");overlay.classList.add("show");document.body.classList.add("menu-open")}
+function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show");document.body.classList.remove("menu-open")}
 let mobileSwipeStart=null;
 document.addEventListener("touchstart",event=>{
   if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open"))return;
@@ -71,6 +70,41 @@ document.addEventListener("touchend",event=>{
   if(dx>=75&&dx>dy*1.3&&elapsed<900)openMenu();
 },{passive:true});
 function bindHeader(){document.querySelector("#menu")?.addEventListener("click",openMenu);updateProfileButtons()}
+
+function syncMobileNavigation(title="Inicio"){
+  document.querySelectorAll("[data-mobile-route]").forEach(button=>button.classList.toggle("active",button.dataset.mobileRoute===title));
+}
+function mobileRoute(title,after){
+  document.querySelector(`nav button[data-title="${title}"]`)?.click();
+  if(after)setTimeout(()=>document.querySelector(after)?.click(),0);
+}
+function installMobileChrome(){
+  const chrome=document.createElement("div");chrome.className="mobile-app-chrome";
+  chrome.innerHTML=`<nav class="mobile-bottom-nav" aria-label="Navegación móvil">
+    <button type="button" class="active" data-mobile-route="Inicio"><span>⌂</span><small>Inicio</small></button>
+    <button type="button" data-mobile-route="Clientes"><span>▰</span><small>Clientes</small></button>
+    <button type="button" data-mobile-route="Tareas"><span>✓</span><small>Tareas</small></button>
+    <button type="button" data-mobile-route="Calendario"><span>▦</span><small>Agenda</small></button>
+    <button type="button" data-mobile-menu><span>☰</span><small>Más</small></button>
+  </nav>
+  <button class="mobile-quick-button" type="button" aria-label="Crear nuevo" aria-expanded="false">＋</button>
+  <div class="mobile-action-backdrop"></div><section class="mobile-action-sheet" aria-hidden="true"><i></i><div><p class="eyebrow">ACCESOS RÁPIDOS</p><h2>¿Qué quieres hacer?</h2></div>
+    <button type="button" data-mobile-action="client"><span>＋</span><b>Nuevo cliente</b><small>Crear su ficha y documentación</small></button>
+    <button type="button" data-mobile-action="task"><span>✓</span><b>Nueva tarea</b><small>Asignar trabajo al equipo</small></button>
+    <button type="button" data-mobile-action="calendar"><span>▦</span><b>Nuevo recordatorio</b><small>Añadir una fecha a la agenda</small></button>
+  </section>`;
+  document.body.appendChild(chrome);
+  const quick=chrome.querySelector(".mobile-quick-button"),sheet=chrome.querySelector(".mobile-action-sheet");
+  const closeActions=()=>{chrome.classList.remove("actions-open");quick.setAttribute("aria-expanded","false");sheet.setAttribute("aria-hidden","true")};
+  quick.addEventListener("click",()=>{const opening=!chrome.classList.contains("actions-open");chrome.classList.toggle("actions-open",opening);quick.setAttribute("aria-expanded",String(opening));sheet.setAttribute("aria-hidden",String(!opening))});
+  chrome.querySelector(".mobile-action-backdrop").addEventListener("click",closeActions);
+  chrome.querySelectorAll("[data-mobile-route]").forEach(button=>button.addEventListener("click",()=>mobileRoute(button.dataset.mobileRoute)));
+  chrome.querySelector("[data-mobile-menu]").addEventListener("click",openMenu);
+  chrome.querySelector('[data-mobile-action="client"]').addEventListener("click",()=>{closeActions();mobileRoute("Gestión","#openNewClient")});
+  chrome.querySelector('[data-mobile-action="task"]').addEventListener("click",()=>{closeActions();mobileRoute("Tareas","#openTaskModal")});
+  chrome.querySelector('[data-mobile-action="calendar"]').addEventListener("click",()=>{closeActions();mobileRoute("Calendario","#newCalendarItem")});
+}
+installMobileChrome();
 
 const views={
   "Clientes":{
@@ -1976,9 +2010,10 @@ function escapeHtml(value){
   return node.innerHTML;
 }
 
-document.querySelectorAll("nav button").forEach(button=>button.addEventListener("click",()=>{
-  document.querySelector("nav button.active")?.classList.remove("active");
+document.querySelectorAll(".sidebar nav button").forEach(button=>button.addEventListener("click",()=>{
+  document.querySelector(".sidebar nav button.active")?.classList.remove("active");
   button.classList.add("active");
+  syncMobileNavigation(button.dataset.title);
   closeMenu();
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
   else if(button.dataset.title==="Firmas digitales") renderSignatures();
