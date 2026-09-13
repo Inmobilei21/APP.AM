@@ -72,7 +72,7 @@
   body.menu-open{overflow:hidden}
   main{min-height:100vh;padding:0 14px calc(118px + env(safe-area-inset-bottom));overflow:hidden}
   main>header{position:relative;height:104px;margin:0 -14px 18px;padding:calc(12px + env(safe-area-inset-top)) 18px 13px;gap:12px;color:#fff;background:linear-gradient(120deg,#091b58 0%,#1535b4 64%,#3158e8 100%);border-radius:0 0 26px 26px;box-shadow:0 14px 30px rgba(15,41,137,.2);overflow:hidden}
-  main>header:after{content:"";position:absolute;width:145px;height:145px;right:48px;top:-92px;border-radius:50%;border:24px solid rgba(255,255,255,.07);pointer-events:none}
+  main>header:after{content:"";position:absolute;width:170px;height:150px;right:30px;top:-27px;background:url('/app-icon.png') center/contain no-repeat;filter:brightness(0) invert(1) blur(.7px);opacity:.1;transform:rotate(-5deg);pointer-events:none}
   main>header>div:nth-of-type(1){display:block;min-width:0;position:relative;z-index:1}
   main>header .eyebrow{color:#bfcaff;font-size:8px}
   main>header h1{max-width:58vw;margin-top:4px;color:#fff;font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
