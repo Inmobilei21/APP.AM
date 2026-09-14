@@ -297,8 +297,7 @@ function collectCommercialRegistryData(certificateName=""){
 function setClientViewMode(viewOnly){
   const form=document.querySelector("#newClientForm");
   form.classList.toggle("client-view-mode",viewOnly);
-  form.querySelectorAll("input,select,textarea").forEach(control=>{control.disabled=viewOnly});  document.querySelector("#browseExistingSignature").disabled=viewOnly;
-  document.querySelectorAll("#commercialRegistrySection button:not([role=tab])").forEach(button=>button.disabled=viewOnly);
+  form.querySelectorAll("input,select,textarea").forEach(control=>{control.disabled=viewOnly});  document.querySelector("#browseExistingSignature").disabled=viewOnly;  document.querySelectorAll("#commercialRegistrySection button:not([role=tab])").forEach(button=>button.disabled=viewOnly);
   document.querySelector("#editClientFromView").hidden=!viewOnly;
   document.querySelector("#saveClientButton").hidden=viewOnly;
   document.querySelector("#clientModalDismiss").textContent="Cerrar";
@@ -403,8 +402,8 @@ async function loadSignatures(){
  const body=document.querySelector("#signatureRows");try{const root=await getSavedHandle("signatures-folder");if(!root||await root.queryPermission({mode:"read"})!=="granted"){body.innerHTML='<tr><td colspan="7" class="table-empty">Conecta la carpeta Gestión → Firmas digitales.</td></tr>';return}const metadata=await getAllSignatureMetadata(),map=new Map(metadata.map(x=>[x.id,x])),clientMetadata=await getAllClientMetadata(),clientMap=new Map(clientMetadata.map(x=>[x.id,x])),rows=[];
  for await(const doc of root.values()){if(doc.kind!=="file")continue;const m=map.get(doc.name)||{},clientName=m.client||"Sin asignar",client=clientMap.get(clientName)||{};rows.push({client:clientName,document:doc.name,handle:doc,password:m.password||"",expiry:m.expiry||"",representative:client.representative||"",representativeNif:client.representativeNif||""})}
  rows.sort((a,b)=>{if(!a.expiry&&!b.expiry)return a.client.localeCompare(b.client,"es");if(!a.expiry)return 1;if(!b.expiry)return-1;return a.expiry.localeCompare(b.expiry)||a.client.localeCompare(b.client,"es")});
- window.signatureFiles=rows;body.innerHTML=rows.length?rows.map((r,i)=>{const status=signatureExpiryStatus(r.expiry);return `<tr data-search="${escapeHtml((r.client+" "+r.document+" "+status.label+" "+r.representative+" "+r.representativeNif).toLocaleLowerCase("es"))}"><td><strong title="${escapeHtml(r.client)}">${escapeHtml(r.client)}</strong></td><td><button class="document-link" data-download="${i}" title="${escapeHtml(r.document)}">⇩ ${escapeHtml(r.document)}</button></td><td><span class="signature-status ${status.className}">${status.label}</span></td><td><button class="password-cell" data-password="${escapeHtml(r.password)}">${r.password?"••••••••":"—"}</button></td><td><span class="expiry ${expiryClass(r.expiry)}">${formatDate(r.expiry)}</span></td><td title="${escapeHtml(r.representative||"")}">${escapeHtml(r.representative||"—")}</td><td>${escapeHtml(r.representativeNif||"—")}</td></tr>`}).join(""):'<tr><td colspan="7" class="table-empty">Todavía no hay firmas digitales.</td></tr>';
- body.querySelectorAll("[data-download]").forEach(x=>x.addEventListener("click",()=>downloadSignature(Number(x.dataset.download))));body.querySelectorAll("[data-password]").forEach(x=>x.addEventListener("click",()=>{x.textContent=x.textContent.includes("•")?(x.dataset.password||"—"):"••••••••"}))}catch{body.innerHTML='<tr><td colspan="7" class="table-empty">No se pudieron cargar las firmas.</td></tr>'}
+ window.signatureFiles=rows;body.innerHTML=rows.length?rows.map((r,i)=>{const status=signatureExpiryStatus(r.expiry),previewId=registerPreviewDocument(r);return `<tr data-search="${escapeHtml((r.client+" "+r.document+" "+status.label+" "+r.representative+" "+r.representativeNif).toLocaleLowerCase("es"))}"><td><strong title="${escapeHtml(r.client)}">${escapeHtml(r.client)}</strong></td><td><button class="document-link" data-preview-document="${previewId}" title="Vista preliminar de ${escapeHtml(r.document)}">▱ ${escapeHtml(r.document)}</button></td><td><span class="signature-status ${status.className}">${status.label}</span></td><td><button class="password-cell" data-password="${escapeHtml(r.password)}">${r.password?"••••••••":"—"}</button></td><td><span class="expiry ${expiryClass(r.expiry)}">${formatDate(r.expiry)}</span></td><td title="${escapeHtml(r.representative||"")}">${escapeHtml(r.representative||"—")}</td><td>${escapeHtml(r.representativeNif||"—")}</td></tr>`}).join(""):'<tr><td colspan="7" class="table-empty">Todavía no hay firmas digitales.</td></tr>';
+ body.querySelectorAll("[data-password]").forEach(x=>x.addEventListener("click",()=>{x.textContent=x.textContent.includes("•")?(x.dataset.password||"—"):"••••••••"}))}catch{body.innerHTML='<tr><td colspan="7" class="table-empty">No se pudieron cargar las firmas.</td></tr>'}
 }
 async function downloadSignature(i){const file=await window.signatureFiles[i].handle.getFile(),url=URL.createObjectURL(file),a=document.createElement("a");a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000)}
 function filterSignatureRows(e){const q=e.target.value.trim().toLocaleLowerCase("es");document.querySelectorAll("#signatureRows tr[data-search]").forEach(r=>r.hidden=!r.dataset.search.includes(q))}
@@ -486,7 +485,7 @@ async function connectCourtesyFolder(){
   catch(error){if(error?.name!=="AbortError")alert("No se pudo conectar la carpeta de días de cortesía.")}
 }
 async function courtesyFileUrl(handle){
-  const file=await handle.getFile(),url=URL.createObjectURL(file);courtesyObjectUrls.push(url);return{url,name:file.name};
+  const file=await handle.getFile(),url=URL.createObjectURL(file);courtesyObjectUrls.push(url);return{url,name:file.name,file,handle};
 }
 async function loadCourtesyDays(){
   const body=document.querySelector("#courtesyRows"),connect=document.querySelector("#connectCourtesyFolder");
@@ -507,7 +506,7 @@ async function loadCourtesyDays(){
       rows.push({client,data,signature,documentFile});
     }
     window.courtesyRows=rows;
-    body.innerHTML=rows.length?rows.map((row,index)=>`<tr data-courtesy-client="${escapeHtml(row.client.name)}"><td><strong title="${escapeHtml(row.client.name)}">${escapeHtml(row.client.name)}</strong></td><td>${escapeHtml(row.client.cif||"—")}</td><td>${row.signature?`<a class="courtesy-file-link" href="${row.signature.url}" download="${escapeHtml(row.signature.name)}">Firma disponible ↓</a>`:'<span class="courtesy-missing">No disponible</span>'}</td><td><input type="date" data-courtesy-field="submitted" value="${escapeHtml(row.data.submitted||"")}"></td><td><input type="text" data-courtesy-field="period" value="${escapeHtml(row.data.period||"")}" placeholder="Ej. del 5 al 12 de agosto"></td><td>${row.documentFile?`<div class="courtesy-document-actions"><a class="courtesy-file-link" href="${row.documentFile.url}" target="_blank" rel="noopener">Ver PDF</a><a class="courtesy-download" href="${row.documentFile.url}" download="${escapeHtml(row.documentFile.name)}">↓</a></div>`:'<span class="courtesy-missing">Sin documento</span>'}<label class="courtesy-upload"><span>${row.documentFile?"Sustituir":"Adjuntar"}</span><input type="file" accept=".pdf" data-courtesy-upload="${index}"></label></td></tr>`).join(""):'<tr><td colspan="6" class="table-empty">No hay clientes marcados con la obligación de días de cortesía.</td></tr>';
+    body.innerHTML=rows.length?rows.map((row,index)=>`<tr data-courtesy-client="${escapeHtml(row.client.name)}"><td><strong title="${escapeHtml(row.client.name)}">${escapeHtml(row.client.name)}</strong></td><td>${escapeHtml(row.client.cif||"—")}</td><td>${row.signature?`<button type="button" class="courtesy-file-link" data-preview-document="${registerPreviewDocument(row.signature)}">Firma disponible ▱</button>`:'<span class="courtesy-missing">No disponible</span>'}</td><td><input type="date" data-courtesy-field="submitted" value="${escapeHtml(row.data.submitted||"")}"></td><td><input type="text" data-courtesy-field="period" value="${escapeHtml(row.data.period||"")}" placeholder="Ej. del 5 al 12 de agosto"></td><td>${row.documentFile?`<div class="courtesy-document-actions"><button type="button" class="courtesy-file-link" data-preview-document="${registerPreviewDocument(row.documentFile)}">Vista preliminar</button></div>`:'<span class="courtesy-missing">Sin documento</span>'}<label class="courtesy-upload"><span>${row.documentFile?"Sustituir":"Adjuntar"}</span><input type="file" accept=".pdf" data-courtesy-upload="${index}"></label></td></tr>`).join(""):'<tr><td colspan="6" class="table-empty">No hay clientes marcados con la obligación de días de cortesía.</td></tr>';
     body.querySelectorAll("[data-courtesy-field]").forEach(input=>input.addEventListener("change",saveCourtesyRow));
     body.querySelectorAll("[data-courtesy-upload]").forEach(input=>input.addEventListener("change",event=>uploadCourtesyDocument(Number(event.target.dataset.courtesyUpload),event.target.files[0])));
   }catch{body.innerHTML='<tr><td colspan="6" class="table-empty">No se pudo cargar el control de días de cortesía.</td></tr>'}
@@ -597,8 +596,7 @@ function homeActivityDate(value,withWeekday=false){
   const date=new Date(`${value}T12:00:00`);
   if(Number.isNaN(date.getTime()))return value;
   return new Intl.DateTimeFormat("es-ES",withWeekday?{weekday:"short",day:"2-digit",month:"short"}:{day:"2-digit",month:"short"}).format(date);}
-function renderHomeActivityRail(){
-  const messagesBox=document.querySelector("#homeMessagesPreview"),tasksBox=document.querySelector("#homeTasksPreview"),remindersBox=document.querySelector("#homeRemindersPreview");
+function renderHomeActivityRail(){  const messagesBox=document.querySelector("#homeMessagesPreview"),tasksBox=document.querySelector("#homeTasksPreview"),remindersBox=document.querySelector("#homeRemindersPreview");
   if(!messagesBox||!tasksBox||!remindersBox)return;
   const latestMessages=chatWorkers.map((worker,index)=>{const messages=getChatMessages(worker),message=messages[messages.length-1];return message?{worker,index,...message}:null}).filter(Boolean).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")||b.index-a.index).slice(0,3);
   messagesBox.innerHTML=latestMessages.length?latestMessages.map(message=>`<button type="button" class="home-activity-row home-message-row" data-home-open-chat="${escapeHtml(message.worker)}"><span class="home-activity-avatar">${workerInitials(message.worker)}</span><span class="home-activity-copy"><strong>${escapeHtml(message.worker)}</strong><small>${escapeHtml(message.text)}</small></span><time>${escapeHtml(message.time||"")}</time></button>`).join(""):homeActivityEmpty("✉","Sin mensajes recientes","Las conversaciones del equipo aparecerán aquí.");
@@ -897,8 +895,7 @@ function renderCalendar(){
     <section class="calendar-shell panel"><div class="calendar-top"><div><p class="eyebrow">AGENDA COMPARTIDA</p><h2>Tareas, recordatorios y avisos</h2><p>Las tareas se muestran automáticamente desde su inicio hasta la fecha límite.</p></div><button class="primary blue-button" id="newCalendarItem">＋ Añadir recordatorio</button></div>
     <div class="calendar-toolbar"><div class="calendar-navigation"><button type="button" id="calendarPrevious" aria-label="Periodo anterior">‹</button><button type="button" id="calendarToday">Hoy</button><button type="button" id="calendarNext" aria-label="Periodo siguiente">›</button><h3 id="calendarPeriodTitle"></h3></div><div class="calendar-view-switch"><button type="button" data-calendar-view="month">Mes</button><button type="button" data-calendar-view="week">Semana</button></div></div><div class="calendar-body" id="calendarBody"></div></section>    <div class="modal-shell" id="calendarModal" aria-hidden="true"><div class="modal-backdrop" data-close-calendar></div><section class="client-modal calendar-modal" role="dialog" aria-modal="true" aria-labelledby="calendarModalTitle"><div class="client-modal-head"><div><p class="eyebrow">AGENDA</p><h2 id="calendarModalTitle">Añadir recordatorio</h2></div><button class="modal-close" type="button" data-close-calendar aria-label="Cerrar">×</button></div><form id="calendarForm"><div class="calendar-form-grid"><label class="calendar-title-field">Título<input id="calendarItemTitle" maxlength="100" required placeholder="Ej. Presentar modelo 303"></label><label>Fecha<input id="calendarItemDate" type="date" required></label><label>Hora opcional<input id="calendarItemTime" type="time"></label><label>Tipo<select id="calendarItemType"><option value="reminder">Recordatorio</option><option value="notice">Aviso</option></select></label><label>Responsable<select id="calendarItemAssigned"><option value="">Todo el equipo</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label><label class="calendar-notes-field">Notas<textarea id="calendarItemNotes" rows="3" maxlength="400" placeholder="Información adicional"></textarea></label></div><div class="modal-actions calendar-modal-actions"><button type="button" class="calendar-delete" id="deleteCalendarItem" hidden>Eliminar</button><button type="button" class="secondary-button" data-close-calendar>Cancelar</button><button type="submit" class="primary blue-button">Guardar</button></div></form></section></div>`;
   bindHeader();refreshCalendar();
-  document.querySelector("#newCalendarItem").addEventListener("click",()=>openCalendarItem(localDateKey(new Date())));
-  document.querySelector("#calendarPrevious").addEventListener("click",()=>{if(calendarView==="month"){calendarAnchor.setDate(1);calendarAnchor.setMonth(calendarAnchor.getMonth()-1)}else calendarAnchor.setDate(calendarAnchor.getDate()-7);refreshCalendar()});
+  document.querySelector("#newCalendarItem").addEventListener("click",()=>openCalendarItem(localDateKey(new Date())));  document.querySelector("#calendarPrevious").addEventListener("click",()=>{if(calendarView==="month"){calendarAnchor.setDate(1);calendarAnchor.setMonth(calendarAnchor.getMonth()-1)}else calendarAnchor.setDate(calendarAnchor.getDate()-7);refreshCalendar()});
   document.querySelector("#calendarNext").addEventListener("click",()=>{if(calendarView==="month"){calendarAnchor.setDate(1);calendarAnchor.setMonth(calendarAnchor.getMonth()+1)}else calendarAnchor.setDate(calendarAnchor.getDate()+7);refreshCalendar()});
   document.querySelector("#calendarToday").addEventListener("click",()=>{calendarAnchor=new Date();refreshCalendar()});
   document.querySelectorAll("[data-calendar-view]").forEach(button=>button.addEventListener("click",()=>{calendarView=button.dataset.calendarView;localStorage.setItem("app-am-calendar-view",calendarView);refreshCalendar()}));
@@ -1197,8 +1194,7 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
       </article>`}).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;  const form=document.querySelector("#reviewCorrectionForm");
   const resetCorrectionForm=()=>{form.reset();form.dataset.editingId="";form.hidden=true;document.querySelector("#saveReviewCorrection").textContent="Guardar corrección"};
   document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.reset();form.dataset.editingId="";form.hidden=false;document.querySelector("#reviewCorrectionDueDate").min=new Date().toISOString().slice(0,10);document.querySelector("#saveReviewCorrection").textContent="Guardar corrección";document.querySelector("#reviewCorrectionTitle").focus()});
-  document.querySelector("#cancelReviewCorrection").addEventListener("click",resetCorrectionForm);
-  form.addEventListener("submit",event=>{
+  document.querySelector("#cancelReviewCorrection").addEventListener("click",resetCorrectionForm);  form.addEventListener("submit",event=>{
     event.preventDefault();
     const title=document.querySelector("#reviewCorrectionTitle").value.trim(),comment=document.querySelector("#reviewCorrectionComment").value.trim(),assigned=document.querySelector("#reviewCorrectionAssigned").value,dueDate=document.querySelector("#reviewCorrectionDueDate").value;
     if(!title||!comment||!assigned||!dueDate)return;
@@ -1438,7 +1434,8 @@ async function declarationDocumentsForClients(clients,model,type,period,year){
 }
 function declarationDocumentMarkup(document){
   if(!document)return'<span class="declaration-document-missing">No encontrado</span>';
-  return `<div class="declaration-document-actions"><a href="${document.url}" target="_blank" rel="noopener" title="${escapeHtml(document.name)}"><span>PDF</span> Ver</a><a class="document-download" href="${document.url}" download="${escapeHtml(document.name)}" aria-label="Descargar ${escapeHtml(document.name)}">↓</a></div>`;
+  const previewId=registerPreviewDocument(document);
+  return `<div class="declaration-document-actions"><button type="button" data-preview-document="${previewId}" title="Vista preliminar de ${escapeHtml(document.name)}"><span>PDF</span> Ver documento</button></div>`;
 }
 async function setupDeclarationFolderSource(elementId,reload){
   const panel=document.querySelector(`#${elementId}`);if(!panel)return;
@@ -1497,8 +1494,7 @@ function declarationFilterOptions(type){
 function openDeclarationColumnFilter(prefix,bodyId,button){
   document.querySelector(".excel-filter-popover")?.remove();
   const column=declarationColumns.find(item=>item.field===button.dataset.excelFilter);if(!column)return;
-  const value=declarationColumnFilterState[prefix]?.[column.field]||"";
-  const panel=document.createElement("div");panel.className="excel-filter-popover";
+  const value=declarationColumnFilterState[prefix]?.[column.field]||"";  const panel=document.createElement("div");panel.className="excel-filter-popover";
   const options=declarationFilterOptions(column.type);
   if(column.type==="date"){
     const concreteDate=value.startsWith("__")?"":value;
@@ -1797,8 +1793,7 @@ function setupClientFolderDropZone(){
 }
 
 function setFolderViewMode(mode,persist=true){
-  folderViewMode=mode==="list"?"list":"grid";
-  if(persist)localStorage.setItem(FOLDER_VIEW_STORAGE_KEY,folderViewMode);
+  folderViewMode=mode==="list"?"list":"grid";  if(persist)localStorage.setItem(FOLDER_VIEW_STORAGE_KEY,folderViewMode);
   document.querySelector("#folderGrid")?.classList.toggle("list-view",folderViewMode==="list");
   document.querySelectorAll("[data-folder-view]").forEach(button=>{const active=button.dataset.folderView===folderViewMode;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active))});
 }
@@ -1888,6 +1883,25 @@ function renderEntries(entries){
   grid.querySelectorAll(".folder-card").forEach(card=>card.addEventListener("click",()=>openEntry(Number(card.dataset.index))));
 }
 
+const documentPreviewRegistry=new Map();
+function registerPreviewDocument(record){
+  const id="preview-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,9);
+  documentPreviewRegistry.set(id,record);
+  return id;
+}
+async function openRegisteredDocumentPreview(id){
+  const record=documentPreviewRegistry.get(id);if(!record)return;
+  try{
+    let file=record.file;
+    if(!file&&record.handle)file=await record.handle.getFile();
+    if(!file&&record.url){const response=await fetch(record.url);const blob=await response.blob();file=new File([blob],record.name||"documento",{type:blob.type})}
+    if(file)openDocumentPreview(file);
+  }catch{alert("No se pudo abrir la vista preliminar del documento.")}
+}
+document.addEventListener("click",event=>{
+  const button=event.target.closest("[data-preview-document]");if(!button)return;
+  event.preventDefault();openRegisteredDocumentPreview(button.dataset.previewDocument);
+});
 let activeDocumentPreviewUrl=null;
 function closeDocumentPreview(){
   const shell=document.querySelector("#documentPreview");
