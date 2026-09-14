@@ -297,8 +297,7 @@ function collectCommercialRegistryData(certificateName=""){
 function setClientViewMode(viewOnly){
   const form=document.querySelector("#newClientForm");
   form.classList.toggle("client-view-mode",viewOnly);
-  form.querySelectorAll("input,select,textarea").forEach(control=>{control.disabled=viewOnly});
-  document.querySelector("#browseExistingSignature").disabled=viewOnly;
+  form.querySelectorAll("input,select,textarea").forEach(control=>{control.disabled=viewOnly});  document.querySelector("#browseExistingSignature").disabled=viewOnly;
   document.querySelectorAll("#commercialRegistrySection button:not([role=tab])").forEach(button=>button.disabled=viewOnly);
   document.querySelector("#editClientFromView").hidden=!viewOnly;
   document.querySelector("#saveClientButton").hidden=viewOnly;
@@ -597,8 +596,7 @@ function homeActivityDate(value,withWeekday=false){
   if(!value)return "Sin fecha límite";
   const date=new Date(`${value}T12:00:00`);
   if(Number.isNaN(date.getTime()))return value;
-  return new Intl.DateTimeFormat("es-ES",withWeekday?{weekday:"short",day:"2-digit",month:"short"}:{day:"2-digit",month:"short"}).format(date);
-}
+  return new Intl.DateTimeFormat("es-ES",withWeekday?{weekday:"short",day:"2-digit",month:"short"}:{day:"2-digit",month:"short"}).format(date);}
 function renderHomeActivityRail(){
   const messagesBox=document.querySelector("#homeMessagesPreview"),tasksBox=document.querySelector("#homeTasksPreview"),remindersBox=document.querySelector("#homeRemindersPreview");
   if(!messagesBox||!tasksBox||!remindersBox)return;
@@ -897,8 +895,7 @@ function closeCalendarItem(){const modal=document.querySelector("#calendarModal"
 function renderCalendar(){
   main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">ORGANIZACIÓN DEL DESPACHO</p><h1>Calendario</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="calendar-shell panel"><div class="calendar-top"><div><p class="eyebrow">AGENDA COMPARTIDA</p><h2>Tareas, recordatorios y avisos</h2><p>Las tareas se muestran automáticamente desde su inicio hasta la fecha límite.</p></div><button class="primary blue-button" id="newCalendarItem">＋ Añadir recordatorio</button></div>
-    <div class="calendar-toolbar"><div class="calendar-navigation"><button type="button" id="calendarPrevious" aria-label="Periodo anterior">‹</button><button type="button" id="calendarToday">Hoy</button><button type="button" id="calendarNext" aria-label="Periodo siguiente">›</button><h3 id="calendarPeriodTitle"></h3></div><div class="calendar-view-switch"><button type="button" data-calendar-view="month">Mes</button><button type="button" data-calendar-view="week">Semana</button></div></div><div class="calendar-body" id="calendarBody"></div></section>
-    <div class="modal-shell" id="calendarModal" aria-hidden="true"><div class="modal-backdrop" data-close-calendar></div><section class="client-modal calendar-modal" role="dialog" aria-modal="true" aria-labelledby="calendarModalTitle"><div class="client-modal-head"><div><p class="eyebrow">AGENDA</p><h2 id="calendarModalTitle">Añadir recordatorio</h2></div><button class="modal-close" type="button" data-close-calendar aria-label="Cerrar">×</button></div><form id="calendarForm"><div class="calendar-form-grid"><label class="calendar-title-field">Título<input id="calendarItemTitle" maxlength="100" required placeholder="Ej. Presentar modelo 303"></label><label>Fecha<input id="calendarItemDate" type="date" required></label><label>Hora opcional<input id="calendarItemTime" type="time"></label><label>Tipo<select id="calendarItemType"><option value="reminder">Recordatorio</option><option value="notice">Aviso</option></select></label><label>Responsable<select id="calendarItemAssigned"><option value="">Todo el equipo</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label><label class="calendar-notes-field">Notas<textarea id="calendarItemNotes" rows="3" maxlength="400" placeholder="Información adicional"></textarea></label></div><div class="modal-actions calendar-modal-actions"><button type="button" class="calendar-delete" id="deleteCalendarItem" hidden>Eliminar</button><button type="button" class="secondary-button" data-close-calendar>Cancelar</button><button type="submit" class="primary blue-button">Guardar</button></div></form></section></div>`;
+    <div class="calendar-toolbar"><div class="calendar-navigation"><button type="button" id="calendarPrevious" aria-label="Periodo anterior">‹</button><button type="button" id="calendarToday">Hoy</button><button type="button" id="calendarNext" aria-label="Periodo siguiente">›</button><h3 id="calendarPeriodTitle"></h3></div><div class="calendar-view-switch"><button type="button" data-calendar-view="month">Mes</button><button type="button" data-calendar-view="week">Semana</button></div></div><div class="calendar-body" id="calendarBody"></div></section>    <div class="modal-shell" id="calendarModal" aria-hidden="true"><div class="modal-backdrop" data-close-calendar></div><section class="client-modal calendar-modal" role="dialog" aria-modal="true" aria-labelledby="calendarModalTitle"><div class="client-modal-head"><div><p class="eyebrow">AGENDA</p><h2 id="calendarModalTitle">Añadir recordatorio</h2></div><button class="modal-close" type="button" data-close-calendar aria-label="Cerrar">×</button></div><form id="calendarForm"><div class="calendar-form-grid"><label class="calendar-title-field">Título<input id="calendarItemTitle" maxlength="100" required placeholder="Ej. Presentar modelo 303"></label><label>Fecha<input id="calendarItemDate" type="date" required></label><label>Hora opcional<input id="calendarItemTime" type="time"></label><label>Tipo<select id="calendarItemType"><option value="reminder">Recordatorio</option><option value="notice">Aviso</option></select></label><label>Responsable<select id="calendarItemAssigned"><option value="">Todo el equipo</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label><label class="calendar-notes-field">Notas<textarea id="calendarItemNotes" rows="3" maxlength="400" placeholder="Información adicional"></textarea></label></div><div class="modal-actions calendar-modal-actions"><button type="button" class="calendar-delete" id="deleteCalendarItem" hidden>Eliminar</button><button type="button" class="secondary-button" data-close-calendar>Cancelar</button><button type="submit" class="primary blue-button">Guardar</button></div></form></section></div>`;
   bindHeader();refreshCalendar();
   document.querySelector("#newCalendarItem").addEventListener("click",()=>openCalendarItem(localDateKey(new Date())));
   document.querySelector("#calendarPrevious").addEventListener("click",()=>{if(calendarView==="month"){calendarAnchor.setDate(1);calendarAnchor.setMonth(calendarAnchor.getMonth()-1)}else calendarAnchor.setDate(calendarAnchor.getDate()-7);refreshCalendar()});
@@ -1197,8 +1194,7 @@ function renderAnnualReviewContent(clientId,state,stage,progress){
         <div class="review-correction-task-meta"><span>♟ ${escapeHtml(item.assigned||"Sin responsable")}</span><span>◷ ${item.dueDate?taskDateLabel(item.dueDate):"Sin fecha límite"}</span></div>
         <p>${escapeHtml(item.comment)}</p>
         <div class="review-correction-actions"><button type="button" data-edit-review-correction="${escapeHtml(String(item.id))}" aria-label="Editar corrección" title="Editar corrección">✎</button><button type="button" data-remove-review-correction="${escapeHtml(String(item.id))}" aria-label="Eliminar corrección" title="Eliminar corrección">×</button></div>
-      </article>`}).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;
-  const form=document.querySelector("#reviewCorrectionForm");
+      </article>`}).join(""):`<div class="review-empty"><span>✓</span><strong>No hay correcciones añadidas</strong><p>Añade una cuando detectes algo que el compañero deba solucionar.</p><label><input id="reviewWithoutCorrections" type="checkbox" ${state.reviewNoCorrections?"checked":""}> Marcar revisión finalizada sin correcciones</label></div>`}</div>`;  const form=document.querySelector("#reviewCorrectionForm");
   const resetCorrectionForm=()=>{form.reset();form.dataset.editingId="";form.hidden=true;document.querySelector("#saveReviewCorrection").textContent="Guardar corrección"};
   document.querySelector("#addReviewCorrection").addEventListener("click",()=>{form.reset();form.dataset.editingId="";form.hidden=false;document.querySelector("#reviewCorrectionDueDate").min=new Date().toISOString().slice(0,10);document.querySelector("#saveReviewCorrection").textContent="Guardar corrección";document.querySelector("#reviewCorrectionTitle").focus()});
   document.querySelector("#cancelReviewCorrection").addEventListener("click",resetCorrectionForm);
@@ -1497,8 +1493,7 @@ function declarationFilterOptions(type){
   if(type==="worker")return workers;
   if(type==="payment")return declarationPayments;
   if(type==="document")return ["Con documento","Sin documento"];
-  return [];
-}
+  return [];}
 function openDeclarationColumnFilter(prefix,bodyId,button){
   document.querySelector(".excel-filter-popover")?.remove();
   const column=declarationColumns.find(item=>item.field===button.dataset.excelFilter);if(!column)return;
@@ -1797,8 +1792,7 @@ function setupClientFolderDropZone(){
   const show=()=>{overlay.classList.add("active");overlay.setAttribute("aria-hidden","false")};
   const hide=()=>{dragDepth=0;overlay.classList.remove("active");overlay.setAttribute("aria-hidden","true")};
   panel.addEventListener("dragenter",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;dragDepth++;show()});
-  panel.addEventListener("dragover",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;event.dataTransfer.dropEffect="copy";show()});
-  panel.addEventListener("dragleave",()=>{if(dragDepth>0)dragDepth--;if(!dragDepth)hide()});
+  panel.addEventListener("dragover",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;event.dataTransfer.dropEffect="copy";show()});  panel.addEventListener("dragleave",()=>{if(dragDepth>0)dragDepth--;if(!dragDepth)hide()});
   panel.addEventListener("drop",async event=>{if(!hasFiles(event))return;event.preventDefault();hide();if(!currentDirectoryHandle){document.querySelector("#folderStatus").textContent="Conecta primero la carpeta de clientes para guardar documentación.";return}const items=[...(event.dataTransfer.items||[])],files=items.length?items.filter(item=>item.kind==="file").map(item=>item.getAsFile()).filter(Boolean):[...(event.dataTransfer.files||[])];if(!files.length)return;await addDocumentsToCurrentFolder(files)});
 }
 
@@ -1894,6 +1888,45 @@ function renderEntries(entries){
   grid.querySelectorAll(".folder-card").forEach(card=>card.addEventListener("click",()=>openEntry(Number(card.dataset.index))));
 }
 
+let activeDocumentPreviewUrl=null;
+function closeDocumentPreview(){
+  const shell=document.querySelector("#documentPreview");
+  if(!shell)return;
+  shell.remove();
+  if(activeDocumentPreviewUrl){URL.revokeObjectURL(activeDocumentPreviewUrl);activeDocumentPreviewUrl=null}
+}
+function printPreviewDocument(file,url,kind){
+  if(kind==="pdf"||kind==="text"){
+    const frame=document.querySelector("#documentPreviewFrame");
+    try{frame?.contentWindow?.focus();frame?.contentWindow?.print();return}catch{}
+  }
+  const printWindow=window.open("","_blank","noopener,noreferrer");
+  if(!printWindow)return;
+  const safeUrl=String(url).replace(/"/g,"%22");
+  printWindow.document.write(`<!doctype html><html><head><title>${escapeHtml(file.name)}</title><style>html,body{margin:0;height:100%;display:grid;place-items:center}img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body><img src="${safeUrl}" onload="window.print();window.close()"></body></html>`);
+  printWindow.document.close();
+}
+function openDocumentPreview(file){
+  closeDocumentPreview();
+  const url=URL.createObjectURL(file),extension=(file.name.split(".").pop()||"").toLowerCase(),mime=file.type||"";
+  activeDocumentPreviewUrl=url;
+  const kind=mime==="application/pdf"||extension==="pdf"?"pdf":mime.startsWith("image/")?"image":mime.startsWith("text/")||["txt","csv","xml","json","html","log"].includes(extension)?"text":mime.startsWith("audio/")?"audio":mime.startsWith("video/")?"video":"other";
+  const content=kind==="pdf"||kind==="text"
+    ?`<iframe id="documentPreviewFrame" src="${url}${kind==="pdf"?"#toolbar=0":""}" title="Vista previa de ${escapeHtml(file.name)}"></iframe>`
+    :kind==="image"?`<img src="${url}" alt="Vista previa de ${escapeHtml(file.name)}">`
+    :kind==="audio"?`<audio src="${url}" controls></audio>`
+    :kind==="video"?`<video src="${url}" controls></video>`
+    :`<div class="document-preview-unavailable"><span>${documentTypeVisual(file.name)}</span><h3>Vista previa no disponible</h3><p>Este formato no puede mostrarse dentro del navegador, pero puedes descargarlo o imprimirlo con su aplicación correspondiente.</p></div>`;
+  const shell=document.createElement("div");shell.id="documentPreview";shell.className="document-preview-shell";
+  shell.innerHTML=`<div class="document-preview-backdrop" data-close-preview></div><section class="document-preview-card" role="dialog" aria-modal="true" aria-labelledby="documentPreviewTitle"><header><div><p class="eyebrow">VISTA PRELIMINAR</p><h2 id="documentPreviewTitle">${escapeHtml(file.name)}</h2><small>${file.size?new Intl.NumberFormat("es-ES",{maximumFractionDigits:1}).format(file.size/1024)+" KB":"Documento"}</small></div><button type="button" data-close-preview aria-label="Cerrar">×</button></header><div class="document-preview-body ${kind}">${content}</div><footer><button type="button" class="secondary-button" data-close-preview>Cerrar</button><button type="button" class="secondary-button" id="printPreviewDocument">⌁ Imprimir</button><button type="button" class="primary blue-button" id="downloadPreviewDocument">↓ Descargar</button></footer></section>`;
+  document.body.appendChild(shell);
+  shell.querySelectorAll("[data-close-preview]").forEach(button=>button.addEventListener("click",closeDocumentPreview));
+  shell.querySelector("#downloadPreviewDocument").addEventListener("click",()=>{const link=document.createElement("a");link.href=url;link.download=file.name;document.body.appendChild(link);link.click();link.remove()});
+  const printButton=shell.querySelector("#printPreviewDocument");
+  if(kind==="other"||kind==="audio"||kind==="video"){printButton.disabled=true;printButton.title="Este formato necesita su aplicación para imprimirse"}else printButton.addEventListener("click",()=>printPreviewDocument(file,url,kind));
+  const escapeHandler=event=>{if(event.key==="Escape"){document.removeEventListener("keydown",escapeHandler);closeDocumentPreview()}};
+  document.addEventListener("keydown",escapeHandler);
+}
 async function openEntry(index){
   const entry=currentEntries[index];
   if(!entry) return;
@@ -1904,9 +1937,7 @@ async function openEntry(index){
     await displayFolder(entry.handle,activeFolderConfig);
   }else{
     const file=await entry.handle.getFile();
-    const url=URL.createObjectURL(file);
-    window.open(url,"_blank","noopener");
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    openDocumentPreview(file);
   }
 }
 
@@ -2097,8 +2128,7 @@ function togglePerplexity(){
   document.querySelector("#perplexityLauncher").classList.toggle("active",opening);
 }
 function closePerplexity(){
-  const panel=document.querySelector("#perplexityPanel");
-  if(!panel)return;
+  const panel=document.querySelector("#perplexityPanel");  if(!panel)return;
   panel.classList.remove("open");
   panel.setAttribute("aria-hidden","true");
   document.querySelector("#perplexityLauncher")?.classList.remove("active");
