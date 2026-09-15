@@ -916,3 +916,32 @@ html.auth-pending body{visibility:hidden}
   .login-card form{margin-top:18px;gap:13px}
   .login-card input,.login-card select,.login-card button{height:50px}
 }
+
+
+/* Ejercicios y bloqueo anual de Días de cortesía */
+.courtesy-heading-actions{display:flex;align-items:flex-end;justify-content:flex-end;gap:12px;flex-wrap:wrap}
+.courtesy-year-filter{display:grid;gap:6px;min-width:128px}
+.courtesy-year-filter>span{color:#68738a;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.courtesy-year-filter select{height:44px;min-width:128px;border:1px solid #dce2ed;border-radius:12px;padding:0 34px 0 13px;background:#f7f9fc;color:var(--ink);font:800 14px inherit;cursor:pointer}
+.courtesy-server-button{min-height:44px;white-space:nowrap}
+.courtesy-server-button.is-connected{border-color:#b9e2ce!important;background:#ebf8f1!important;color:#14764b!important;box-shadow:none!important}
+.courtesy-exercise-status{margin-top:20px;padding:12px 14px;border:1px solid;border-radius:14px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.courtesy-exercise-status>div{display:flex;align-items:center;gap:11px;min-width:0}
+.courtesy-exercise-status>div>span{width:31px;height:31px;flex:0 0 31px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:900}
+.courtesy-exercise-status p{margin:0;display:grid;gap:2px}
+.courtesy-exercise-status strong{font-size:12px}
+.courtesy-exercise-status small{color:#69758a;font-size:11px}
+.courtesy-exercise-status.is-open{border-color:#c8ead9;background:#f1fbf6}
+.courtesy-exercise-status.is-open>div>span{background:#d8f3e5;color:#168456}
+.courtesy-exercise-status.is-locked{border-color:#eadbc4;background:#fff9ef}
+.courtesy-exercise-status.is-locked>div>span{background:#f5e8d2;color:#9a641f}
+.courtesy-exercise-status>button{min-height:37px;border:1px solid #dbc49e;border-radius:10px;padding:0 13px;background:#fff;color:#81551d;font:800 11px inherit;cursor:pointer;white-space:nowrap}
+.courtesy-table input:disabled{cursor:not-allowed!important;opacity:.72;color:#727c8e!important;background:#edf0f5!important;box-shadow:none!important}
+@media(max-width:760px){
+  .courtesy-heading-actions{display:grid;grid-template-columns:minmax(105px,.42fr) minmax(0,1fr);align-items:end;width:100%;gap:9px}
+  .courtesy-year-filter{min-width:0}
+  .courtesy-year-filter select{width:100%;min-width:0}
+  .courtesy-heading-actions .courtesy-server-button{width:100%;margin:0;padding:0 10px;font-size:11px}
+  .courtesy-exercise-status{align-items:stretch;flex-direction:column;margin-top:14px}
+  .courtesy-exercise-status>button{width:100%}
+}
