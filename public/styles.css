@@ -622,7 +622,7 @@ nav button .nav-icon{width:22px;height:22px;flex:0 0 22px;display:grid;place-ite
 .annual-record-lock>div{min-width:0;flex:1}
 .annual-record-lock strong,.annual-record-lock small{display:block}
 .annual-record-lock small{margin-top:3px;color:#775854;font-size:11px}
-.annual-record-lock>button{border:0;border-radius:10px;background:#b42318;color:#fff;padding:10px 13px;font:800 11px inherit;cursor:pointer;white-space:nowrap}
+.annual-record-lock>button{border:0;border-radius:10px;background:#b42318;color:#fff;padding:10px 13px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
 .annual-stage-content.locked{background:#f6f7f9}
 .annual-stage-content.locked input,.annual-stage-content.locked textarea,.annual-stage-content.locked button{cursor:not-allowed}
 @media(max-width:600px){.annual-record-lock{align-items:flex-start;flex-wrap:wrap}.annual-record-lock>button{width:100%}}
@@ -944,4 +944,62 @@ html.auth-pending body{visibility:hidden}
   .courtesy-heading-actions .courtesy-server-button{width:100%;margin:0;padding:0 10px;font-size:11px}
   .courtesy-exercise-status{align-items:stretch;flex-direction:column;margin-top:14px}
   .courtesy-exercise-status>button{width:100%}
+}
+
+
+/* Estado activo e histórico de clientes */
+.client-active-field{align-self:stretch}
+.client-active-field>span:first-child{display:block}
+.client-active-control{
+  min-height:48px;
+  margin-top:8px;
+  padding:0 12px;
+  display:grid;
+  grid-template-columns:auto auto minmax(0,1fr);
+  align-items:center;
+  gap:9px;
+  border:1px solid #dce2ed;
+  border-radius:12px;
+  background:#f7f9fc;
+  cursor:pointer;
+}
+.client-active-control input{position:absolute;opacity:0;pointer-events:none}
+.client-active-control i{
+  position:relative;
+  width:38px;
+  height:22px;
+  border-radius:999px;
+  background:#a8b0c0;
+  transition:background .2s ease;
+}
+.client-active-control i::after{
+  content:"";
+  position:absolute;
+  width:16px;
+  height:16px;
+  left:3px;
+  top:3px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 5px rgba(12,25,55,.25);
+  transition:transform .2s ease;
+}
+.client-active-control input:checked+i{background:#1c9a63}
+.client-active-control input:checked+i::after{transform:translateX(16px)}
+.client-active-control small{margin:0!important;color:#68738a!important;font-size:10px!important;line-height:1.2}
+.client-active-field:has(input:disabled) .client-active-control{cursor:default;opacity:.78}
+.management-client-toolbar{align-items:center}
+.management-client-sections{display:inline-flex!important;align-items:center!important;gap:4px!important;padding:4px;border:1px solid #dfe4ee;border-radius:12px;background:#f4f6fa}
+.management-client-sections button{min-height:34px;border:0;border-radius:9px;padding:0 13px;background:transparent;color:#657086;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.management-client-sections button[aria-selected="true"]{background:#fff;color:var(--blue);box-shadow:0 3px 10px rgba(30,47,89,.11)}
+.management-client.historical-client{background:#faf8f4;border-color:#e7dece}
+.management-client.historical-client .folder-icon{background:#f1e8db;color:#8c6330}
+.management-client.historical-client small{color:#88765e}
+@media(max-width:620px){
+  .client-identity-grid{grid-template-columns:1fr}
+  .client-active-field{order:1}
+  .client-name-field{order:0}
+  .client-identity-grid>label:not(.client-name-field):not(.client-active-field){order:2}
+  .management-client-toolbar{align-items:stretch!important}
+  .management-client-sections{width:100%;display:grid!important;grid-template-columns:1fr 1fr}
 }
