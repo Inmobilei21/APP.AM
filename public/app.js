@@ -574,8 +574,16 @@ function unlockCourtesyYear(){
   });
 }
 async function connectCourtesyFolder(){
-  try{const root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("courtesy-folder",root);await loadCourtesyDays()}
-  catch(error){if(error?.name!=="AbortError")alert("No se pudo conectar la carpeta de días de cortesía.")}
+  try{
+    let root=await getSavedHandle("courtesy-folder");
+    if(root){
+      const permission=await root.requestPermission({mode:"readwrite"});
+      if(permission==="granted"){await loadCourtesyDays();return}
+    }
+    root=await window.showDirectoryPicker({mode:"readwrite"});
+    await saveHandle("courtesy-folder",root);
+    await loadCourtesyDays();
+  }catch(error){if(error?.name!=="AbortError")alert("No se pudo autorizar la carpeta de días de cortesía.")}
 }
 async function courtesyFileUrl(handle){
   const file=await handle.getFile(),url=URL.createObjectURL(file);courtesyObjectUrls.push(url);return{url,name:file.name,file,handle};
@@ -588,11 +596,16 @@ async function loadCourtesyDays(){
   renderCourtesyExerciseStatus();
   try{
     const clients=(await getAllClientMetadata()).filter(client=>clientIsActive(client)&&client.courtesyDaysRequired).sort((a,b)=>a.name.localeCompare(b.name,"es"));
-    let courtesyRoot=null,signatureRoot=null;
-    try{courtesyRoot=await getSavedHandle("courtesy-folder");if(courtesyRoot&&await courtesyRoot.queryPermission({mode:"read"})!=="granted")courtesyRoot=null}catch{}
+    let courtesyRoot=null,signatureRoot=null,courtesyHandleSaved=false;
+    try{
+      const savedCourtesyRoot=await getSavedHandle("courtesy-folder");
+      courtesyHandleSaved=Boolean(savedCourtesyRoot);
+      if(savedCourtesyRoot&&await savedCourtesyRoot.queryPermission({mode:"read"})==="granted")courtesyRoot=savedCourtesyRoot;
+    }catch{}
     try{signatureRoot=await getSavedHandle("signatures-folder");if(signatureRoot&&await signatureRoot.queryPermission({mode:"read"})!=="granted")signatureRoot=null}catch{}
-    connect.textContent=courtesyRoot?"● Servidor conectado":"Conectar servidor";
+    connect.textContent=courtesyRoot?"● Servidor conectado":courtesyHandleSaved?"Autorizar servidor":"Conectar servidor";
     connect.classList.toggle("is-connected",Boolean(courtesyRoot));
+    connect.classList.toggle("is-saved",courtesyHandleSaved&&!courtesyRoot);
     const signatures=await getAllSignatureMetadata(),signatureMap=new Map(signatures.map(item=>[courtesyClientKey(item.client),item]));
     const rows=[];
     for(const client of clients){
