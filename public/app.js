@@ -6,6 +6,16 @@ const teamUsers=[
 ];
 function initials(name){return name.split(/\s+/).map(part=>part[0]).slice(0,2).join("").toUpperCase()}
 async function apiJson(url,options={}){const response=await fetch(url,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"No se pudo completar la operación.");return result}
+let loadedApplicationVersion=null;
+async function checkForApplicationUpdate(){
+  try{
+    const {version}=await apiJson(`/api/version?time=${Date.now()}`,{cache:"no-store"});
+    if(loadedApplicationVersion===null){loadedApplicationVersion=version;return}
+    if(version&&version!==loadedApplicationVersion)location.reload();
+  }catch{}
+}
+checkForApplicationUpdate();
+setInterval(checkForApplicationUpdate,20000);
 function updateProfileButtons(){
   if(!signedInUser)return;
   document.querySelectorAll(".profile").forEach(button=>{button.innerHTML=`<span>${initials(signedInUser.name)}</span><span class="profile-copy"><strong>${signedInUser.name}</strong><small>${signedInUser.role==="admin"?"Administrador":"Usuario"}</small></span>`;button.title=signedInUser.role==="admin"?"Administrar usuarios":"Mi cuenta";button.onclick=openAccountPanel});
