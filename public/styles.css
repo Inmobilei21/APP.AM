@@ -1003,3 +1003,5 @@ html.auth-pending body{visibility:hidden}
   .management-client-toolbar{align-items:stretch!important}
   .management-client-sections{width:100%;display:grid!important;grid-template-columns:1fr 1fr}
 }
+
+.courtesy-server-button.is-saved{border-color:#d8c69f!important;background:#fff9ec!important;color:#81551d!important;box-shadow:none!important}
