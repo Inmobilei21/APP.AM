@@ -465,20 +465,81 @@ function filterContacts(event){
 
 
 let courtesyObjectUrls=[];
-function courtesyStorageKey(client){return"app-am-courtesy-"+client}
-function getCourtesyData(client){try{return JSON.parse(localStorage.getItem(courtesyStorageKey(client))||"{}")}catch{return{}}}
-function saveCourtesyData(client,data){localStorage.setItem(courtesyStorageKey(client),JSON.stringify(data))}
+const COURTESY_FIRST_YEAR=2026;
+let courtesySelectedYear=COURTESY_FIRST_YEAR;
+const courtesyUnlockedYears=new Set();
+
+function courtesyYears(){
+  const currentYear=new Date().getFullYear();
+  return Array.from({length:Math.max(1,currentYear-COURTESY_FIRST_YEAR+1)},(_,index)=>COURTESY_FIRST_YEAR+index);
+}
+function courtesyStorageKey(client,year=courtesySelectedYear){return `app-am-courtesy-${year}-${client}`}
+function legacyCourtesyStorageKey(client){return "app-am-courtesy-"+client}
+function getCourtesyData(client,year=courtesySelectedYear){
+  try{
+    const current=localStorage.getItem(courtesyStorageKey(client,year));
+    if(current)return JSON.parse(current);
+    if(year===COURTESY_FIRST_YEAR){
+      const legacy=localStorage.getItem(legacyCourtesyStorageKey(client));
+      if(legacy){
+        const migrated=JSON.parse(legacy);
+        localStorage.setItem(courtesyStorageKey(client,year),JSON.stringify(migrated));
+        return migrated;
+      }
+    }
+    return{};
+  }catch{return{}}
+}
+function saveCourtesyData(client,data,year=courtesySelectedYear){localStorage.setItem(courtesyStorageKey(client,year),JSON.stringify(data))}
 function courtesyClientKey(name){return normalizeFiscalClient(name).toLocaleLowerCase("es")}
+function courtesyExerciseState(year=courtesySelectedYear){
+  const now=new Date(),opens=new Date(year,5,15),closes=new Date(year,7,1);
+  const unlocked=courtesyUnlockedYears.has(year);
+  if(unlocked)return{editable:true,unlocked:true,label:"Ejercicio desbloqueado",detail:"Edición temporal habilitada con contraseña."};
+  if(now<opens)return{editable:false,label:"Ejercicio bloqueado",detail:`Se abrirá el 15 de junio de ${year}.`};
+  if(now>=closes)return{editable:false,label:"Ejercicio cerrado",detail:`Bloqueado desde el 1 de agosto de ${year}.`};
+  return{editable:true,label:"Periodo abierto",detail:`Editable hasta el 31 de julio de ${year}.`};
+}
+function courtesyYearOptions(){
+  return courtesyYears().map(year=>`<option value="${year}"${year===courtesySelectedYear?" selected":""}>${year}</option>`).join("");
+}
 async function renderCourtesyDays(){
+  courtesySelectedYear=COURTESY_FIRST_YEAR;
+  const state=courtesyExerciseState();
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Días de cortesía</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="courtesy-panel">
-      <div class="table-heading courtesy-heading"><div><p class="eyebrow">NOTIFICACIONES ELECTRÓNICAS</p><h2>Control de días de cortesía</h2><p>Clientes incluidos desde su ficha interna.</p></div><button class="upload-button" id="connectCourtesyFolder">Conectar carpeta Días de cortesía</button></div>
+      <div class="table-heading courtesy-heading">
+        <div><p class="eyebrow">NOTIFICACIONES ELECTRÓNICAS</p><h2>Control de días de cortesía</h2><p>Clientes incluidos desde su ficha interna.</p></div>
+        <div class="courtesy-heading-actions">
+          <label class="courtesy-year-filter"><span>Ejercicio</span><select id="courtesyYear">${courtesyYearOptions()}</select></label>
+          <button class="upload-button courtesy-server-button" id="connectCourtesyFolder">Conectar servidor</button>
+        </div>
+      </div>
+      <div class="courtesy-exercise-status ${state.editable?"is-open":"is-locked"}" id="courtesyExerciseStatus"></div>
       <div class="courtesy-table-wrap"><table class="courtesy-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Firma</th><th>Fecha presentación</th><th>Periodo solicitado</th><th>Documento</th></tr></thead><tbody id="courtesyRows"><tr><td colspan="6" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
   document.querySelector("#connectCourtesyFolder").addEventListener("click",connectCourtesyFolder);
+  document.querySelector("#courtesyYear").addEventListener("change",async event=>{courtesySelectedYear=Number(event.target.value)||COURTESY_FIRST_YEAR;await loadCourtesyDays()});
   await loadCourtesyDays();
+}
+function renderCourtesyExerciseStatus(){
+  const box=document.querySelector("#courtesyExerciseStatus");if(!box)return;
+  const state=courtesyExerciseState();
+  box.className=`courtesy-exercise-status ${state.editable?"is-open":"is-locked"}`;
+  box.innerHTML=`<div><span aria-hidden="true">${state.editable?"✓":"◆"}</span><p><strong>${state.label} · ${courtesySelectedYear}</strong><small>${state.detail}</small></p></div>${state.editable?"":'<button type="button" id="unlockCourtesyYear">Desbloquear</button>'}`;
+  document.querySelector("#unlockCourtesyYear")?.addEventListener("click",unlockCourtesyYear);
+}
+function unlockCourtesyYear(){
+  openPasswordDialog({
+    id:"courtesyUnlockDialog",
+    eyebrow:"CONTROL PROTEGIDO",
+    title:`Desbloquear ejercicio ${courtesySelectedYear}`,
+    copy:"Introduce la contraseña de protección para habilitar temporalmente la edición.",
+    icon:"◈",
+    onSuccess:async()=>{courtesyUnlockedYears.add(courtesySelectedYear);await loadCourtesyDays()}
+  });
 }
 async function connectCourtesyFolder(){
   try{const root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("courtesy-folder",root);await loadCourtesyDays()}
@@ -489,43 +550,49 @@ async function courtesyFileUrl(handle){
 }
 async function loadCourtesyDays(){
   const body=document.querySelector("#courtesyRows"),connect=document.querySelector("#connectCourtesyFolder");
+  if(!body||!connect)return;
+  const selectedYear=courtesySelectedYear,state=courtesyExerciseState(selectedYear);
   courtesyObjectUrls.forEach(url=>URL.revokeObjectURL(url));courtesyObjectUrls=[];
+  renderCourtesyExerciseStatus();
   try{
     const clients=(await getAllClientMetadata()).filter(client=>client.courtesyDaysRequired).sort((a,b)=>a.name.localeCompare(b.name,"es"));
     let courtesyRoot=null,signatureRoot=null;
     try{courtesyRoot=await getSavedHandle("courtesy-folder");if(courtesyRoot&&await courtesyRoot.queryPermission({mode:"read"})!=="granted")courtesyRoot=null}catch{}
     try{signatureRoot=await getSavedHandle("signatures-folder");if(signatureRoot&&await signatureRoot.queryPermission({mode:"read"})!=="granted")signatureRoot=null}catch{}
-    connect.textContent=courtesyRoot?"Cambiar carpeta":"Conectar carpeta Días de cortesía";
+    connect.textContent=courtesyRoot?"● Servidor conectado":"Conectar servidor";
+    connect.classList.toggle("is-connected",Boolean(courtesyRoot));
     const signatures=await getAllSignatureMetadata(),signatureMap=new Map(signatures.map(item=>[courtesyClientKey(item.client),item]));
     const rows=[];
     for(const client of clients){
-      const data=getCourtesyData(client.name),signatureMeta=signatureMap.get(courtesyClientKey(client.name));
+      const data=getCourtesyData(client.name,selectedYear),signatureMeta=signatureMap.get(courtesyClientKey(client.name));
       let signature=null,documentFile=null;
       if(signatureRoot&&signatureMeta?.document){try{signature=await courtesyFileUrl(await signatureRoot.getFileHandle(signatureMeta.document))}catch{}}
       if(courtesyRoot&&data.document){try{documentFile=await courtesyFileUrl(await courtesyRoot.getFileHandle(data.document))}catch{}}
-      rows.push({client,data,signature,documentFile});
+      rows.push({client,data,signature,documentFile,year:selectedYear});
     }
     window.courtesyRows=rows;
-    body.innerHTML=rows.length?rows.map((row,index)=>`<tr data-courtesy-client="${escapeHtml(row.client.name)}"><td><strong title="${escapeHtml(row.client.name)}">${escapeHtml(row.client.name)}</strong></td><td>${escapeHtml(row.client.cif||"—")}</td><td>${row.signature?`<button type="button" class="courtesy-file-link" data-preview-document="${registerPreviewDocument(row.signature)}">Firma disponible ▱</button>`:'<span class="courtesy-missing">No disponible</span>'}</td><td><input type="date" data-courtesy-field="submitted" value="${escapeHtml(row.data.submitted||"")}"></td><td><input type="text" data-courtesy-field="period" value="${escapeHtml(row.data.period||"")}" placeholder="Ej. del 5 al 12 de agosto"></td><td>${row.documentFile?`<div class="courtesy-document-actions"><button type="button" class="courtesy-file-link" data-preview-document="${registerPreviewDocument(row.documentFile)}">Vista preliminar</button></div>`:'<span class="courtesy-missing">Sin documento</span>'}<label class="courtesy-upload"><span>${row.documentFile?"Sustituir":"Adjuntar"}</span><input type="file" accept=".pdf" data-courtesy-upload="${index}"></label></td></tr>`).join(""):'<tr><td colspan="6" class="table-empty">No hay clientes marcados con la obligación de días de cortesía.</td></tr>';
+    const disabled=state.editable?"":" disabled";
+    body.innerHTML=rows.length?rows.map((row,index)=>`<tr data-courtesy-client="${escapeHtml(row.client.name)}"><td><strong title="${escapeHtml(row.client.name)}">${escapeHtml(row.client.name)}</strong></td><td>${escapeHtml(row.client.cif||"—")}</td><td>${row.signature?`<button type="button" class="courtesy-file-link" data-preview-document="${registerPreviewDocument(row.signature)}">Firma disponible ▱</button>`:'<span class="courtesy-missing">No disponible</span>'}</td><td><input type="date" data-courtesy-field="submitted" value="${escapeHtml(row.data.submitted||"")}"${disabled}></td><td><input type="text" data-courtesy-field="period" value="${escapeHtml(row.data.period||"")}" placeholder="Ej. del 5 al 12 de agosto"${disabled}></td><td>${row.documentFile?`<div class="courtesy-document-actions"><button type="button" class="courtesy-file-link" data-preview-document="${registerPreviewDocument(row.documentFile)}">Vista preliminar</button></div>`:'<span class="courtesy-missing">Sin documento</span>'}${state.editable?`<label class="courtesy-upload"><span>${row.documentFile?"Sustituir":"Adjuntar"}</span><input type="file" accept=".pdf" data-courtesy-upload="${index}"></label>`:""}</td></tr>`).join(""):'<tr><td colspan="6" class="table-empty">No hay clientes marcados con la obligación de días de cortesía.</td></tr>';
     body.querySelectorAll("[data-courtesy-field]").forEach(input=>input.addEventListener("change",saveCourtesyRow));
     body.querySelectorAll("[data-courtesy-upload]").forEach(input=>input.addEventListener("change",event=>uploadCourtesyDocument(Number(event.target.dataset.courtesyUpload),event.target.files[0])));
   }catch{body.innerHTML='<tr><td colspan="6" class="table-empty">No se pudo cargar el control de días de cortesía.</td></tr>'}
 }
 function saveCourtesyRow(event){
+  if(!courtesyExerciseState().editable){event.target.value=getCourtesyData(event.target.closest("tr").dataset.courtesyClient)[event.target.dataset.courtesyField]||"";return}
   const row=event.target.closest("tr"),client=row.dataset.courtesyClient,data=getCourtesyData(client);
   row.querySelectorAll("[data-courtesy-field]").forEach(field=>data[field.dataset.courtesyField]=field.value);
   saveCourtesyData(client,data);
 }
 async function uploadCourtesyDocument(index,file){
-  if(!file)return;
-  const row=window.courtesyRows[index],client=row.client.name;
+  if(!file||!courtesyExerciseState().editable)return;
+  const row=window.courtesyRows[index],client=row.client.name,year=row.year;
   try{
     let root=await getSavedHandle("courtesy-folder");
     if(root&&await root.requestPermission({mode:"readwrite"})!=="granted")root=null;
     if(!root){root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("courtesy-folder",root)}
-    const savedName=`${client} - ${file.name}`;
+    const savedName=`${year} - ${client} - ${file.name}`;
     await copyNamedFile(file,root,savedName);
-    const data=getCourtesyData(client);data.document=savedName;saveCourtesyData(client,data);
+    const data=getCourtesyData(client,year);data.document=savedName;saveCourtesyData(client,data,year);
     await loadCourtesyDays();
   }catch(error){if(error?.name!=="AbortError")alert("No se pudo guardar el documento. Comprueba el permiso de escritura.")}
 }
