@@ -132,6 +132,9 @@ const team = [
 ];
 const dataDirectory = process.env.DATA_DIR || (fs.existsSync("/data") ? "/data" : path.join(__dirname, ".data"));
 const usersFile = path.join(dataDirectory, "users.json");
+const sessionsFile = path.join(dataDirectory, "sessions.json");
+const sessionDuration = 30 * 24 * 60 * 60 * 1000;
+const applicationVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || "local";
 const sessions = new Map();
 
 function loadUsers() {
@@ -146,6 +149,28 @@ function saveUsers(users) {
   fs.writeFileSync(temporary, JSON.stringify(users, null, 2), { mode: 0o600 });
   fs.renameSync(temporary, usersFile);
 }
+function loadSessions() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(sessionsFile, "utf8"));
+    for (const [token, session] of Object.entries(saved)) {
+      if (session?.userId && Number(session.expires) > Date.now()) sessions.set(token, session);
+    }
+  } catch {}
+}
+function saveSessions() {
+  fs.mkdirSync(dataDirectory, { recursive: true });
+  const active = Object.fromEntries([...sessions].filter(([, session]) => Number(session.expires) > Date.now()));
+  const temporary = `${sessionsFile}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(active, null, 2), { mode: 0o600 });
+  fs.renameSync(temporary, sessionsFile);
+}
+function createSession(userId) {
+  const token = crypto.randomBytes(32).toString("hex");
+  sessions.set(token, { userId, expires: Date.now() + sessionDuration });
+  saveSessions();
+  return token;
+}
+loadSessions();
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   return { salt, passwordHash: crypto.scryptSync(password, salt, 64).toString("hex") };
 }
@@ -158,8 +183,9 @@ function cookieValue(req, name) {
   return item ? decodeURIComponent(item.slice(name.length + 1)) : "";
 }
 function currentUser(req) {
-  const session = sessions.get(cookieValue(req, "app_am_session"));
-  if (!session || session.expires < Date.now()) return null;
+  const token = cookieValue(req, "app_am_session"), session = sessions.get(token);
+  if (!session) return null;
+  if (session.expires < Date.now()) { sessions.delete(token);saveSessions();return null; }
   return loadUsers().find(user => user.id === session.userId) || null;
 }
 function publicUser(user) { return { id: user.id, name: user.name, role: user.role, passwordSet: Boolean(user.passwordHash) }; }
@@ -173,6 +199,9 @@ const appIcon = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAIAAAB7GkOtAAAAIGN
 
 http.createServer((req, res) => {
   const requestPath = req.url.split("?")[0];
+  if (requestPath === "/api/version" && req.method === "GET") {
+    return json(res, 200, { version: applicationVersion });
+  }
   if (requestPath === "/api/auth/status" && req.method === "GET") {
     const user = currentUser(req), users = loadUsers();
     return json(res, 200, { user: user ? publicUser(user) : null, needsSetup: !users.some(item => item.passwordHash), users: users.map(publicUser) });
@@ -189,8 +218,8 @@ http.createServer((req, res) => {
       if (!user) return json(res, 400, { error: "Seleccione a Manuel o Álvaro." });
       if (!validPassword(password)) return json(res, 400, { error: "La contraseña debe tener entre 6 y 128 caracteres." });
       Object.assign(user, hashPassword(password));saveUsers(users);
-      const token = crypto.randomBytes(32).toString("hex");sessions.set(token, { userId: user.id, expires: Date.now() + 12 * 60 * 60 * 1000 });
-      return json(res, 200, { user: publicUser(user) }, { "Set-Cookie": `app_am_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200` });
+      const token = createSession(user.id);
+      return json(res, 200, { user: publicUser(user) }, { "Set-Cookie": `app_am_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000` });
     }).catch(() => json(res, 400, { error: "No se pudo completar la configuración." }));
   }
   if (requestPath === "/api/auth/login" && req.method === "POST") {
@@ -199,12 +228,13 @@ http.createServer((req, res) => {
       if (!user?.passwordHash || !validPassword(password)) return json(res, 401, { error: "Usuario o contraseña incorrectos." });
       const candidate = crypto.scryptSync(password, user.salt, 64).toString("hex");
       if (!secureEqual(candidate, user.passwordHash)) return json(res, 401, { error: "Usuario o contraseña incorrectos." });
-      const token = crypto.randomBytes(32).toString("hex");sessions.set(token, { userId: user.id, expires: Date.now() + 12 * 60 * 60 * 1000 });
-      return json(res, 200, { user: publicUser(user) }, { "Set-Cookie": `app_am_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200` });
+      const token = createSession(user.id);
+      return json(res, 200, { user: publicUser(user) }, { "Set-Cookie": `app_am_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000` });
     }).catch(() => json(res, 400, { error: "No se pudo iniciar sesión." }));
   }
   if (requestPath === "/api/auth/logout" && req.method === "POST") {
     sessions.delete(cookieValue(req, "app_am_session"));
+    saveSessions();
     return json(res, 200, { ok: true }, { "Set-Cookie": "app_am_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0" });
   }
   if (requestPath === "/api/users" && req.method === "GET") {
@@ -220,7 +250,9 @@ http.createServer((req, res) => {
       const users = loadUsers(), user = users.find(item => item.id === userId);
       if (!user) return json(res, 404, { error: "Usuario no encontrado." });
       Object.assign(user, hashPassword(password));saveUsers(users);
-      for (const [token, session] of sessions) if (session.userId === user.id && user.id !== admin.id) sessions.delete(token);
+      let sessionsChanged = false;
+      for (const [token, session] of sessions) if (session.userId === user.id && user.id !== admin.id) { sessions.delete(token);sessionsChanged = true; }
+      if (sessionsChanged) saveSessions();
       return json(res, 200, publicUser(user));
     }).catch(() => json(res, 400, { error: "No se pudo guardar la contraseña." }));
   }
@@ -253,7 +285,7 @@ http.createServer((req, res) => {
   if (!file.startsWith(root)) return res.writeHead(403).end("Forbidden");
   fs.readFile(file, (error, data) => {
     if (error) return res.writeHead(404).end("Not found");
-    res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream" });
+    res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream", "Cache-Control": "no-cache, must-revalidate" });
     res.end(data);
   });
 }).listen(process.env.PORT || 3000);
