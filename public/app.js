@@ -451,9 +451,9 @@ function renderHolded(){
 function renderSignatures(){
   main.innerHTML=`<header><button class="menu" id="menu">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Firmas digitales</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="signatures-panel"><div class="table-heading"><div><p class="eyebrow">CERTIFICADOS</p><h2>Firmas digitales de clientes</h2></div><div class="signature-actions"><button class="upload-button" id="connectSignatures">Conectar carpeta Firmas digitales</button><label class="client-search"><span>⌕</span><input id="signatureSearch" type="search" placeholder="Buscar cliente…"></label></div></div><div class="signature-table-wrap"><table class="signature-table"><thead><tr><th>Cliente</th><th>Documento</th><th>Estado</th><th>Contraseña</th><th>Caducidad</th><th>Representante</th><th>NIF representante</th></tr></thead><tbody id="signatureRows"><tr><td colspan="7" class="table-empty">Cargando firmas…</td></tr></tbody></table></div></section>`;bindHeader();document.querySelector("#signatureSearch").addEventListener("input",filterSignatureRows);document.querySelector("#connectSignatures").addEventListener("click",connectSignaturesFolder);loadSignatures()
 }
-async function connectSignaturesFolder(){try{const root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("signatures-folder",root);await loadSignatures()}catch(error){if(error.name!=="AbortError")alert("No se pudo conectar la carpeta de firmas digitales.")}}
+async function connectSignaturesFolder(){try{const saved=await getSavedHandle("signatures-folder");if(saved?.remote){await loadSignatures();return}const root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("signatures-folder",root);await loadSignatures()}catch(error){if(error.name!=="AbortError")alert("No se pudo conectar la carpeta de firmas digitales.")}}
 async function loadSignatures(){
- const body=document.querySelector("#signatureRows");try{const root=await getSavedHandle("signatures-folder");if(!root||await root.queryPermission({mode:"read"})!=="granted"){body.innerHTML='<tr><td colspan="7" class="table-empty">Conecta la carpeta Gestión → Firmas digitales.</td></tr>';return}const metadata=await getAllSignatureMetadata(),map=new Map(metadata.map(x=>[x.id,x])),clientMetadata=await getAllClientMetadata(),clientMap=new Map(clientMetadata.map(x=>[x.id,x])),inactiveClients=new Set(clientMetadata.filter(client=>!clientIsActive(client)).map(clientIdentity)),rows=[];
+ const body=document.querySelector("#signatureRows");try{const root=await getSavedHandle("signatures-folder");if(!root||await root.queryPermission({mode:"read"})!=="granted"){body.innerHTML='<tr><td colspan="7" class="table-empty">Conecta la carpeta Gestión → Firmas digitales.</td></tr>';return}const connect=document.querySelector("#connectSignatures");if(root.remote&&connect){connect.textContent="● Servidor conectado";connect.classList.add("is-connected");connect.disabled=true}const metadata=await getAllSignatureMetadata(),map=new Map(metadata.map(x=>[x.id,x])),clientMetadata=await getAllClientMetadata(),clientMap=new Map(clientMetadata.map(x=>[x.id,x])),inactiveClients=new Set(clientMetadata.filter(client=>!clientIsActive(client)).map(clientIdentity)),rows=[];
  for await(const doc of root.values()){if(doc.kind!=="file")continue;const m=map.get(doc.name)||{},clientName=m.client||"Sin asignar";if(inactiveClients.has(clientName))continue;const client=clientMap.get(clientName)||{};rows.push({client:clientName,document:doc.name,handle:doc,password:m.password||"",expiry:m.expiry||"",representative:client.representative||"",representativeNif:client.representativeNif||""})}
  rows.sort((a,b)=>{if(!a.expiry&&!b.expiry)return a.client.localeCompare(b.client,"es");if(!a.expiry)return 1;if(!b.expiry)return-1;return a.expiry.localeCompare(b.expiry)||a.client.localeCompare(b.client,"es")});
  window.signatureFiles=rows;body.innerHTML=rows.length?rows.map((r,i)=>{const status=signatureExpiryStatus(r.expiry),previewId=registerPreviewDocument(r);return `<tr data-search="${escapeHtml((r.client+" "+r.document+" "+status.label+" "+r.representative+" "+r.representativeNif).toLocaleLowerCase("es"))}"><td><strong title="${escapeHtml(r.client)}">${escapeHtml(r.client)}</strong></td><td><button class="document-link" data-preview-document="${previewId}" title="Vista preliminar de ${escapeHtml(r.document)}">▱ ${escapeHtml(r.document)}</button></td><td><span class="signature-status ${status.className}">${status.label}</span></td><td><button class="password-cell" data-password="${escapeHtml(r.password)}">${r.password?"••••••••":"—"}</button></td><td><span class="expiry ${expiryClass(r.expiry)}">${formatDate(r.expiry)}</span></td><td title="${escapeHtml(r.representative||"")}">${escapeHtml(r.representative||"—")}</td><td>${escapeHtml(r.representativeNif||"—")}</td></tr>`}).join(""):'<tr><td colspan="7" class="table-empty">Todavía no hay firmas digitales.</td></tr>';
@@ -2048,8 +2048,9 @@ async function displayFolder(handle,config,fromBack=false){
   currentDirectoryHandle=handle;
   activeFolderConfig=config;
   document.querySelector("#folderName").textContent=handle.name;
-  document.querySelector("#folderStatus").textContent="Carpeta conectada y guardada. Pulsa un cliente para ver sus documentos.";
-  document.querySelector("#connectFolder").textContent="Cambiar carpeta";
+  document.querySelector("#folderStatus").textContent=handle.remote?"Servidor conectado. Pulsa un cliente para ver sus documentos.":"Carpeta conectada y guardada. Pulsa un cliente para ver sus documentos.";
+  document.querySelector("#connectFolder").textContent=handle.remote?"● Servidor conectado":"Cambiar carpeta";
+  document.querySelector("#connectFolder").disabled=Boolean(handle.remote);
   document.querySelector("#connectFolder").dataset.connected="true";
   document.querySelector("#clientSearch").value="";
   document.querySelector("#folderBack").hidden=folderHistory.length===0;
@@ -2200,6 +2201,60 @@ function filterFolders(event){
     : `${cards.length} ${cards.length===1?"elemento":"elementos"}`;
 }
 
+const webdavFolderMap={
+  "clients-folder":"CLIENTES",
+  "signatures-folder":"FIRMAS DIGITALES",
+  "courtesy-folder":"DIAS DE CORTESIA",
+  "declarations-folder":"DECLARACIONES",
+  "annual-closings-folder":"CIERRES ANUALES"
+};
+let webdavStatusCache={checked:0,connected:false};
+function remotePath(parent,name){return [parent,name].filter(Boolean).join("/")}
+async function webdavResponse(url,options={}){
+  const response=await fetch(url,{...options,credentials:"same-origin"});
+  if(!response.ok){const result=await response.json().catch(()=>({}));const error=new Error(result.error||"No se pudo acceder al servidor.");error.status=response.status;throw error}
+  return response;
+}
+async function webdavConnected(force=false){
+  if(!force&&Date.now()-webdavStatusCache.checked<15000)return webdavStatusCache.connected;
+  try{await webdavResponse("/api/webdav/status",{cache:"no-store"});webdavStatusCache={checked:Date.now(),connected:true}}
+  catch{webdavStatusCache={checked:Date.now(),connected:false}}
+  return webdavStatusCache.connected;
+}
+class WebDavFileHandle{
+  constructor(path,name){this.kind="file";this.path=path;this.name=name;this.remote=true}
+  async queryPermission(){return await webdavConnected()?"granted":"denied"}
+  async requestPermission(){return this.queryPermission()}
+  async getFile(){
+    const response=await webdavResponse(`/api/webdav/file?path=${encodeURIComponent(this.path)}`,{cache:"no-store"}),blob=await response.blob();
+    return new File([blob],this.name,{type:blob.type||"application/octet-stream",lastModified:Date.now()});
+  }
+  async createWritable(){
+    const chunks=[],handle=this;
+    return {async write(value){chunks.push(value)},async close(){const blob=new Blob(chunks),response=await webdavResponse(`/api/webdav/file?path=${encodeURIComponent(handle.path)}`,{method:"PUT",headers:{"Content-Type":blob.type||"application/octet-stream"},body:blob});return response.ok},async abort(){chunks.length=0}};
+  }
+}
+class WebDavDirectoryHandle{
+  constructor(path,name){this.kind="directory";this.path=path;this.name=name;this.remote=true}
+  async queryPermission(){return await webdavConnected()?"granted":"denied"}
+  async requestPermission(){return this.queryPermission()}
+  async *values(){
+    const response=await webdavResponse(`/api/webdav/list?path=${encodeURIComponent(this.path)}`,{cache:"no-store"}),{entries=[]}=await response.json();
+    for(const entry of entries){const childPath=remotePath(this.path,entry.name);yield entry.kind==="directory"?new WebDavDirectoryHandle(childPath,entry.name):new WebDavFileHandle(childPath,entry.name)}
+  }
+  async getDirectoryHandle(name,options={}){
+    const childPath=remotePath(this.path,name);
+    if(options.create)await webdavResponse("/api/webdav/directory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:childPath})});
+    else await webdavResponse(`/api/webdav/stat?path=${encodeURIComponent(childPath)}`,{cache:"no-store"});
+    return new WebDavDirectoryHandle(childPath,name);
+  }
+  async getFileHandle(name,options={}){
+    const childPath=remotePath(this.path,name);
+    if(!options.create)await webdavResponse(`/api/webdav/stat?path=${encodeURIComponent(childPath)}`,{cache:"no-store"});
+    return new WebDavFileHandle(childPath,name);
+  }
+}
+
 function folderDb(){
   return new Promise((resolve,reject)=>{
     const request=indexedDB.open("app-am-folders",3);
@@ -2209,6 +2264,7 @@ function folderDb(){
   });
 }
 async function saveHandle(key,handle){
+  if(handle?.remote)return;
   const db=await folderDb();
   return new Promise((resolve,reject)=>{
     const tx=db.transaction("handles","readwrite");
@@ -2218,6 +2274,7 @@ async function saveHandle(key,handle){
   });
 }
 async function getSavedHandle(key){
+  if(webdavFolderMap[key]&&await webdavConnected())return new WebDavDirectoryHandle(webdavFolderMap[key],webdavFolderMap[key]);
   const db=await folderDb();
   return new Promise((resolve,reject)=>{
     const request=db.transaction("handles","readonly").objectStore("handles").get(key);
@@ -2226,12 +2283,15 @@ async function getSavedHandle(key){
   });
 }
 
-async function saveSignatureMetadata(data){const d=await folderDb();return new Promise((ok,no)=>{const tx=d.transaction("signatureMetadata","readwrite");tx.objectStore("signatureMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)})}
+async function remoteMetadata(kind,method="GET",record){return apiJson(`/api/metadata/${kind}`,method==="GET"?{}:{method,body:JSON.stringify(record)})}
+async function saveSignatureMetadata(data){const d=await folderDb();await new Promise((ok,no)=>{const tx=d.transaction("signatureMetadata","readwrite");tx.objectStore("signatureMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)});try{await remoteMetadata("signatures","PUT",data)}catch{}}
 async function deleteSignatureMetadata(id){const d=await folderDb();return new Promise((ok,no)=>{const tx=d.transaction("signatureMetadata","readwrite");tx.objectStore("signatureMetadata").delete(id);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)})}
-async function getAllSignatureMetadata(){const d=await folderDb();return new Promise((ok,no)=>{const r=d.transaction("signatureMetadata","readonly").objectStore("signatureMetadata").getAll();r.onsuccess=()=>{d.close();ok(r.result||[])};r.onerror=()=>no(r.error)})}
+async function getLocalMetadata(store){const d=await folderDb();return new Promise((ok,no)=>{const r=d.transaction(store,"readonly").objectStore(store).getAll();r.onsuccess=()=>{d.close();ok(r.result||[])};r.onerror=()=>no(r.error)})}
+async function getMergedMetadata(kind,store){const local=await getLocalMetadata(store);let remote=[];try{remote=await remoteMetadata(kind)}catch{return local}const map=new Map(remote.map(item=>[item.id,item]));for(const item of local)if(!map.has(item.id)){map.set(item.id,item);remoteMetadata(kind,"PUT",item).catch(()=>{})}return [...map.values()]}
+async function getAllSignatureMetadata(){return getMergedMetadata("signatures","signatureMetadata")}
 
-async function saveClientMetadata(data){const d=await folderDb();return new Promise((ok,no)=>{const tx=d.transaction("clientMetadata","readwrite");tx.objectStore("clientMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)})}
-async function getAllClientMetadata(){const d=await folderDb();return new Promise((ok,no)=>{const r=d.transaction("clientMetadata","readonly").objectStore("clientMetadata").getAll();r.onsuccess=()=>{d.close();ok(r.result||[])};r.onerror=()=>no(r.error)})}
+async function saveClientMetadata(data){const d=await folderDb();await new Promise((ok,no)=>{const tx=d.transaction("clientMetadata","readwrite");tx.objectStore("clientMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)});try{await remoteMetadata("clients","PUT",data)}catch{}}
+async function getAllClientMetadata(){return getMergedMetadata("clients","clientMetadata")}
 
 function escapeHtml(value){
   const node=document.createElement("div");
