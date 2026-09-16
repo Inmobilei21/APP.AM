@@ -2363,6 +2363,7 @@ const chatCache=new Map();
 function workerInitials(name){return name.split(" ").slice(0,2).map(part=>part[0]).join("").toUpperCase()}
 function chatMessageTime(value){if(!value)return"";return new Intl.DateTimeFormat("es-ES",{hour:"2-digit",minute:"2-digit"}).format(new Date(value))}
 function getChatMessages(name){return chatCache.get(name)||[]}
+function chatMessagesMarkup(messages,name){return messages.length?messages.map(message=>`<div class="chat-message ${message.senderId===signedInUser?.id?"outgoing":"incoming"}"><p>${escapeHtml(message.text)}</p><time>${escapeHtml(chatMessageTime(message.createdAt))}</time></div>`).join(""):`<div class="chat-empty"><span>✦</span><strong>Inicia la conversación</strong><small>Escribe el primer mensaje para ${escapeHtml(name)}.</small></div>`}
 function updateChatUnreadBadge(){
   const launcher=document.querySelector("#chatLauncher");if(!launcher)return;
   let badge=launcher.querySelector(".chat-unread-badge");
@@ -2377,9 +2378,25 @@ async function refreshChatData(refreshOpenConversation=true){
     recentChatItems=records.map(item=>({worker:teamUsers.find(user=>user.id===item.otherId)?.name||item.otherId,message:item.message,unreadCount:Number(item.unreadCount)||0}));
     chatUnreadCount=recentChatItems.reduce((total,item)=>total+item.unreadCount,0);updateChatUnreadBadge();
     renderHomeActivityRail();
-    if(refreshOpenConversation&&activeChatWorker&&document.querySelector("#chatPanel")?.classList.contains("open"))await renderConversation(activeChatWorker,false);
-    else if(document.querySelector("#chatContent"))renderChatContacts();
+    if(refreshOpenConversation&&activeChatWorker&&document.querySelector("#chatPanel")?.classList.contains("open"))await refreshOpenChatMessages(activeChatWorker);
+    else if(refreshOpenConversation&&!activeChatWorker&&document.querySelector("#chatContent"))renderChatContacts();
   }catch{}
+}
+
+async function refreshOpenChatMessages(name){
+  const messagesBox=document.querySelector("#chatMessages");
+  if(!messagesBox||activeChatWorker!==name)return;
+  const user=workerByNameOrId(name);
+  const messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(user?.id||name)}`);
+  if(activeChatWorker!==name)return;
+  const previous=getChatMessages(name);
+  chatCache.set(name,messages);
+  await apiJson("/api/chat/read",{method:"POST",body:JSON.stringify({withUserId:user?.id||name})});
+  const unchanged=previous.length===messages.length&&previous.every((message,index)=>message.id===messages[index]?.id&&message.text===messages[index]?.text&&message.readAt===messages[index]?.readAt);
+  if(unchanged||activeChatWorker!==name)return;
+  const stayAtBottom=messagesBox.scrollHeight-messagesBox.scrollTop-messagesBox.clientHeight<80;
+  messagesBox.innerHTML=chatMessagesMarkup(messages,name);
+  if(stayAtBottom)messagesBox.scrollTop=messagesBox.scrollHeight;
 }
 
 function createWorkerChat(){
@@ -2455,7 +2472,7 @@ async function renderConversation(name,focus=true){
   const messages=getChatMessages(name);
   content.innerHTML=`
     <div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación privada</small></div></div>
-    <div class="chat-messages" id="chatMessages">${messages.length?messages.map(message=>`<div class="chat-message ${message.senderId===signedInUser?.id?"outgoing":"incoming"}"><p>${escapeHtml(message.text)}</p><time>${escapeHtml(chatMessageTime(message.createdAt))}</time></div>`).join(""):`<div class="chat-empty"><span>✦</span><strong>Inicia la conversación</strong><small>Escribe el primer mensaje para ${escapeHtml(name)}.</small></div>`}</div>
+    <div class="chat-messages" id="chatMessages">${chatMessagesMarkup(messages,name)}</div>
     <form class="chat-composer" id="chatForm"><textarea id="chatMessage" rows="1" maxlength="500" placeholder="Escribe un mensaje…" required></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>
     <p class="chat-note">Conversación vinculada a ${escapeHtml(signedInUser?.name||"tu usuario")} y ${escapeHtml(name)}.</p>`;
   document.querySelector("#chatBack").addEventListener("click",renderChatContacts);
