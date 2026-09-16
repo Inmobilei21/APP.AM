@@ -25,9 +25,9 @@ function authCard({setup=false,users=[]}={}){
   const shell=document.createElement("div");shell.className="login-gate";
   shell.innerHTML=`<section class="login-card"><div class="login-brand"><img src="/app-icon.png" alt=""><div><small>DESPACHO MOLINERO</small><h1>${setup?"Configurar acceso":"Iniciar sesión"}</h1></div></div><p>${setup?"Asigna la primera contraseña a Manuel o Álvaro. Después podrás establecer las del resto desde Mi cuenta.":"Accede con tu usuario y contraseña personal."}</p><form><label>Usuario<select required>${available.map(user=>`<option value="${user.id}">${user.name}</option>`).join("")}</select></label>${setup?'<label>Clave de configuración<input name="setupPassword" type="password" autocomplete="current-password" required></label>':""}<label>Contraseña<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><p class="login-error" role="alert"></p><button class="primary" type="submit">${setup?"Guardar y entrar":"Entrar"}</button></form></section>`;
   document.body.appendChild(shell);document.documentElement.classList.remove("auth-pending");
-  shell.querySelector("form").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector("button"),error=form.querySelector(".login-error");error.textContent="";button.disabled=true;button.textContent="Comprobando…";try{const payload={userId:form.querySelector("select").value,password:form.password.value};if(setup)payload.setupPassword=form.setupPassword.value;const result=await apiJson(setup?"/api/auth/setup":"/api/auth/login",{method:"POST",body:JSON.stringify(payload)});signedInUser=result.user;shell.remove();updateProfileButtons()}catch(reason){error.textContent=reason.message}finally{button.disabled=false;button.textContent=setup?"Guardar y entrar":"Entrar"}});
+  shell.querySelector("form").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector("button"),error=form.querySelector(".login-error");error.textContent="";button.disabled=true;button.textContent="Comprobando…";try{const payload={userId:form.querySelector("select").value,password:form.password.value};if(setup)payload.setupPassword=form.setupPassword.value;const result=await apiJson(setup?"/api/auth/setup":"/api/auth/login",{method:"POST",body:JSON.stringify(payload)});signedInUser=result.user;shell.remove();updateProfileButtons();loadSharedTasks();refreshChatData()}catch(reason){error.textContent=reason.message}finally{button.disabled=false;button.textContent=setup?"Guardar y entrar":"Entrar"}});
 }
-async function checkAuthentication(){try{const status=await apiJson("/api/auth/status");if(status.user){signedInUser=status.user;document.documentElement.classList.remove("auth-pending");updateProfileButtons()}else authCard({setup:status.needsSetup,users:status.users})}catch{authCard()}}
+async function checkAuthentication(){try{const status=await apiJson("/api/auth/status");if(status.user){signedInUser=status.user;document.documentElement.classList.remove("auth-pending");updateProfileButtons();loadSharedTasks();refreshChatData()}else authCard({setup:status.needsSetup,users:status.users})}catch{authCard()}}
 function openAccountPanel(){
   document.querySelector("#accountPanel")?.remove();const shell=document.createElement("div");shell.id="accountPanel";shell.className="account-shell";
   shell.innerHTML=`<div class="account-backdrop"></div><section class="account-card"><button class="account-close" aria-label="Cerrar">×</button><p class="eyebrow">MI CUENTA</p><h2>${signedInUser.name}</h2><p>${signedInUser.role==="admin"?"Administración de usuarios y contraseñas":"Sesión de usuario"}</p><div class="account-users">${signedInUser.role==="admin"?teamUsers.map(user=>`<form data-user-id="${user.id}"><div><strong>${user.name}</strong><small>${user.role==="admin"?"Administrador":"Usuario"}</small></div><input type="password" minlength="6" placeholder="Nueva contraseña" required><button type="submit">Guardar</button></form>`).join(""):""}</div><p class="account-message"></p><button class="logout-button" type="button">Cerrar sesión</button></section>`;document.body.appendChild(shell);
@@ -670,6 +670,7 @@ const workers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Aracel
 
 const TASKS_STORAGE_KEY="app-am-tasks";
 const CUSTOM_WORKS_STORAGE_KEY="app-am-custom-works";
+let taskScope="mine";
 const taskStatuses=[
   {id:"pending",label:"Pte. Inicio"},
   {id:"progress",label:"En proceso"},
@@ -681,7 +682,30 @@ function getTasks(){
   try{return JSON.parse(localStorage.getItem(TASKS_STORAGE_KEY)||"[]")}
   catch{return[]}
 }
-function saveTasks(tasks){localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(tasks));updateTaskNavAlert()}
+function workerByNameOrId(value){const key=String(value||"").trim().toLocaleLowerCase("es");return teamUsers.find(user=>user.id===key||user.name.toLocaleLowerCase("es")===key)||null}
+function normalizeTaskOwners(tasks){return tasks.map(task=>{const owner=workerByNameOrId(task.assignedId||task.assigned);return owner?{...task,assignedId:owner.id,assigned:owner.name}:task})}
+function personalTasks(tasks=getTasks()){return signedInUser?tasks.filter(task=>task.assignedId===signedInUser.id||task.assigned===signedInUser.name):tasks}
+function boardTasks(){const tasks=getTasks();return signedInUser?.role==="admin"&&taskScope==="all"?tasks:personalTasks(tasks)}
+async function loadSharedTasks(){
+  if(!signedInUser)return;
+  try{
+    const remote=normalizeTaskOwners(await apiJson("/api/tasks")),local=normalizeTaskOwners(getTasks());
+    const merged=new Map(remote.map(task=>[task.id,task]));
+    const unsaved=[];for(const task of local)if(!merged.has(task.id)){const record={...task,creatorId:task.creatorId||signedInUser.id};merged.set(task.id,record);unsaved.push(record)}
+    const tasks=[...merged.values()];localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(tasks));
+    await Promise.allSettled(unsaved.map(task=>apiJson(`/api/tasks/${encodeURIComponent(task.id)}`,{method:"PUT",body:JSON.stringify(task)})));
+    updateTaskNavAlert();renderHomeActivityRail();if(document.querySelector(".task-board"))renderTaskBoard();
+  }catch{}
+}
+function saveTasks(tasks){
+  const previous=normalizeTaskOwners(getTasks()),normalized=normalizeTaskOwners(tasks),nextIds=new Set(normalized.map(task=>task.id));
+  localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(normalized));updateTaskNavAlert();renderHomeActivityRail();
+  if(!signedInUser)return;
+  const oldById=new Map(previous.map(task=>[task.id,task]));
+  const changed=normalized.filter(task=>JSON.stringify(oldById.get(task.id)||null)!==JSON.stringify(task));
+  const removed=previous.filter(task=>!nextIds.has(task.id));
+  Promise.allSettled([...changed.map(task=>apiJson(`/api/tasks/${encodeURIComponent(task.id)}`,{method:"PUT",body:JSON.stringify(task)})),...removed.map(task=>apiJson(`/api/tasks/${encodeURIComponent(task.id)}`,{method:"DELETE"}))]).catch(()=>{});
+}
 function getCustomWorks(){
   try{const value=JSON.parse(localStorage.getItem(CUSTOM_WORKS_STORAGE_KEY)||"[]");return Array.isArray(value)?value:[]}
   catch{return[]}
@@ -747,10 +771,10 @@ function homeActivityDate(value,withWeekday=false){
   return new Intl.DateTimeFormat("es-ES",withWeekday?{weekday:"short",day:"2-digit",month:"short"}:{day:"2-digit",month:"short"}).format(date);}
 function renderHomeActivityRail(){  const messagesBox=document.querySelector("#homeMessagesPreview"),tasksBox=document.querySelector("#homeTasksPreview"),remindersBox=document.querySelector("#homeRemindersPreview");
   if(!messagesBox||!tasksBox||!remindersBox)return;
-  const latestMessages=chatWorkers.map((worker,index)=>{const messages=getChatMessages(worker),message=messages[messages.length-1];return message?{worker,index,...message}:null}).filter(Boolean).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")||b.index-a.index).slice(0,3);
+  const latestMessages=recentChatItems.slice(0,3).map(item=>({worker:item.worker,...item.message,time:chatMessageTime(item.message.createdAt)}));
   messagesBox.innerHTML=latestMessages.length?latestMessages.map(message=>`<button type="button" class="home-activity-row home-message-row" data-home-open-chat="${escapeHtml(message.worker)}"><span class="home-activity-avatar">${workerInitials(message.worker)}</span><span class="home-activity-copy"><strong>${escapeHtml(message.worker)}</strong><small>${escapeHtml(message.text)}</small></span><time>${escapeHtml(message.time||"")}</time></button>`).join(""):homeActivityEmpty("✉","Sin mensajes recientes","Las conversaciones del equipo aparecerán aquí.");
 
-  const pendingTasks=getTasks().filter(task=>task.status!=="done").sort((a,b)=>(a.finalDate||"9999-12-31").localeCompare(b.finalDate||"9999-12-31")).slice(0,4);
+  const pendingTasks=personalTasks().filter(task=>task.status!=="done").sort((a,b)=>(a.finalDate||"9999-12-31").localeCompare(b.finalDate||"9999-12-31")).slice(0,4);
   tasksBox.innerHTML=pendingTasks.length?pendingTasks.map(task=>`<button type="button" class="home-activity-row home-task-row" data-home-route="Tareas"><span class="home-status-dot status-${escapeHtml(task.status||"pending")}"></span><span class="home-activity-copy"><strong>${escapeHtml(homeTaskTitle(task))}</strong><small>${escapeHtml(task.client||task.assigned||"Tarea del despacho")}</small></span><time>${escapeHtml(homeActivityDate(task.finalDate))}</time></button>`).join(""):homeActivityEmpty("✓","Todo al día","No hay tareas pendientes.");
 
   const today=localDateKey(new Date()),upcoming=getCalendarItems().filter(item=>item.date>=today).sort((a,b)=>`${a.date} ${a.time||"99:99"}`.localeCompare(`${b.date} ${b.time||"99:99"}`)).slice(0,4);
@@ -770,7 +794,7 @@ async function initHome(){
   const [clientCount,contactCount]=await Promise.all([homeClientCount(),homeContactCount()]);
   if(!document.querySelector("#homeClientsCount"))return;
   clients.textContent=String(clientCount);contacts.textContent=String(contactCount);
-  tasks.textContent=String(getTasks().filter(task=>task.status!=="done").length);workersCount.textContent=String(workers.length);
+  tasks.textContent=String(personalTasks().filter(task=>task.status!=="done").length);workersCount.textContent=String(workers.length);
   renderHomeActivityRail();
   document.querySelector("#homeNewTask")?.addEventListener("click",()=>{document.querySelector('nav button[data-title="Tareas"]')?.click();setTimeout(()=>document.querySelector("#openTaskModal")?.click(),0)});
   document.querySelector("#refreshHomeNews")?.addEventListener("click",()=>loadHomeNews(true));
@@ -779,7 +803,7 @@ async function initHome(){
 }
 function updateTaskNavAlert(){
   const button=document.querySelector('nav button[data-title="Tareas"]');if(!button)return;
-  const count=getTasks().filter(task=>task.status!=="done").length;
+  const count=personalTasks().filter(task=>task.status!=="done").length;
   let alert=button.querySelector(".task-nav-alert");
   if(!count){alert?.remove();button.classList.remove("has-task-alert");return}
   if(!alert){alert=document.createElement("span");alert.className="task-nav-alert";alert.setAttribute("aria-label","Tareas pendientes");button.appendChild(alert)}
@@ -832,7 +856,7 @@ function taskCardMarkup(task){
   </article>`;
 }
 function renderTaskBoard(){
-  const tasks=getTasks();
+  const tasks=boardTasks();
   taskStatuses.forEach(status=>{
     const list=document.querySelector(`[data-task-list="${status.id}"]`);
     const count=document.querySelector(`[data-task-count="${status.id}"]`);
@@ -884,7 +908,7 @@ async function renderTasks(){
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">ORGANIZACIÓN DEL DESPACHO</p><h1>Tareas</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="tasks-head">
       <div><p class="eyebrow">CONTROL DE TAREAS</p><h2>Tablero de trabajo</h2><p>Organiza los plazos y mueve cada nota según avance el trabajo.</p></div>
-      <button class="primary blue-button" id="openTaskModal">＋ Añadir tarea</button>
+      <div class="tasks-head-actions">${signedInUser?.role==="admin"?`<label>Mostrar<select id="taskScope"><option value="mine" ${taskScope==="mine"?"selected":""}>Mis tareas</option><option value="all" ${taskScope==="all"?"selected":""}>Todo el equipo</option></select></label>`:""}<button class="primary blue-button" id="openTaskModal">＋ Añadir tarea</button></div>
     </section>
     <section class="task-board" aria-label="Tablero de tareas">
       ${taskStatuses.map(status=>`<section class="task-column status-${status.id}" data-task-status="${status.id}">
@@ -912,7 +936,8 @@ async function renderTasks(){
         </form>
       </section>
     </div>`;
-  bindHeader();renderTaskBoard();
+  bindHeader();renderTaskBoard();loadSharedTasks();
+  document.querySelector("#taskScope")?.addEventListener("change",event=>{taskScope=event.target.value;renderTaskBoard()});
   const modal=document.querySelector("#taskModal"),form=document.querySelector("#taskForm");
   let taskClientNames=[],taskFormSteps=[];
   const close=()=>{modal.classList.remove("open");modal.setAttribute("aria-hidden","true");form.dataset.editTaskId=""};
@@ -990,6 +1015,7 @@ async function renderTasks(){
     const taskData={
       client:document.querySelector("#taskClient").value.trim(),
       assigned:document.querySelector("#taskAssigned").value,
+      assignedId:workerByNameOrId(document.querySelector("#taskAssigned").value)?.id||"",
       concept:workId?"Trabajo":"Otro",
       workId,
       workTitle:conceptTitle,
@@ -1000,7 +1026,7 @@ async function renderTasks(){
     };
     const tasks=getTasks(),existing=tasks.find(item=>item.id===form.dataset.editTaskId);
     if(existing){Object.assign(existing,taskData);const progress=taskChecklistProgress(existing);if(progress.total)existing.status=progress.done===0?"pending":progress.done===progress.total?"done":"progress";syncTaskToAnnualCorrection(existing)}
-    else{const created={id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,startDate:new Date().toISOString(),...taskData,status:"pending"},progress=taskChecklistProgress(created);if(progress.total&&progress.done)created.status=progress.done===progress.total?"done":"progress";tasks.push(created)}
+    else{const created={id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,startDate:new Date().toISOString(),creatorId:signedInUser?.id||"",...taskData,status:"pending"},progress=taskChecklistProgress(created);if(progress.total&&progress.done)created.status=progress.done===progress.total?"done":"progress";tasks.push(created)}
     saveTasks(tasks);close();renderTaskBoard();
   });
 }
@@ -1019,7 +1045,7 @@ function calendarTaskDate(value){const key=String(value||"").slice(0,10);return 
 function calendarDateFromKey(key){return new Date(`${key}T12:00:00`)}
 function calendarDayDistance(from,to){return Math.round((calendarDateFromKey(to)-calendarDateFromKey(from))/86400000)}
 function calendarTasks(){
-  return getTasks().map(task=>{const start=calendarTaskDate(task.startDate)||calendarTaskDate(task.finalDate),requestedEnd=calendarTaskDate(task.finalDate)||start;return start?{...task,startKey:start,endKey:requestedEnd>=start?requestedEnd:start}:null}).filter(Boolean);
+  return personalTasks().map(task=>{const start=calendarTaskDate(task.startDate)||calendarTaskDate(task.finalDate),requestedEnd=calendarTaskDate(task.finalDate)||start;return start?{...task,startKey:start,endKey:requestedEnd>=start?requestedEnd:start}:null}).filter(Boolean);
 }
 function calendarTaskSegments(visibleStart,weekCount){
   const startKey=localDateKey(visibleStart),segments=[],lanesByWeek=[];
@@ -2330,10 +2356,22 @@ document.querySelectorAll(".sidebar nav button").forEach(button=>button.addEvent
 
 const chatWorkers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Araceli Frías","Jesús Carratalá"];
 let activeChatWorker=null;
+let recentChatItems=[];
+const chatCache=new Map();
 
 function workerInitials(name){return name.split(" ").slice(0,2).map(part=>part[0]).join("").toUpperCase()}
-function getChatMessages(name){try{return JSON.parse(localStorage.getItem("app-am-chat-"+name)||"[]")}catch{return[]}}
-function saveChatMessages(name,messages){localStorage.setItem("app-am-chat-"+name,JSON.stringify(messages))}
+function chatMessageTime(value){if(!value)return"";return new Intl.DateTimeFormat("es-ES",{hour:"2-digit",minute:"2-digit"}).format(new Date(value))}
+function getChatMessages(name){return chatCache.get(name)||[]}
+async function refreshChatData(){
+  if(!signedInUser)return;
+  try{
+    const records=await apiJson("/api/chat/recent");
+    recentChatItems=records.map(item=>({worker:teamUsers.find(user=>user.id===item.otherId)?.name||item.otherId,message:item.message}));
+    renderHomeActivityRail();
+    if(activeChatWorker&&document.querySelector("#chatPanel")?.classList.contains("open"))await renderConversation(activeChatWorker,false);
+    else if(document.querySelector("#chatContent"))renderChatContacts();
+  }catch{}
+}
 
 function createWorkerChat(){
   const widget=document.createElement("div");
@@ -2394,33 +2432,39 @@ function closePerplexity(){
 function renderChatContacts(){
   activeChatWorker=null;
   const content=document.querySelector("#chatContent");
-  content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Selecciona un trabajador para abrir el chat.</span></div><div class="chat-contacts">${chatWorkers.map(name=>`<button type="button" data-chat-worker="${escapeHtml(name)}"><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small>Abrir conversación</small></span><b>›</b></button>`).join("")}</div>`;
+  const contacts=chatWorkers.filter(name=>name!==signedInUser?.name);
+  content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Los mensajes llegan a la cuenta personal de cada trabajador.</span></div><div class="chat-contacts">${contacts.map(name=>`<button type="button" data-chat-worker="${escapeHtml(name)}"><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small>Abrir conversación</small></span><b>›</b></button>`).join("")}</div>`;
   content.querySelectorAll("[data-chat-worker]").forEach(button=>button.addEventListener("click",()=>renderConversation(button.dataset.chatWorker)));
 }
-function renderConversation(name){
+async function renderConversation(name,focus=true){
   activeChatWorker=name;
-  const messages=getChatMessages(name);
   const content=document.querySelector("#chatContent");
+  content.innerHTML=`<div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación privada</small></div></div><div class="chat-messages"><div class="chat-empty"><span>···</span><strong>Cargando conversación</strong></div></div>`;
+  document.querySelector("#chatBack").addEventListener("click",renderChatContacts);
+  try{const user=workerByNameOrId(name),messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(user?.id||name)}`);chatCache.set(name,messages)}catch{}
+  if(activeChatWorker!==name)return;
+  const messages=getChatMessages(name);
   content.innerHTML=`
-    <div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación interna</small></div></div>
-    <div class="chat-messages" id="chatMessages">${messages.length?messages.map(message=>`<div class="chat-message"><p>${escapeHtml(message.text)}</p><time>${escapeHtml(message.time)}</time></div>`).join(""):`<div class="chat-empty"><span>✦</span><strong>Inicia la conversación</strong><small>Escribe el primer mensaje para ${escapeHtml(name)}.</small></div>`}</div>
+    <div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación privada</small></div></div>
+    <div class="chat-messages" id="chatMessages">${messages.length?messages.map(message=>`<div class="chat-message ${message.senderId===signedInUser?.id?"outgoing":"incoming"}"><p>${escapeHtml(message.text)}</p><time>${escapeHtml(chatMessageTime(message.createdAt))}</time></div>`).join(""):`<div class="chat-empty"><span>✦</span><strong>Inicia la conversación</strong><small>Escribe el primer mensaje para ${escapeHtml(name)}.</small></div>`}</div>
     <form class="chat-composer" id="chatForm"><textarea id="chatMessage" rows="1" maxlength="500" placeholder="Escribe un mensaje…" required></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>
-    <p class="chat-note">Entrega entre usuarios disponible cuando activemos los perfiles.</p>`;
+    <p class="chat-note">Conversación vinculada a ${escapeHtml(signedInUser?.name||"tu usuario")} y ${escapeHtml(name)}.</p>`;
   document.querySelector("#chatBack").addEventListener("click",renderChatContacts);
   document.querySelector("#chatForm").addEventListener("submit",sendChatMessage);
-  document.querySelector("#chatMessage").focus();
+  if(focus)document.querySelector("#chatMessage").focus();
   const box=document.querySelector("#chatMessages");box.scrollTop=box.scrollHeight;
 }
-function sendChatMessage(event){
+async function sendChatMessage(event){
   event.preventDefault();
-  const input=document.querySelector("#chatMessage");
+  const input=document.querySelector("#chatMessage"),button=event.currentTarget.querySelector("button");
   const text=input.value.trim();
   if(!text||!activeChatWorker)return;
-  const messages=getChatMessages(activeChatWorker);
-  messages.push({text,time:new Intl.DateTimeFormat("es-ES",{hour:"2-digit",minute:"2-digit"}).format(new Date()),createdAt:new Date().toISOString()});
-  saveChatMessages(activeChatWorker,messages);
-  renderConversation(activeChatWorker);
+  button.disabled=true;
+  try{await apiJson("/api/chat/messages",{method:"POST",body:JSON.stringify({recipientId:workerByNameOrId(activeChatWorker)?.id,text})});await renderConversation(activeChatWorker);refreshChatData()}
+  catch(reason){alert(reason.message)}finally{button.disabled=false}
 }
 
 createWorkerChat();
+setInterval(()=>{if(signedInUser)refreshChatData()},10000);
+setInterval(()=>{if(signedInUser)loadSharedTasks()},15000);
 initHome();

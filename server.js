@@ -141,6 +141,8 @@ const team = [
 const dataDirectory = process.env.DATA_DIR || (fs.existsSync("/data") ? "/data" : path.join(__dirname, ".data"));
 const usersFile = path.join(dataDirectory, "users.json");
 const sessionsFile = path.join(dataDirectory, "sessions.json");
+const messagesFile = path.join(dataDirectory, "messages.json");
+const tasksFile = path.join(dataDirectory, "tasks.json");
 const sessionDuration = 30 * 24 * 60 * 60 * 1000;
 const applicationVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || "local";
 const sessions = new Map();
@@ -148,7 +150,7 @@ const sessions = new Map();
 function loadUsers() {
   try {
     const saved = JSON.parse(fs.readFileSync(usersFile, "utf8"));
-    return team.map(member => ({ ...member, ...(saved.find(user => user.id === member.id) || {}) }));
+    return team.map(member => ({ ...(saved.find(user => user.id === member.id) || {}), ...member }));
   } catch { return team.map(member => ({ ...member, salt: "", passwordHash: "" })); }
 }
 function saveUsers(users) {
@@ -202,6 +204,21 @@ function json(res, status, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 function validPassword(password) { return typeof password === "string" && password.length >= 6 && password.length <= 128; }
+function loadCollection(file) {
+  try { const saved = JSON.parse(fs.readFileSync(file, "utf8"));return Array.isArray(saved) ? saved : []; }
+  catch { return []; }
+}
+function saveCollection(file, records) {
+  fs.mkdirSync(dataDirectory, { recursive: true });
+  const temporary = `${file}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(records, null, 2), { mode: 0o600 });
+  fs.renameSync(temporary, file);
+}
+function teamMember(value) {
+  const key = String(value || "").trim().toLocaleLowerCase("es");
+  return team.find(member => member.id === key || member.name.toLocaleLowerCase("es") === key) || null;
+}
+function cleanText(value, maximum = 500) { return String(value || "").trim().slice(0, maximum); }
 
 const webdavBaseUrl = (process.env.WEBDAV_URL || "https://servidor.asesoriamolinero.es").replace(/\/+$/, "");
 const webdavRoot = "/" + String(process.env.WEBDAV_ROOT || "APP_AM_PRUEBAS").split("/").filter(Boolean).map(encodeURIComponent).join("/");
@@ -380,6 +397,81 @@ http.createServer((req, res) => {
       if (sessionsChanged) saveSessions();
       return json(res, 200, publicUser(user));
     }).catch(() => json(res, 400, { error: "No se pudo guardar la contraseña." }));
+  }
+  if (requestPath === "/api/chat/messages" && req.method === "GET") {
+    const user = requireUser(req, res);if (!user) return;
+    const other = teamMember(new URL(req.url, "http://localhost").searchParams.get("with"));
+    if (!other || other.id === user.id) return json(res, 400, { error: "Seleccione otro trabajador." });
+    const messages = loadCollection(messagesFile).filter(message =>
+      (message.senderId === user.id && message.recipientId === other.id) ||
+      (message.senderId === other.id && message.recipientId === user.id)
+    ).sort((a,b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    return json(res, 200, messages);
+  }
+  if (requestPath === "/api/chat/messages" && req.method === "POST") {
+    const user = requireUser(req, res);if (!user) return;
+    return readJson(req).then(({ recipientId, text }) => {
+      const recipient = teamMember(recipientId), body = cleanText(text, 500);
+      if (!recipient || recipient.id === user.id) return json(res, 400, { error: "Destinatario no válido." });
+      if (!body) return json(res, 400, { error: "Escriba un mensaje." });
+      const messages = loadCollection(messagesFile), createdAt = new Date().toISOString();
+      const message = { id: crypto.randomUUID(), senderId: user.id, recipientId: recipient.id, text: body, createdAt };
+      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));
+      return json(res, 201, message);
+    }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
+  }
+  if (requestPath === "/api/chat/recent" && req.method === "GET") {
+    const user = requireUser(req, res);if (!user) return;
+    const latest = new Map();
+    for (const message of loadCollection(messagesFile)) {
+      if (message.senderId !== user.id && message.recipientId !== user.id) continue;
+      const otherId = message.senderId === user.id ? message.recipientId : message.senderId;
+      const previous = latest.get(otherId);
+      if (!previous || String(previous.createdAt) < String(message.createdAt)) latest.set(otherId, message);
+    }
+    return json(res, 200, [...latest.entries()].map(([otherId, message]) => ({ otherId, message })).sort((a,b) => String(b.message.createdAt).localeCompare(String(a.message.createdAt))));
+  }
+  if (requestPath === "/api/tasks" && req.method === "GET") {
+    const user = requireUser(req, res);if (!user) return;
+    const tasks = loadCollection(tasksFile);
+    return json(res, 200, user.role === "admin" ? tasks : tasks.filter(task => task.assignedId === user.id));
+  }
+  if (requestPath.startsWith("/api/tasks/") && requestPath !== "/api/tasks/sync" && ["PUT", "DELETE"].includes(req.method)) {
+    const user = requireUser(req, res);if (!user) return;
+    const taskId = cleanText(decodeURIComponent(requestPath.slice("/api/tasks/".length)), 160);
+    if (!taskId) return json(res, 400, { error: "Tarea no válida." });
+    const tasks = loadCollection(tasksFile), index = tasks.findIndex(task => task.id === taskId);
+    if (req.method === "DELETE") {
+      const existing = tasks[index];
+      if (!existing) return json(res, 200, { deleted: true });
+      if (user.role !== "admin" && existing.assignedId !== user.id) return json(res, 403, { error: "No puede eliminar esta tarea." });
+      tasks.splice(index, 1);saveCollection(tasksFile, tasks);return json(res, 200, { deleted: true });
+    }
+    return readJson(req, 256 * 1024).then(task => {
+      const assigned = teamMember(task.assignedId || task.assigned);
+      if (!assigned) return json(res, 400, { error: "Seleccione un encargado válido." });
+      if (user.role !== "admin" && assigned.id !== user.id) return json(res, 403, { error: "No puede reasignar esta tarea." });
+      const saved = { ...task, id: taskId, assignedId: assigned.id, assigned: assigned.name, creatorId: cleanText(task.creatorId || user.id, 80), updatedAt: new Date().toISOString() };
+      if (index >= 0) tasks[index] = saved;else tasks.push(saved);
+      saveCollection(tasksFile, tasks);return json(res, 200, saved);
+    }).catch(() => json(res, 400, { error: "No se pudo guardar la tarea." }));
+  }
+  if (requestPath === "/api/tasks/sync" && req.method === "PUT") {
+    const user = requireUser(req, res);if (!user) return;
+    return readJson(req, 1024 * 1024).then(({ tasks }) => {
+      if (!Array.isArray(tasks)) return json(res, 400, { error: "Listado de tareas no válido." });
+      const current = loadCollection(tasksFile), normalized = tasks.slice(0, 5000).map(task => {
+        const assigned = teamMember(task.assignedId || task.assigned);
+        if (!task?.id || !assigned) return null;
+        if (user.role !== "admin" && assigned.id !== user.id) return null;
+        return { ...task, id: cleanText(task.id, 160), assignedId: assigned.id, assigned: assigned.name, creatorId: cleanText(task.creatorId || user.id, 80), updatedAt: new Date().toISOString() };
+      }).filter(Boolean);
+      let saved;
+      if (user.role === "admin") saved = normalized;
+      else saved = [...current.filter(task => task.assignedId !== user.id), ...normalized];
+      saveCollection(tasksFile, saved);
+      return json(res, 200, user.role === "admin" ? saved : saved.filter(task => task.assignedId === user.id));
+    }).catch(() => json(res, 400, { error: "No se pudieron guardar las tareas." }));
   }
   if (req.url.split("?")[0] === "/api/verify-record-password" && req.method === "POST") {
     return readJson(req).then(({password}) => {

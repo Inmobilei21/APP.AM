@@ -977,3 +977,6 @@ html.auth-pending body{visibility:hidden}
 }
 
 .courtesy-server-button.is-saved{border-color:#d8c69f!important;background:#fff9ec!important;color:#81551d!important;box-shadow:none!important}
+
+/* Usuarios individuales: tareas y conversaciones */
+.tasks-head-actions{display:flex;align-items:flex-end;gap:12px}.tasks-head-actions label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.tasks-head-actions select{min-width:150px;border:1px solid #dce1eb;border-radius:12px;background:#fff;padding:12px 36px 12px 13px;color:var(--ink);font:700 13px inherit}.chat-message.incoming{align-self:flex-start;background:#fff;color:var(--ink);border:1px solid #e0e5ef;border-radius:16px 16px 16px 4px;box-shadow:0 5px 14px rgba(30,43,80,.08)}.chat-message.incoming time{text-align:left;color:#778198}.chat-message.outgoing{align-self:flex-end}@media(max-width:760px){.tasks-head-actions{display:grid;grid-template-columns:1fr;align-items:stretch}.tasks-head-actions label{width:100%}.tasks-head-actions select{width:100%}}
