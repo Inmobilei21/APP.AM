@@ -1010,3 +1010,19 @@ html:has(#clientModal.open),body:has(#clientModal.open){overflow:hidden;overscro
 .declaration-document-actions button:hover{background:#f1f4ff;border-color:#c8d2ef}
 .declaration-document-actions button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 .declaration-document-actions button:active{background:#e8edff}
+
+/* Dense layout for client identity, partners and contacts. */
+#newClientForm #clientPeople{padding:10px 13px}
+#newClientForm #clientPeople .internal-section-heading{gap:2px;margin-bottom:5px}
+#newClientForm #clientPeople .registry-tabs{overflow-y:hidden}
+#newClientForm #clientPeople .registry-tabs button{padding:7px 9px 8px}
+#newClientForm #clientPeople [role=tabpanel]{padding-top:8px}
+#newClientForm #clientPeople label{display:block;font-size:12px;line-height:16px;margin:0}
+#newClientForm #clientPeople input:not([type=radio]),#newClientForm #clientPeople select{height:30px;min-height:30px;margin-top:3px;padding:4px 8px;border-radius:7px;font-size:12px;line-height:20px}
+#newClientForm #clientPeople .client-person-row{padding:6px 0;margin-bottom:3px;gap:4px 8px;align-items:start}
+#newClientForm #clientPeople .client-person-delete{height:30px;margin-top:19px}
+#newClientForm #clientPeople .client-primary-contact{display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px}
+#newClientForm #clientPeople .client-primary-contact input{margin:0}
+#newClientForm #addClientPartner,#newClientForm #addClientContact{min-height:28px;height:28px;padding:4px 9px;border-radius:7px;font-size:11px}
+#newClientForm #clientPeopleLegacy{margin:8px 0 0;font-size:11px;line-height:15px}
+#newClientForm .client-identity-grid input:not([type=checkbox]),#newClientForm .client-identity-grid select{height:34px;min-height:34px;padding:5px 10px}
