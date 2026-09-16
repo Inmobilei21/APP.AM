@@ -68,13 +68,14 @@ function openMenu(){sidebar.classList.add("open");overlay.classList.add("show");
 function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show");document.body.classList.remove("menu-open")}
 let mobileSwipeStart=null;
 document.addEventListener("touchstart",event=>{
-  if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open"))return;
+  if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open")||document.querySelector("#chatPanel")?.classList.contains("open")){mobileSwipeStart=null;return}
   if(event.target.closest("input,select,textarea,button,a,.tax-table-wrap,.folder-grid"))return;
   const touch=event.touches[0];
   mobileSwipeStart={x:touch.clientX,y:touch.clientY,time:Date.now()};
 },{passive:true});
 document.addEventListener("touchend",event=>{
   if(!mobileSwipeStart)return;
+  if(document.querySelector("#chatPanel")?.classList.contains("open")){mobileSwipeStart=null;return}
   const touch=event.changedTouches[0],dx=touch.clientX-mobileSwipeStart.x,dy=Math.abs(touch.clientY-mobileSwipeStart.y),elapsed=Date.now()-mobileSwipeStart.time;
   mobileSwipeStart=null;
   if(dx>=75&&dx>dy*1.3&&elapsed<900)openMenu();
