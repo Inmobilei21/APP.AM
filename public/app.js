@@ -239,9 +239,10 @@ function printManagementText(title,text){const printWindow=window.open("","_blan
 let workCatalog=null;
 let activeWorkArea="01";
 function renderWorkProcedures(){
-  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">PROCEDIMIENTOS DEL DESPACHO</p><h1>Trabajos</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="management-workspace-head work-catalog-head"><div><p class="eyebrow">CATÁLOGO DE TRÁMITES</p><h2>Procedimientos de trabajo</h2><p>Procedimiento, documentación, plazo y normativa de cada encargo.</p></div><label class="management-library-search"><span>⌕</span><input id="procedureSearch" type="search" placeholder="Buscar entre 1.015 procedimientos…"></label></section><section class="work-catalog-layout"><aside class="work-area-list" id="workAreaList"><div class="work-loading">Cargando áreas…</div></aside><div class="work-procedure-content"><div class="work-procedure-heading" id="workProcedureHeading"></div><div class="work-procedure-list" id="procedureGrid"><div class="work-loading">Cargando procedimientos…</div></div></div></section>`;
+  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">PROCEDIMIENTOS DEL DESPACHO</p><h1>Trabajos</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="management-workspace-head work-catalog-head"><div><p class="eyebrow">CATÁLOGO DE TRÁMITES</p><h2>Procedimientos de trabajo</h2><p>Procedimiento, documentación, plazo y normativa de cada encargo.</p></div><div class="work-head-actions"><label class="management-library-search"><span>⌕</span><input id="procedureSearch" type="search" placeholder="Buscar entre procedimientos…"></label><button type="button" class="primary blue-button" id="newCustomWork">＋ Nuevo trabajo</button></div></section><section class="work-catalog-layout"><aside class="work-area-list" id="workAreaList"><div class="work-loading">Cargando áreas…</div></aside><div class="work-procedure-content"><div class="work-procedure-heading" id="workProcedureHeading"></div><div class="work-procedure-list" id="procedureGrid"><div class="work-loading">Cargando procedimientos…</div></div></div></section>`;
   bindHeader();
   document.querySelector("#procedureSearch").addEventListener("input",event=>drawWorkCatalog(event.target.value));
+  document.querySelector("#newCustomWork").addEventListener("click",()=>openCustomWorkEditor());
   loadWorkCatalog();
 }
 async function loadWorkCatalog(){
@@ -252,16 +253,27 @@ async function loadWorkCatalog(){
 }
 function drawWorkAreas(){
   const list=document.querySelector("#workAreaList");if(!list||!workCatalog)return;
-  list.innerHTML=`<div class="work-area-title"><strong>Áreas de trabajo</strong><small>${workCatalog.areas.length} áreas · 1.015 procedimientos</small></div>${workCatalog.areas.map(area=>`<button type="button" data-work-area="${area.id}" class="${area.id===activeWorkArea?"active":""}"><span>${area.id}</span><strong>${escapeHtml(area.title)}</strong><small>${area.procedures.length}</small></button>`).join("")}`;
+  const custom=getCustomWorks(),areas=custom.length?[{id:"custom",title:"Trabajos personalizados",procedures:custom},...workCatalog.areas]:workCatalog.areas;
+  list.innerHTML=`<div class="work-area-title"><strong>Áreas de trabajo</strong><small>${areas.length} áreas · ${allWorkProcedures().length} procedimientos</small></div>${areas.map(area=>`<button type="button" data-work-area="${area.id}" class="${area.id===activeWorkArea?"active":""}"><span>${area.id==="custom"?"★":area.id}</span><strong>${escapeHtml(area.title)}</strong><small>${area.procedures.length}</small></button>`).join("")}`;
   list.querySelectorAll("[data-work-area]").forEach(button=>button.addEventListener("click",()=>{activeWorkArea=button.dataset.workArea;document.querySelector("#procedureSearch").value="";drawWorkAreas();drawWorkCatalog()}));
 }
 function drawWorkCatalog(query=""){
   const grid=document.querySelector("#procedureGrid"),heading=document.querySelector("#workProcedureHeading");if(!grid||!heading||!workCatalog)return;
-  const q=query.trim().toLocaleLowerCase("es"),selected=workCatalog.areas.find(area=>area.id===activeWorkArea)||workCatalog.areas[0];
-  const items=(q?workCatalog.areas.flatMap(area=>area.procedures.map(item=>({...item,areaTitle:area.title}))):selected.procedures.map(item=>({...item,areaTitle:selected.title}))).filter(item=>!q||(item.title+" "+item.section+" "+item.description+" "+item.organism+" "+item.law).toLocaleLowerCase("es").includes(q));
+  const q=query.trim().toLocaleLowerCase("es"),custom={id:"custom",title:"Trabajos personalizados",scope:"Procesos creados por el despacho.",procedures:getCustomWorks()},areas=[custom,...workCatalog.areas],selected=areas.find(area=>area.id===activeWorkArea)||areas.find(area=>area.procedures.length)||workCatalog.areas[0];
+  const items=(q?allWorkProcedures():selected.procedures.map(item=>({...item,areaTitle:selected.title,custom:selected.id==="custom"}))).filter(item=>!q||(`${item.title} ${item.section||""} ${item.description||""} ${item.organism||""} ${item.law||""}`).toLocaleLowerCase("es").includes(q));
   heading.innerHTML=q?`<div><p class="eyebrow">RESULTADOS</p><h2>Búsqueda global</h2></div><strong>${items.length} encontrados</strong>`:`<div><p class="eyebrow">ÁREA ${selected.id}</p><h2>${escapeHtml(selected.title)}</h2><p>${escapeHtml(selected.scope)}</p></div><strong>${items.length} procedimientos</strong>`;
-  grid.innerHTML=items.length?items.map(item=>`<details class="work-procedure-card"><summary><span class="work-procedure-number">${escapeHtml(item.id)}</span><span class="work-procedure-summary"><small>${escapeHtml(q?item.areaTitle:item.section)}</small><strong>${escapeHtml(item.title)}</strong><em>${escapeHtml(item.description)}</em></span><span class="work-procedure-open">＋</span></summary><div class="work-procedure-detail">${item.organism?`<p class="work-organism"><strong>Organismo</strong><span>${escapeHtml(item.organism)}</span></p>`:""}<section><h3>Procedimiento</h3><ol>${item.steps.map(step=>`<li>${escapeHtml(step)}</li>`).join("")}</ol></section><section><h3>Documentación necesaria</h3><ul>${item.documents.map(document=>`<li>${escapeHtml(document)}</li>`).join("")}</ul></section><div class="work-reference-grid"><section><h3>Plazo</h3><p>${escapeHtml(item.deadline)}</p></section><section><h3>Normativa</h3><p>${escapeHtml(item.law)}</p></section></div><div class="procedure-actions"><small>Revisar requisitos vigentes antes de ejecutar el expediente.</small><button type="button" data-print-work="${escapeHtml(item.id)}">Imprimir / PDF</button></div></div></details>`).join(""):'<div class="management-library-no-results">No se encontraron procedimientos.</div>';
+  grid.innerHTML=items.length?items.map(item=>`<details class="work-procedure-card"><summary><span class="work-procedure-number">${escapeHtml(item.custom?"★":item.id)}</span><span class="work-procedure-summary"><small>${escapeHtml(q?item.areaTitle:(item.section||selected.title))}</small><strong>${escapeHtml(item.title)}</strong><em>${escapeHtml(item.description||"")}</em></span><span class="work-procedure-open">＋</span></summary><div class="work-procedure-detail">${item.organism?`<p class="work-organism"><strong>Organismo</strong><span>${escapeHtml(item.organism)}</span></p>`:""}<section><h3>Procedimiento</h3><ol>${(item.steps||[]).map(step=>`<li>${escapeHtml(step)}</li>`).join("")}</ol></section><section><h3>Documentación necesaria</h3><ul>${(item.documents||[]).map(document=>`<li>${escapeHtml(document)}</li>`).join("")}</ul></section><div class="work-reference-grid"><section><h3>Plazo</h3><p>${escapeHtml(item.deadline||"Sin plazo definido")}</p></section><section><h3>Normativa / notas</h3><p>${escapeHtml(item.law||"Sin indicaciones")}</p></section></div><div class="procedure-actions"><small>Revisar requisitos vigentes antes de ejecutar el expediente.</small><div>${item.custom?`<button type="button" data-edit-custom-work="${escapeHtml(item.id)}">Editar</button>`:""}<button type="button" data-print-work="${escapeHtml(item.id)}">Imprimir / PDF</button></div></div></div></details>`).join(""):'<div class="management-library-no-results">No se encontraron procedimientos.</div>';
   grid.querySelectorAll("[data-print-work]").forEach(button=>button.addEventListener("click",event=>{event.preventDefault();const item=items.find(value=>value.id===button.dataset.printWork);if(!item)return;printManagementText(item.title,`${item.description}\n\nORGANISMO\n${item.organism}\n\nPROCEDIMIENTO\n\n${item.steps.map((step,index)=>`${index+1}. ${step}`).join("\n\n")}\n\nDOCUMENTACIÓN NECESARIA\n\n${item.documents.map(document=>`• ${document}`).join("\n")}\n\nPLAZO\n${item.deadline}\n\nNORMATIVA\n${item.law}\n\nNota: revisar la normativa vigente y las circunstancias concretas antes de ejecutar el expediente.`)}));
+  grid.querySelectorAll("[data-edit-custom-work]").forEach(button=>button.addEventListener("click",event=>{event.preventDefault();openCustomWorkEditor(button.dataset.editCustomWork)}));
+}
+function openCustomWorkEditor(id=""){
+  document.querySelector("#customWorkModal")?.remove();const existing=getCustomWorks().find(item=>item.id===id),shell=document.createElement("div");shell.id="customWorkModal";shell.className="modal-shell task-modal-shell open";shell.setAttribute("aria-hidden","false");
+  shell.innerHTML=`<div class="modal-backdrop" data-close-custom-work></div><section class="client-modal custom-work-modal" role="dialog" aria-modal="true"><div class="client-modal-head"><div><p class="eyebrow">${existing?"EDITAR PLANTILLA":"NUEVA PLANTILLA"}</p><h2>${existing?"Editar trabajo":"Añadir trabajo"}</h2></div><button class="modal-close" type="button" data-close-custom-work aria-label="Cerrar">×</button></div><form id="customWorkForm"><div class="custom-work-grid"><label>Nombre del trabajo<input id="customWorkTitle" maxlength="120" required value="${escapeHtml(existing?.title||"")}" placeholder="Ej. Constitución de una sociedad"></label><label>Categoría<input id="customWorkCategory" maxlength="60" value="${escapeHtml(existing?.section||"")}" placeholder="Societario, fiscal, laboral…"></label><label class="wide">Descripción<textarea id="customWorkDescription" rows="2" maxlength="500" placeholder="Finalidad y alcance del trabajo">${escapeHtml(existing?.description||"")}</textarea></label><label class="wide">Pasos del proceso <small>Escribe un paso por línea.</small><textarea id="customWorkSteps" rows="8" required placeholder="Certificado negativo de denominación\nApertura de cuenta bancaria\nRedacción de estatutos">${escapeHtml((existing?.steps||[]).join("\n"))}</textarea></label><label class="wide">Documentación necesaria <small>Un documento por línea.</small><textarea id="customWorkDocuments" rows="5" placeholder="DNI de los socios\nCertificación negativa\nJustificante bancario">${escapeHtml((existing?.documents||[]).join("\n"))}</textarea></label><label>Organismo<input id="customWorkOrganism" maxlength="120" value="${escapeHtml(existing?.organism||"")}" placeholder="Registro Mercantil / AEAT"></label><label>Plazo<input id="customWorkDeadline" maxlength="180" value="${escapeHtml(existing?.deadline||"")}" placeholder="Plazo orientativo"></label><label class="wide">Normativa o indicaciones<textarea id="customWorkLaw" rows="3" maxlength="700">${escapeHtml(existing?.law||"")}</textarea></label></div><div class="modal-actions"><button class="task-cancel-button" type="button" data-close-custom-work>Cancelar</button><button class="primary blue-button" type="submit">Guardar trabajo</button></div></form></section>`;
+  document.body.appendChild(shell);const close=()=>shell.remove();shell.querySelectorAll("[data-close-custom-work]").forEach(button=>button.addEventListener("click",close));
+  shell.querySelector("form").addEventListener("submit",event=>{event.preventDefault();const lines=id=>document.querySelector(id).value.split("\n").map(value=>value.trim()).filter(Boolean),items=getCustomWorks(),data={id:existing?.id||`custom-${Date.now()}`,title:document.querySelector("#customWorkTitle").value.trim(),section:document.querySelector("#customWorkCategory").value.trim()||"Personalizado",description:document.querySelector("#customWorkDescription").value.trim(),steps:lines("#customWorkSteps"),documents:lines("#customWorkDocuments"),organism:document.querySelector("#customWorkOrganism").value.trim(),deadline:document.querySelector("#customWorkDeadline").value.trim(),law:document.querySelector("#customWorkLaw").value.trim()};
+    const index=items.findIndex(item=>item.id===data.id);if(index>=0)items[index]=data;else items.unshift(data);saveCustomWorks(items);activeWorkArea="custom";close();drawWorkAreas();drawWorkCatalog();
+  });
+  setTimeout(()=>shell.querySelector("#customWorkTitle")?.focus(),120);
 }
 function clientFormSnapshot(){
   const form=document.querySelector("#newClientForm");if(!form)return"";
@@ -657,6 +669,7 @@ const workers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Aracel
 
 
 const TASKS_STORAGE_KEY="app-am-tasks";
+const CUSTOM_WORKS_STORAGE_KEY="app-am-custom-works";
 const taskStatuses=[
   {id:"pending",label:"Pte. Inicio"},
   {id:"progress",label:"En proceso"},
@@ -669,6 +682,19 @@ function getTasks(){
   catch{return[]}
 }
 function saveTasks(tasks){localStorage.setItem(TASKS_STORAGE_KEY,JSON.stringify(tasks));updateTaskNavAlert()}
+function getCustomWorks(){
+  try{const value=JSON.parse(localStorage.getItem(CUSTOM_WORKS_STORAGE_KEY)||"[]");return Array.isArray(value)?value:[]}
+  catch{return[]}
+}
+function saveCustomWorks(items){localStorage.setItem(CUSTOM_WORKS_STORAGE_KEY,JSON.stringify(items))}
+function allWorkProcedures(){
+  const catalog=(workCatalog?.areas||[]).flatMap(area=>area.procedures.map(item=>({...item,areaTitle:area.title})));
+  return [...getCustomWorks().map(item=>({...item,areaTitle:"Trabajos personalizados",custom:true})),...catalog];
+}
+function taskChecklistProgress(task){
+  const steps=Array.isArray(task.checklist)?task.checklist:[],done=steps.filter(step=>step.done).length;
+  return{steps,done,total:steps.length,percent:steps.length?Math.round(done/steps.length*100):0};
+}
 async function homeClientCount(){
   try{
     const inactiveNames=new Set((await getAllClientMetadata()).filter(client=>!clientIsActive(client)).map(clientIdentity));
@@ -794,12 +820,13 @@ async function getTaskClientNames(){
 }
 function taskCardMarkup(task){
   const countdown=taskCountdown(task.finalDate);
-  const concept=task.concept==="Otro"?(task.customConcept||"Otro"):task.concept;
+  const concept=task.workTitle||task.customConcept||task.concept||"Sin concepto",progress=taskChecklistProgress(task);
   return `<article class="task-note" draggable="true" data-task-id="${escapeHtml(task.id)}">
     <div class="task-note-top"><div class="task-heading-badges"><span class="task-concept">${escapeHtml(concept||"Sin concepto")}</span>${taskStatusMarkup(task.status)}</div><div><button type="button" class="task-edit-button" data-edit-task="${escapeHtml(task.id)}" aria-label="Editar tarea" title="Editar tarea">✎</button><span class="task-grip" aria-hidden="true">⠿</span></div></div>
     <h4>${escapeHtml(task.client||"Sin cliente")}</h4>
     <div class="task-deadline"><span>Plazo: ${taskDateLabel(task.finalDate)}</span><strong class="${countdown.className}">${countdown.label}</strong></div>
     ${task.description?`<p>${escapeHtml(task.description)}</p>`:""}
+    ${progress.total?`<section class="task-checklist"><div class="task-progress-head"><strong>Proceso</strong><span>${progress.done}/${progress.total} · ${progress.percent}%</span></div><div class="task-progress-track"><i style="width:${progress.percent}%"></i></div><div class="task-step-list">${progress.steps.map((step,index)=>`<label><input type="checkbox" data-task-step="${escapeHtml(task.id)}" data-step-index="${index}" ${step.done?"checked":""}><span>${escapeHtml(step.text)}</span></label>`).join("")}</div></section>`:""}
     <div class="task-assignee"><span>${escapeHtml(workerInitials(task.assigned||"—"))}</span><small>${escapeHtml(task.assigned||"Sin encargado")}</small></div>
     <label class="task-mobile-state">Estado<select data-task-state="${escapeHtml(task.id)}">${taskStatuses.map(status=>`<option value="${status.id}" ${status.id===task.status?"selected":""}>${status.label}</option>`).join("")}</select></label>
   </article>`;
@@ -823,6 +850,12 @@ function renderTaskBoard(){
     card.addEventListener("dragend",()=>card.classList.remove("dragging"));
   });
   document.querySelectorAll("[data-edit-task]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();taskEditHandler?.(button.dataset.editTask)}));
+  document.querySelectorAll("[data-task-step]").forEach(check=>check.addEventListener("change",event=>{
+    event.stopPropagation();const tasks=getTasks(),task=tasks.find(item=>item.id===check.dataset.taskStep),step=task?.checklist?.[Number(check.dataset.stepIndex)];if(!step)return;
+    step.done=check.checked;step.completedAt=check.checked?new Date().toISOString():"";step.completedBy=check.checked?(signedInUser?.name||""):"";
+    const progress=taskChecklistProgress(task);task.status=progress.done===0?"pending":progress.done===progress.total?"done":"progress";
+    saveTasks(tasks);renderTaskBoard();
+  }));
   document.querySelectorAll("[data-task-list]").forEach(list=>{
     list.addEventListener("dragover",event=>{event.preventDefault();event.dataTransfer.dropEffect="move";list.closest(".task-column").classList.add("drag-over")});
     list.addEventListener("dragleave",event=>{if(!list.contains(event.relatedTarget))list.closest(".task-column").classList.remove("drag-over")});
@@ -867,11 +900,12 @@ async function renderTasks(){
           <div class="task-form-grid">
             <label class="task-client-field">Cliente<div class="task-client-combobox"><span class="task-search-icon">⌕</span><input id="taskClient" type="search" autocomplete="off" placeholder="Buscar cliente…" required aria-autocomplete="list" aria-controls="taskClientResults"><div class="task-client-results" id="taskClientResults" role="listbox" hidden></div></div></label>
             <label>Encargado<select id="taskAssigned" required><option value="">Selecciona un trabajador</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label>
-            <label>Concepto<select id="taskConcept" required><option value="">Selecciona un concepto</option><option>Declaraciones</option><option>Notificación</option><option>Gestión</option><option>Cuentas Anuales</option><option>Otro</option></select></label>
-            <label id="customConceptField" hidden>Concepto concreto<input id="taskCustomConcept" maxlength="80" placeholder="Escribe el concepto"></label>
+            <label class="task-work-field">Concepto<input id="taskConceptSearch" type="search" list="taskWorkOptions" maxlength="120" autocomplete="off" placeholder="Buscar trabajo o escribir un concepto…" required><datalist id="taskWorkOptions"></datalist><small>Selecciona un trabajo para cargar sus pasos o escribe un concepto personalizado.</small></label>
+            <input id="taskWorkId" type="hidden"><input id="taskCustomConcept" type="hidden">
             <label>Plazo de inicio<input id="taskStartDate" type="date" readonly></label>
             <label>Plazo final<input id="taskFinalDate" type="date" required></label>
             <label class="task-description-field">Descripción<textarea id="taskDescription" rows="4" maxlength="600" placeholder="Información útil para orientar la tarea"></textarea></label>
+            <section class="task-form-checklist" id="taskFormChecklist" hidden><div><strong>Pasos del trabajo</strong><span id="taskFormStepCount"></span></div><div id="taskFormStepList"></div><button type="button" id="addTaskStep">＋ Añadir paso particular</button></section>
           </div>
           <p class="form-message" id="taskFormMessage"></p>
           <div class="modal-actions"><button class="task-cancel-button" type="button" data-close-task><span aria-hidden="true">×</span> Cancelar</button><button class="primary blue-button" id="taskSaveButton" type="submit">Guardar tarea</button></div>
@@ -880,7 +914,7 @@ async function renderTasks(){
     </div>`;
   bindHeader();renderTaskBoard();
   const modal=document.querySelector("#taskModal"),form=document.querySelector("#taskForm");
-  let taskClientNames=[];
+  let taskClientNames=[],taskFormSteps=[];
   const close=()=>{modal.classList.remove("open");modal.setAttribute("aria-hidden","true");form.dataset.editTaskId=""};
   document.querySelectorAll("[data-close-task]").forEach(button=>button.addEventListener("click",close));
   const clientInput=document.querySelector("#taskClient"),clientResults=document.querySelector("#taskClientResults");
@@ -917,41 +951,56 @@ async function renderTasks(){
     taskClientNames=await getTaskClientNames();
     clientInput.value=task?.client||"";
     document.querySelector("#taskAssigned").value=task?.assigned||"";
-    document.querySelector("#taskConcept").value=task?.concept||"";
-    document.querySelector("#taskCustomConcept").value=task?.customConcept||"";
+    await loadWorkCatalog();
+    const procedures=allWorkProcedures(),options=document.querySelector("#taskWorkOptions");
+    options.innerHTML=procedures.map(item=>`<option value="${escapeHtml(item.title)}">${escapeHtml(item.areaTitle||item.section||"")}</option>`).join("");
+    document.querySelector("#taskConceptSearch").value=task?.workTitle||task?.customConcept||task?.concept||"";
+    document.querySelector("#taskWorkId").value=task?.workId||"";
+    taskFormSteps=Array.isArray(task?.checklist)?task.checklist.map(step=>({...step})):[];renderTaskFormSteps();
     document.querySelector("#taskFinalDate").value=task?.finalDate||"";
     document.querySelector("#taskDescription").value=task?.description||"";
-    document.querySelector("#customConceptField").hidden=task?.concept!=="Otro";
-    document.querySelector("#taskCustomConcept").required=task?.concept==="Otro";
     const linked=task?.sourceType==="annualCorrection";
     clientInput.readOnly=linked;
-    document.querySelector("#taskConcept").disabled=linked;
-    document.querySelector("#taskCustomConcept").readOnly=linked;
+    document.querySelector("#taskConceptSearch").readOnly=linked;
     modal.classList.add("open");modal.setAttribute("aria-hidden","false");
     renderTaskClientResults("");
     setTimeout(()=>clientInput.focus(),180);
   };
   document.querySelector("#openTaskModal").addEventListener("click",()=>openTaskForm());
   taskEditHandler=id=>{const task=getTasks().find(item=>item.id===id);if(task)openTaskForm(task)};
-  document.querySelector("#taskConcept").addEventListener("change",event=>{
-    const custom=document.querySelector("#customConceptField"),input=document.querySelector("#taskCustomConcept");
-    custom.hidden=event.target.value!=="Otro";input.required=event.target.value==="Otro";
-    if(custom.hidden)input.value="";
+  function renderTaskFormSteps(){
+    const shell=document.querySelector("#taskFormChecklist"),list=document.querySelector("#taskFormStepList");shell.hidden=false;
+    document.querySelector("#taskFormStepCount").textContent=taskFormSteps.length?`${taskFormSteps.filter(step=>step.done).length}/${taskFormSteps.length}`:"Sin pasos";
+    list.innerHTML=taskFormSteps.length?taskFormSteps.map((step,index)=>`<div><input type="checkbox" data-form-step-check="${index}" ${step.done?"checked":""}><input type="text" data-form-step-text="${index}" value="${escapeHtml(step.text)}" maxlength="240"><button type="button" data-remove-form-step="${index}" aria-label="Eliminar paso">×</button></div>`).join(""):'<p class="task-no-steps">Selecciona un trabajo o añade pasos particulares.</p>';
+    list.querySelectorAll("[data-form-step-check]").forEach(input=>input.addEventListener("change",()=>{taskFormSteps[Number(input.dataset.formStepCheck)].done=input.checked;renderTaskFormSteps()}));
+    list.querySelectorAll("[data-form-step-text]").forEach(input=>input.addEventListener("input",()=>taskFormSteps[Number(input.dataset.formStepText)].text=input.value));
+    list.querySelectorAll("[data-remove-form-step]").forEach(button=>button.addEventListener("click",()=>{taskFormSteps.splice(Number(button.dataset.removeFormStep),1);renderTaskFormSteps()}));
+  }
+  document.querySelector("#addTaskStep").addEventListener("click",()=>{taskFormSteps.push({id:`step-${Date.now()}`,text:"Nuevo paso",done:false});renderTaskFormSteps();document.querySelector("[data-form-step-text]:last-of-type")?.select()});
+  document.querySelector("#taskConceptSearch").addEventListener("change",event=>{
+    const title=event.target.value.trim(),work=allWorkProcedures().find(item=>item.title.localeCompare(title,"es",{sensitivity:"base"})===0);
+    document.querySelector("#taskWorkId").value=work?.id||"";
+    if(work)taskFormSteps=(work.steps||[]).map((text,index)=>({id:`${work.id}-${index}`,text,done:false,completedAt:"",completedBy:""}));
+    else taskFormSteps=[];
+    renderTaskFormSteps();
   });
   form.addEventListener("submit",event=>{
     event.preventDefault();
-    const concept=document.querySelector("#taskConcept").value;
+    const conceptTitle=document.querySelector("#taskConceptSearch").value.trim(),selectedWork=allWorkProcedures().find(item=>item.title.localeCompare(conceptTitle,"es",{sensitivity:"base"})===0),workId=selectedWork?.id||"";
     const taskData={
       client:document.querySelector("#taskClient").value.trim(),
       assigned:document.querySelector("#taskAssigned").value,
-      concept,
-      customConcept:document.querySelector("#taskCustomConcept").value.trim(),
+      concept:workId?"Trabajo":"Otro",
+      workId,
+      workTitle:conceptTitle,
+      customConcept:workId?"":conceptTitle,
+      checklist:taskFormSteps.filter(step=>step.text.trim()).map(step=>({...step,text:step.text.trim()})),
       description:document.querySelector("#taskDescription").value.trim(),
       finalDate:document.querySelector("#taskFinalDate").value,
     };
     const tasks=getTasks(),existing=tasks.find(item=>item.id===form.dataset.editTaskId);
-    if(existing){Object.assign(existing,taskData);syncTaskToAnnualCorrection(existing)}
-    else tasks.push({id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,startDate:new Date().toISOString(),...taskData,status:"pending"});
+    if(existing){Object.assign(existing,taskData);const progress=taskChecklistProgress(existing);if(progress.total)existing.status=progress.done===0?"pending":progress.done===progress.total?"done":"progress";syncTaskToAnnualCorrection(existing)}
+    else{const created={id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,startDate:new Date().toISOString(),...taskData,status:"pending"},progress=taskChecklistProgress(created);if(progress.total&&progress.done)created.status=progress.done===progress.total?"done":"progress";tasks.push(created)}
     saveTasks(tasks);close();renderTaskBoard();
   });
 }
