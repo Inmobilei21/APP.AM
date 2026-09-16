@@ -2410,7 +2410,7 @@ function createWorkerChat(){
       <span class="chat-launcher-icon">✉</span><span class="chat-launcher-label">Chat</span>
     </button>
     <section class="chat-panel" id="chatPanel" aria-hidden="true">
-      <header class="chat-header chat-team-header"><div class="chat-brand"><img src="/app-icon.png" alt="Molinero"><div><span class="chat-kicker">EQUIPO</span><h2>Chat de trabajadores</h2></div></div><button id="closeChat" type="button" aria-label="Cerrar chat">×</button></header>
+      <header class="chat-header chat-team-header"><div class="chat-brand"><span class="chat-brand-mark" role="img" aria-label="Molinero"></span><div><span class="chat-kicker">EQUIPO</span><h2>Chat de trabajadores</h2></div></div><button id="closeChat" type="button" aria-label="Cerrar chat">×</button></header>
       <div id="chatContent"></div>
     </section>
     <section class="chat-panel perplexity-panel" id="perplexityPanel" aria-hidden="true">
