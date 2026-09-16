@@ -339,6 +339,14 @@ http.createServer((req, res) => {
     if (req.method === "GET") return json(res, 200, loadMetadata()[kind]);
     return readJson(req, 256 * 1024).then(record => {
       if (!record?.id || typeof record.id !== "string") return json(res, 400, { error: "Falta el identificador." });
+      if (kind === 'clients' && record.personType === 'juridica' && record.partners !== undefined) {
+        const types = ['Administrador único', 'Administradores solidarios', 'Administradores mancomunados'];
+        const valid = types.includes(record.administrationType) && Array.isArray(record.partners) && Array.isArray(record.contacts)
+          && record.partners.every(p => p && typeof p.name === 'string' && typeof p.dni === 'string' && (p.participation === null || (typeof p.participation === 'number' && Number.isFinite(p.participation) && p.participation >= 0 && p.participation <= 100)))
+          && record.contacts.every(c => c && typeof c.name === 'string' && typeof c.phone === 'string' && typeof c.email === 'string' && typeof c.primary === 'boolean')
+          && record.contacts.filter(c => c.primary).length <= 1;
+        if (!valid) return json(res, 400, { error: 'Revisa los socios, porcentajes y el contacto principal.' });
+      }
       const metadata = loadMetadata(), index = metadata[kind].findIndex(item => item.id === record.id);
       if (index >= 0) metadata[kind][index] = record;else metadata[kind].push(record);
       saveMetadata(metadata);return json(res, 200, record);
