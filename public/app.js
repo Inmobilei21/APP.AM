@@ -68,14 +68,14 @@ function openMenu(){sidebar.classList.add("open");overlay.classList.add("show");
 function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show");document.body.classList.remove("menu-open")}
 let mobileSwipeStart=null;
 document.addEventListener("touchstart",event=>{
-  if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open")||document.querySelector("#chatPanel")?.classList.contains("open")){mobileSwipeStart=null;return}
+  if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open")||document.querySelector(".chat-panel.open")){mobileSwipeStart=null;return}
   if(event.target.closest("input,select,textarea,button,a,.tax-table-wrap,.folder-grid"))return;
   const touch=event.touches[0];
   mobileSwipeStart={x:touch.clientX,y:touch.clientY,time:Date.now()};
 },{passive:true});
 document.addEventListener("touchend",event=>{
   if(!mobileSwipeStart)return;
-  if(document.querySelector("#chatPanel")?.classList.contains("open")){mobileSwipeStart=null;return}
+  if(document.querySelector(".chat-panel.open")){mobileSwipeStart=null;return}
   const touch=event.changedTouches[0],dx=touch.clientX-mobileSwipeStart.x,dy=Math.abs(touch.clientY-mobileSwipeStart.y),elapsed=Date.now()-mobileSwipeStart.time;
   mobileSwipeStart=null;
   if(dx>=75&&dx>dy*1.3&&elapsed<900)openMenu();
@@ -2404,9 +2404,14 @@ function createWorkerChat(){
   const widget=document.createElement("div");
   widget.className="worker-chat";
   widget.innerHTML=`
-    <button class="perplexity-launcher" id="perplexityLauncher" type="button" aria-label="Abrir Perplexity" title="Perplexity">
-      <img src="/perplexity-logo.png" alt="" aria-hidden="true">
-    </button>
+    <div class="ai-launchers">
+      <button class="perplexity-launcher" id="perplexityLauncher" type="button" aria-label="Abrir Perplexity" title="Perplexity">
+        <img src="/perplexity-logo.png" alt="" aria-hidden="true">
+      </button>
+      <button class="chatgpt-launcher" id="chatgptLauncher" type="button" aria-label="Abrir ChatGPT" title="ChatGPT">
+        <img src="/chatgpt-logo.svg" alt="" aria-hidden="true">
+      </button>
+    </div>
     <button class="chat-launcher" id="chatLauncher" type="button" aria-label="Abrir chat de trabajadores">
       <span class="chat-launcher-icon">✉</span><span class="chat-launcher-label">Chat</span>
     </button>
@@ -2418,17 +2423,25 @@ function createWorkerChat(){
       <header class="chat-header perplexity-header"><div><span class="chat-kicker">ASISTENTE WEB</span><h2>Perplexity</h2></div><button id="closePerplexity" type="button" aria-label="Cerrar Perplexity">×</button></header>
       <div class="perplexity-toolbar"><p><strong>Pregunta directamente a Perplexity</strong><small>Inicia sesión si te lo solicita.</small></p><a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Abrir aparte ↗</a></div>
       <div class="perplexity-frame-wrap"><iframe data-src="https://www.perplexity.ai/" title="Perplexity" referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-read; clipboard-write"></iframe><div class="perplexity-frame-help"><strong>¿No aparece Perplexity?</strong><span>La web puede impedir que se muestre dentro de otras aplicaciones.</span><a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Abrir Perplexity en otra pestaña</a></div></div>
+    </section>
+    <section class="chat-panel chatgpt-panel" id="chatgptPanel" aria-hidden="true">
+      <header class="chat-header chatgpt-header"><div><span class="chat-kicker">ASISTENTE IA</span><h2>ChatGPT</h2></div><button id="closeChatgpt" type="button" aria-label="Cerrar ChatGPT">×</button></header>
+      <div class="chatgpt-toolbar"><p><strong>Consulta tus dudas en ChatGPT</strong><small>El acceso se realiza de forma segura en la web oficial de OpenAI.</small></p><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Iniciar sesión / Abrir ↗</a></div>
+      <div class="chatgpt-frame-wrap"><iframe data-src="https://chatgpt.com/" title="ChatGPT" referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-read; clipboard-write"></iframe><div class="chatgpt-frame-help"><img src="/chatgpt-logo.svg" alt=""><strong>Inicia sesión para consultar</strong><span>Por seguridad, escribe tu usuario y contraseña únicamente en la página oficial de ChatGPT.</span><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Iniciar sesión y abrir ChatGPT</a></div></div>
     </section>`;
   document.body.appendChild(widget);
   document.querySelector("#chatLauncher").addEventListener("click",toggleWorkerChat);
   document.querySelector("#perplexityLauncher").addEventListener("click",togglePerplexity);
+  document.querySelector("#chatgptLauncher").addEventListener("click",toggleChatgpt);
   document.querySelector("#closeChat").addEventListener("click",closeWorkerChat);
   document.querySelector("#closePerplexity").addEventListener("click",closePerplexity);
+  document.querySelector("#closeChatgpt").addEventListener("click",closeChatgpt);
   renderChatContacts();
 }
 
 function toggleWorkerChat(){
   closePerplexity();
+  closeChatgpt();
   const panel=document.querySelector("#chatPanel");
   const opening=!panel.classList.contains("open");
   panel.classList.toggle("open",opening);
@@ -2443,6 +2456,7 @@ function closeWorkerChat(){
 }
 function togglePerplexity(){
   closeWorkerChat();
+  closeChatgpt();
   const panel=document.querySelector("#perplexityPanel");
   const opening=!panel.classList.contains("open");
   if(opening){const frame=panel.querySelector("iframe");if(!frame.src)frame.src=frame.dataset.src}
@@ -2455,6 +2469,22 @@ function closePerplexity(){
   panel.classList.remove("open");
   panel.setAttribute("aria-hidden","true");
   document.querySelector("#perplexityLauncher")?.classList.remove("active");
+}
+function toggleChatgpt(){
+  closeWorkerChat();
+  closePerplexity();
+  const panel=document.querySelector("#chatgptPanel");
+  const opening=!panel.classList.contains("open");
+  if(opening){const frame=panel.querySelector("iframe");if(!frame.src)frame.src=frame.dataset.src}
+  panel.classList.toggle("open",opening);
+  panel.setAttribute("aria-hidden",String(!opening));
+  document.querySelector("#chatgptLauncher").classList.toggle("active",opening);
+}
+function closeChatgpt(){
+  const panel=document.querySelector("#chatgptPanel");if(!panel)return;
+  panel.classList.remove("open");
+  panel.setAttribute("aria-hidden","true");
+  document.querySelector("#chatgptLauncher")?.classList.remove("active");
 }
 function renderChatContacts(){
   activeChatWorker=null;
