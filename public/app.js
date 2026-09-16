@@ -2460,7 +2460,7 @@ function renderChatContacts(){
   activeChatWorker=null;
   const content=document.querySelector("#chatContent");
   const contacts=chatWorkers.filter(name=>name!==signedInUser?.name);
-  content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Los mensajes llegan a la cuenta personal de cada trabajador.</span></div><div class="chat-contacts">${contacts.map(name=>`<button type="button" data-chat-worker="${escapeHtml(name)}"><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small>Abrir conversación</small></span><b>›</b></button>`).join("")}</div>`;
+  content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Los mensajes llegan a la cuenta personal de cada trabajador.</span></div><div class="chat-contacts">${contacts.map(name=>{const unread=recentChatItems.find(item=>item.worker===name)?.unreadCount||0;return `<button type="button" data-chat-worker="${escapeHtml(name)}"${unread?` aria-label="${escapeHtml(name)}, ${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}"`:""}><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small class="${unread?"has-unread":""}">${unread?`${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}`:"Abrir conversación"}</small></span>${unread?`<span class="chat-contact-unread">${unread>99?"99+":unread}</span>`:""}<b>›</b></button>`}).join("")}</div>`;
   content.querySelectorAll("[data-chat-worker]").forEach(button=>button.addEventListener("click",()=>renderConversation(button.dataset.chatWorker)));
 }
 async function renderConversation(name,focus=true){
