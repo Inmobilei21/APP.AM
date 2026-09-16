@@ -2357,18 +2357,27 @@ document.querySelectorAll(".sidebar nav button").forEach(button=>button.addEvent
 const chatWorkers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Araceli Frías","Jesús Carratalá"];
 let activeChatWorker=null;
 let recentChatItems=[];
+let chatUnreadCount=0;
 const chatCache=new Map();
 
 function workerInitials(name){return name.split(" ").slice(0,2).map(part=>part[0]).join("").toUpperCase()}
 function chatMessageTime(value){if(!value)return"";return new Intl.DateTimeFormat("es-ES",{hour:"2-digit",minute:"2-digit"}).format(new Date(value))}
 function getChatMessages(name){return chatCache.get(name)||[]}
-async function refreshChatData(){
+function updateChatUnreadBadge(){
+  const launcher=document.querySelector("#chatLauncher");if(!launcher)return;
+  let badge=launcher.querySelector(".chat-unread-badge");
+  if(!chatUnreadCount){badge?.remove();launcher.setAttribute("aria-label","Abrir chat de trabajadores");return}
+  if(!badge){badge=document.createElement("span");badge.className="chat-unread-badge";launcher.appendChild(badge)}
+  badge.textContent=chatUnreadCount>99?"99+":String(chatUnreadCount);launcher.setAttribute("aria-label",`${chatUnreadCount} mensajes sin leer`);
+}
+async function refreshChatData(refreshOpenConversation=true){
   if(!signedInUser)return;
   try{
     const records=await apiJson("/api/chat/recent");
-    recentChatItems=records.map(item=>({worker:teamUsers.find(user=>user.id===item.otherId)?.name||item.otherId,message:item.message}));
+    recentChatItems=records.map(item=>({worker:teamUsers.find(user=>user.id===item.otherId)?.name||item.otherId,message:item.message,unreadCount:Number(item.unreadCount)||0}));
+    chatUnreadCount=recentChatItems.reduce((total,item)=>total+item.unreadCount,0);updateChatUnreadBadge();
     renderHomeActivityRail();
-    if(activeChatWorker&&document.querySelector("#chatPanel")?.classList.contains("open"))await renderConversation(activeChatWorker,false);
+    if(refreshOpenConversation&&activeChatWorker&&document.querySelector("#chatPanel")?.classList.contains("open"))await renderConversation(activeChatWorker,false);
     else if(document.querySelector("#chatContent"))renderChatContacts();
   }catch{}
 }
@@ -2384,7 +2393,7 @@ function createWorkerChat(){
       <span class="chat-launcher-icon">✉</span><span class="chat-launcher-label">Chat</span>
     </button>
     <section class="chat-panel" id="chatPanel" aria-hidden="true">
-      <header class="chat-header"><div><span class="chat-kicker">EQUIPO</span><h2>Chat de trabajadores</h2></div><button id="closeChat" type="button" aria-label="Cerrar chat">×</button></header>
+      <header class="chat-header chat-team-header"><div class="chat-brand"><img src="/app-icon.png" alt="Molinero"><div><span class="chat-kicker">EQUIPO</span><h2>Chat de trabajadores</h2></div></div><button id="closeChat" type="button" aria-label="Cerrar chat">×</button></header>
       <div id="chatContent"></div>
     </section>
     <section class="chat-panel perplexity-panel" id="perplexityPanel" aria-hidden="true">
@@ -2441,7 +2450,7 @@ async function renderConversation(name,focus=true){
   const content=document.querySelector("#chatContent");
   content.innerHTML=`<div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación privada</small></div></div><div class="chat-messages"><div class="chat-empty"><span>···</span><strong>Cargando conversación</strong></div></div>`;
   document.querySelector("#chatBack").addEventListener("click",renderChatContacts);
-  try{const user=workerByNameOrId(name),messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(user?.id||name)}`);chatCache.set(name,messages)}catch{}
+  try{const user=workerByNameOrId(name),messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(user?.id||name)}`);chatCache.set(name,messages);await apiJson("/api/chat/read",{method:"POST",body:JSON.stringify({withUserId:user?.id||name})});refreshChatData(false)}catch{}
   if(activeChatWorker!==name)return;
   const messages=getChatMessages(name);
   content.innerHTML=`

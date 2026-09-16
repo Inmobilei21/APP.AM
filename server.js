@@ -420,6 +420,17 @@ http.createServer((req, res) => {
       return json(res, 201, message);
     }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
   }
+  if (requestPath === "/api/chat/read" && req.method === "POST") {
+    const user = requireUser(req, res);if (!user) return;
+    return readJson(req).then(({ withUserId }) => {
+      const other = teamMember(withUserId);
+      if (!other || other.id === user.id) return json(res, 400, { error: "Conversación no válida." });
+      const messages = loadCollection(messagesFile), readAt = new Date().toISOString();let changed = false;
+      for (const message of messages) if (message.senderId === other.id && message.recipientId === user.id && !message.readAt) { message.readAt = readAt;changed = true; }
+      if (changed) saveCollection(messagesFile, messages);
+      return json(res, 200, { read: true });
+    }).catch(() => json(res, 400, { error: "No se pudo marcar la conversación como leída." }));
+  }
   if (requestPath === "/api/chat/recent" && req.method === "GET") {
     const user = requireUser(req, res);if (!user) return;
     const latest = new Map();
@@ -429,7 +440,12 @@ http.createServer((req, res) => {
       const previous = latest.get(otherId);
       if (!previous || String(previous.createdAt) < String(message.createdAt)) latest.set(otherId, message);
     }
-    return json(res, 200, [...latest.entries()].map(([otherId, message]) => ({ otherId, message })).sort((a,b) => String(b.message.createdAt).localeCompare(String(a.message.createdAt))));
+    const messages = loadCollection(messagesFile);
+    return json(res, 200, [...latest.entries()].map(([otherId, message]) => ({
+      otherId,
+      message,
+      unreadCount: messages.filter(item => item.senderId === otherId && item.recipientId === user.id && !item.readAt).length
+    })).sort((a,b) => String(b.message.createdAt).localeCompare(String(a.message.createdAt))));
   }
   if (requestPath === "/api/tasks" && req.method === "GET") {
     const user = requireUser(req, res);if (!user) return;
