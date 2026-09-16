@@ -1026,3 +1026,6 @@ html:has(#clientModal.open),body:has(#clientModal.open){overflow:hidden;overscro
 #newClientForm #addClientPartner,#newClientForm #addClientContact{min-height:28px;height:28px;padding:4px 9px;border-radius:7px;font-size:11px}
 #newClientForm #clientPeopleLegacy{margin:8px 0 0;font-size:11px;line-height:15px}
 #newClientForm .client-identity-grid input:not([type=checkbox]),#newClientForm .client-identity-grid select{height:34px;min-height:34px;padding:5px 10px}
+
+#newClientForm #clientPeople .client-administrator-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:760px){#newClientForm #clientPeople .client-administrator-grid{grid-template-columns:1fr}}

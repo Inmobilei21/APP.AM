@@ -347,6 +347,13 @@ http.createServer((req, res) => {
           && record.contacts.filter(c => c.primary).length <= 1;
         if (!valid) return json(res, 400, { error: 'Revisa los socios, porcentajes y el contacto principal.' });
       }
+      if (kind === 'clients' && record.personType === 'juridica' && record.administratorPartnerId !== undefined) {
+        const selected = record.partners?.find(p => p.id === record.administratorPartnerId);
+        if (record.administratorPartnerId && (!selected || !selected.name.trim())) return json(res, 400, { error: 'Selecciona un socio administrador válido.' });
+        record.administrators = selected?.name || '';
+        record.representative = selected?.name || '';
+        record.representativeNif = (selected?.dni || '').toUpperCase();
+      }
       const metadata = loadMetadata(), index = metadata[kind].findIndex(item => item.id === record.id);
       if (index >= 0) metadata[kind][index] = record;else metadata[kind].push(record);
       saveMetadata(metadata);return json(res, 200, record);
