@@ -987,3 +987,8 @@ html.auth-pending body{visibility:hidden}
 /* Client partners and contacts */
 #clientPeople[hidden],#legacyClientPeople[hidden]{display:none!important}
 #clientPeople [role=tabpanel]{padding-top:14px}#clientPeople [role=tabpanel][hidden]{display:none}#clientPeople label{font-size:13px;min-width:0}#clientPeople select,#clientPeople input:not([type=radio]){display:block;width:100%;min-width:0;margin-top:7px;border:1px solid var(--line);border-radius:11px;padding:10px;font:inherit;background:#fff}.client-person-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:12px}.client-person-row button{justify-self:start}.client-primary-contact{display:flex;align-items:center;gap:7px}#clientPeopleLegacy{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:760px){.client-person-row{grid-template-columns:1fr}}
+
+/* Keep background stationary while a client record is open. */
+html:has(#clientModal.open),body:has(#clientModal.open){overflow:hidden;overscroll-behavior:none}
+#clientModal .client-modal{overscroll-behavior:contain}
+#clientModal .modal-backdrop{touch-action:none}
