@@ -1002,3 +1002,11 @@ html:has(#clientModal.open),body:has(#clientModal.open){overflow:hidden;overscro
 #clientPeople .client-person-delete:disabled{opacity:.35;cursor:default}
 #clientPeople .client-primary-contact{grid-column:1 / 4;margin:0;font-size:12px}
 @media(max-width:760px){#clientPeople .client-person-row{grid-template-columns:minmax(0,1fr) 30px}#clientPeople .client-person-row>label{grid-column:1}#clientPeople .client-person-delete{grid-column:2;grid-row:1}#clientPeople .client-primary-contact{grid-column:1}}
+
+/* Minimal document preview button. */
+.declaration-document-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:6px 10px;border:1px solid #e1e6f0;border-radius:9px;background:#fff;color:var(--blue);font-family:inherit;font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}
+.declaration-document-actions button>span{display:inline-grid;place-items:center;width:18px;height:20px;font-size:0}
+.declaration-document-actions button>span::before{content:"";width:16px;height:18px;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h6'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
+.declaration-document-actions button:hover{background:#f1f4ff;border-color:#c8d2ef}
+.declaration-document-actions button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.declaration-document-actions button:active{background:#e8edff}
