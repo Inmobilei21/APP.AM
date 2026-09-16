@@ -992,3 +992,13 @@ html.auth-pending body{visibility:hidden}
 html:has(#clientModal.open),body:has(#clientModal.open){overflow:hidden;overscroll-behavior:none}
 #clientModal .client-modal{overscroll-behavior:contain}
 #clientModal .modal-backdrop{touch-action:none}
+
+/* Compact client rows with an inline delete action. */
+#clientPeople .client-person-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.2fr) 30px;gap:6px 8px;padding:9px 0;margin-bottom:5px;align-items:end}
+#clientPeople .client-person-row input:not([type=radio]){margin-top:4px;padding:8px 9px;min-height:36px}
+#clientPeople .client-person-delete{grid-column:4;grid-row:1;display:grid;place-items:center;width:30px;height:36px;min-width:0;padding:0;border:0;border-radius:7px;background:transparent;color:#778197;cursor:pointer}
+#clientPeople .client-person-delete:hover{background:#fff0f0;color:#bf3434}
+#clientPeople .client-person-delete:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#clientPeople .client-person-delete:disabled{opacity:.35;cursor:default}
+#clientPeople .client-primary-contact{grid-column:1 / 4;margin:0;font-size:12px}
+@media(max-width:760px){#clientPeople .client-person-row{grid-template-columns:minmax(0,1fr) 30px}#clientPeople .client-person-row>label{grid-column:1}#clientPeople .client-person-delete{grid-column:2;grid-row:1}#clientPeople .client-primary-contact{grid-column:1}}
