@@ -1029,3 +1029,19 @@ html:has(#clientModal.open),body:has(#clientModal.open){overflow:hidden;overscro
 
 #newClientForm #clientPeople .client-administrator-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 @media(max-width:760px){#newClientForm #clientPeople .client-administrator-grid{grid-template-columns:1fr}}
+
+/* Consistent compact controls throughout the client record. */
+#clientModal #newClientForm input:not([type=checkbox]):not([type=radio]):not([type=file]),#clientModal #newClientForm select{height:30px;min-height:30px;padding:4px 8px;border-radius:7px;font-size:12px;line-height:20px}
+#clientModal #newClientForm input[type=file]{min-height:30px;padding:4px 8px;border-radius:7px;font-size:11px}
+#clientModal #newClientForm textarea{min-height:64px;padding:6px 8px;border-radius:7px;font-size:12px;line-height:18px}
+#clientModal #newClientForm label{gap:3px}
+#clientModal #newClientForm .client-identity-grid{gap:8px 14px}
+#clientModal #newClientForm .client-active-control{min-height:30px;height:30px;padding:4px 10px}
+#clientModal #newClientForm .registry-fields{gap:8px 10px}
+#clientModal #newClientForm .registry-tabs{overflow-y:hidden}
+#clientModal #newClientForm .registry-tabs button{padding:7px 9px 8px}
+#clientModal #newClientForm .signature-data{padding:10px;gap:8px}
+#clientModal #newClientForm .digital-signature-document{padding:10px;gap:6px}
+#clientModal #newClientForm .fiscal-periodicity,#clientModal #newClientForm .fiscal-courtesy-inline{min-height:36px;padding:4px 10px}
+#clientModal #newClientForm .obligation-item{padding:6px 9px}
+#clientModal #newClientForm .fiscal-obligations>p,#clientModal #newClientForm .registry-intro,#clientModal #newClientForm .digital-signature-section>p{margin:6px 0 8px}
