@@ -1089,3 +1089,8 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
 @media(min-width:761px) and (max-width:1280px){
   .client-desktop-motto{display:none}.client-desktop-header>img{width:165px}.client-desktop-header{padding:0 20px;gap:10px}.client-desktop-header nav button{padding:0 11px;font-size:13px}.client-desktop-logout{padding:0 11px}
 }
+
+/* Cierre visible del aviso de servicio no contratado. */
+.client-unavailable-card>header button[data-close-client-unavailable]{grid-column:3;justify-self:end;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:#f1f5f9;color:#123f6d;font-size:0;line-height:1;transition:background .18s ease,transform .18s ease}
+.client-unavailable-card>header button[data-close-client-unavailable]::before{content:"\00d7";font:400 42px/1 Arial,sans-serif;transform:translateY(-1px)}
+.client-unavailable-card>header button[data-close-client-unavailable]:hover{background:#e3ebf2;transform:scale(1.04)}
