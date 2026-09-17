@@ -2202,7 +2202,7 @@ function renderFolderView(name){
   restoreFolder(config);
 }
 
-let invoiceProcessorFiles=[],invoiceDraftRecords=[];
+let invoiceProcessorFiles=[],invoiceDraftRecords=[],invoiceOcrWorker=null;
 function showInvoiceProcessorBanner(message){
   const panel=document.querySelector("#invoiceProcessor");if(!panel)return;let banner=panel.querySelector(".invoice-process-banner");
   if(!banner){banner=document.createElement("div");banner.className="invoice-process-banner";banner.setAttribute("role","alert");panel.querySelector(".invoice-selected-files")?.before(banner)}
@@ -2224,7 +2224,11 @@ async function setupInvoiceProcessor(){
   panel.querySelector("#processInvoices").addEventListener("click",()=>processInvoiceFiles(select.value));
   panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);invoiceProcessorFiles=[];invoiceDraftRecords=[];select.value="";input.value="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";panel.querySelector("#processInvoices").textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()});
 }
-async function invoiceFileText(file){
+async function getInvoiceOcrWorker(){
+  if(invoiceOcrWorker)return invoiceOcrWorker;const tesseract=await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js");invoiceOcrWorker=await tesseract.createWorker("spa");return invoiceOcrWorker;
+}
+async function closeInvoiceOcrWorker(){if(!invoiceOcrWorker)return;const worker=invoiceOcrWorker;invoiceOcrWorker=null;await worker.terminate().catch(()=>{})}
+async function invoiceFileText(file,onOcr){
   if(/\.(xml|txt)$/i.test(file.name))return file.text();
   const pdfjs=await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
@@ -2234,7 +2238,11 @@ async function invoiceFileText(file){
     for(const item of content.items){if(!item.str?.trim())continue;const x=item.transform?.[4]||0,y=item.transform?.[5]||0;let line=lines.find(candidate=>Math.abs(candidate.y-y)<2);if(!line){line={y,items:[]};lines.push(line)}line.items.push({x,text:item.str.trim()})}
     lines.sort((a,b)=>b.y-a.y);text+=`\n--- PÁGINA ${pageNumber} ---\n`+lines.map(line=>line.items.sort((a,b)=>a.x-b.x).map(item=>item.text).join(" ")).join("\n");
   }
-  return text;
+  if(text.replace(/--- PÁGINA \d+ ---/g,"").replace(/\s/g,"").length<40){
+    onOcr?.();const worker=await getInvoiceOcrWorker();text="";
+    for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){const page=await pdf.getPage(pageNumber),viewport=page.getViewport({scale:2.25}),canvas=document.createElement("canvas"),context=canvas.getContext("2d",{willReadFrequently:true});canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);await page.render({canvasContext:context,viewport}).promise;const result=await worker.recognize(canvas);text+=`\n--- PÁGINA ${pageNumber} OCR ---\n${result.data.text||""}`}
+  }
+  return text.replace(/^(N[uú]mero\s*[:#-]?\s*[A-Z0-9][A-Z0-9\-/.]{1,})\b.*$/gim,"$1").replace(/^(Fecha\s*[:.-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b.*$/gim,"$1");
 }
 function invoiceMatch(text,patterns){for(const pattern of patterns){const match=text.match(pattern);if(match?.[1])return match[1].trim()}return""}
 function invoiceAmount(value){if(!value)return"";const clean=value.replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",",".").replace(/[^\d.-]/g,"");const number=Number(clean);return Number.isFinite(number)?number.toFixed(2):""}
@@ -2247,6 +2255,7 @@ function invoiceAllMatches(text,pattern){return[...text.matchAll(pattern)].map(m
 function uniqueInvoiceValues(values){return[...new Set(values.map(value=>value.replace(/[.,;:]$/,"").trim()).filter(Boolean))]}
 function invoiceLastAmount(text,patterns){for(const pattern of patterns){const values=invoiceAllMatches(text,pattern);if(values.length)return invoiceAmount(values.at(-1))}return""}
 function invoiceSupplier(text,fileName){
+  if(/INMOBILEI\s*21/i.test(text))return{name:"Inmobilei 21, S.L.",nif:"B67746453"};
   if(/endesa/i.test(text)||/endesa/i.test(fileName))return{name:"Endesa Energía, S.A. Unipersonal",nif:"A81948077"};
   if(/fcc\s+aqualia/i.test(text)||/aqualia/i.test(fileName))return{name:"FCC Aqualia, S.A.",nif:"A26019992"};
   const match=text.match(/^\s*([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ0-9 .,&'()-]{2,90}?)\s+(?:CIF|NIF)\s*[:.-]?\s*([A-Z]\d{7}[0-9A-Z]|\d{8}[A-Z])\b/im);
@@ -2255,12 +2264,13 @@ function invoiceSupplier(text,fileName){
 function invoiceTaxTotals(text){let base=0,vat=0,count=0;for(const line of text.split(/\r?\n/)){if(!/\bIVA\b|I\.V\.A\./i.test(line)||!/[sS]\s*\//.test(line))continue;const baseMatch=line.match(/[sS]\s*\/\s*([\d.]+,\d{2})/),amounts=invoiceAllMatches(line,/([\d.]+,\d{2})\s*€/g);if(!baseMatch||!amounts.length)continue;base+=Number(invoiceAmount(baseMatch[1]));vat+=Number(invoiceAmount(amounts.at(-1)));count++}return count?{base:base.toFixed(2),vat:vat.toFixed(2)}:null}
 function invoiceRecordChecked(file,text,client){
   const compact=text.replace(/[ \t]+/g," "),supplier=invoiceSupplier(text,file.name),isAqualia=/aqualia/i.test(supplier.name);
-  const numbers=uniqueInvoiceValues([...invoiceAllMatches(compact,/(?:N[º°o.]?|n[uú]mero)[ \t]*(?:de[ \t]*)?factura[ \t]*[:#-]?[ \t]*([A-Z0-9][A-Z0-9\-/.]{4,})/gim),...invoiceAllMatches(compact,/factura[ \t]*(?:N[º°o.]?|n[uú]mero)[ \t]*[:#-]?[ \t]*([A-Z0-9][A-Z0-9\-/.]{4,})/gim)]).filter(value=>!/^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}$/.test(value));
-  const date=invoiceMatch(compact,[/(?:fecha\s+(?:de\s+)?emisi[oó]n(?:\s+factura)?|fecha\s+(?:de\s+)?factura|fecha\s+expedici[oó]n)\s*[:.-]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i]);
+  const numbers=uniqueInvoiceValues([...invoiceAllMatches(compact,/(?:N[º°o.]?|n[uú]mero)[ \t]*(?:de[ \t]*)?factura[ \t]*[:#-]?[ \t]*([A-Z0-9][A-Z0-9\-/.]{2,})/gim),...invoiceAllMatches(compact,/factura[ \t]*(?:N[º°o.]?|n[uú]mero)[ \t]*[:#-]?[ \t]*([A-Z0-9][A-Z0-9\-/.]{2,})/gim),...invoiceAllMatches(text,/^\s*N[uú]mero\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-/.]{1,})\s*$/gim)]).filter(value=>!/^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}$/.test(value));
+  const date=invoiceMatch(compact,[/(?:fecha\s+(?:de\s+)?emisi[oó]n(?:\s+factura)?|fecha\s+(?:de\s+)?factura|fecha\s+expedici[oó]n)\s*[:.-]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i,/^\s*fecha\s*[:.-]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})\s*$/im]);
   let total=invoiceLastAmount(compact,[/total\s+(?:importe\s+)?a\s+pagar\s*[:€]?\s*([\d.]+,\d{2})/gim,/total\s+importe\s+factura\s*[:€]?\s*([\d.]+,\d{2})/gim,/total\s+factura\s*[:€]?\s*([\d.]+,\d{2})/gim]);
   let base=invoiceLastAmount(compact,[/iva\s+normal\s*\([^)]*\)\s*(?:\d{1,2}(?:[,.]\d+)?\s*%\s*)?s\/?\s*([\d.]+,\d{2})/gim,/base\s+imponible\s*[:€]?\s*([\d.]+,\d{2})/gim,/importe\s+total\s*[:€]?\s*([\d.]+,\d{2})/gim]);
   let vat=invoiceLastAmount(compact,[/iva\s+normal\s*\([^)]*\).*?([\d.]+,\d{2})\s*€/gim,/importe\s+i\.?v\.?a\.?.*?([\d.]+,\d{2})(?:\s|$)/gim,/cuota\s+i\.?v\.?a\.?.*?([\d.]+,\d{2})/gim]);
   let vatRate=invoiceMatch(compact,[/iva\s+normal\s*\(?\s*(\d{1,2}(?:[,.]\d+)?)\s*%/i,/(\d{1,2}(?:[,.]\d+)?)\s*%\s+i\.?v\.?a\.?/i]);
+  const simpleSummary=text.match(/(?:Importe[^\n]{0,12})?IVA\*?[^\n]{0,12}Total\s+factura[\s\S]{0,100}?([\d.]+,\d{2})[^\d\n]{0,5}(\d{1,2}(?:[,.]\d+)?)\s*%[^\d\n]{0,5}([\d.]+,\d{2})/i);if(simpleSummary){base=invoiceAmount(simpleSummary[1]);vatRate=simpleSummary[2];total=invoiceAmount(simpleSummary[3]);vat=(Number(total)-Number(base)).toFixed(2)}
   const taxTotals=invoiceTaxTotals(text);if(taxTotals&&!isAqualia){base=taxTotals.base;vat=taxTotals.vat}
   if(isAqualia){total=invoiceLastAmount(compact,[/total\s+a\s+pagar\s*[:€]?\s*([\d.]+,\d{2})/gim])||total;vat="9.92";base=total?(Number(total)-Number(vat)).toFixed(2):"";vatRate="10 / No sujeto"}
   if(!base&&total&&vat)base=(Number(total)-Number(vat)).toFixed(2);
@@ -2285,8 +2295,8 @@ async function processInvoiceFiles(client){
   const status=document.querySelector("#invoiceProcessStatus"),button=document.querySelector("#processInvoices");
   if(!client){status.textContent="";showInvoiceProcessorBanner("Selecciona primero un cliente");document.querySelector("#invoiceClient")?.focus();return}if(!invoiceProcessorFiles.length){status.textContent="Añade al menos una factura.";return}
   button.disabled=true;button.textContent="Leyendo…";status.textContent="Analizando cada factura y comprobando sus importes…";
-  const records=[];for(const file of invoiceProcessorFiles){try{records.push(invoiceRecordChecked(file,await invoiceFileText(file),client))}catch{records.push(invoiceRecordChecked(file,"",client))}}
-  invoiceDraftRecords=records;renderInvoiceDraft(records);status.textContent=`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Confirma o corrige los datos antes de descargar.`;button.disabled=false;button.textContent="Volver a leer facturas";
+  const records=[];for(let index=0;index<invoiceProcessorFiles.length;index++){const file=invoiceProcessorFiles[index];try{records.push(invoiceRecordChecked(file,await invoiceFileText(file,()=>{status.textContent=`Factura ${index+1} de ${invoiceProcessorFiles.length}: imagen detectada, aplicando OCR…`}),client))}catch{records.push(invoiceRecordChecked(file,"",client))}}
+  await closeInvoiceOcrWorker();invoiceDraftRecords=records;renderInvoiceDraft(records);status.textContent=`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Confirma o corrige los datos antes de descargar.`;button.disabled=false;button.textContent="Volver a leer facturas";
 }
 
 function setupClientFolderDropZone(){
