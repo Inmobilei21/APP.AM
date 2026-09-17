@@ -2266,6 +2266,8 @@ function invoiceSupplier(text,fileName){
 function invoiceTaxTotals(text){let base=0,vat=0,count=0;for(const line of text.split(/\r?\n/)){if(!/\bIVA\b|I\.V\.A\./i.test(line)||!/[sS]\s*\//.test(line))continue;const baseMatch=line.match(/[sS]\s*\/\s*([\d.]+,\d{2})/),amounts=invoiceAllMatches(line,/([\d.]+,\d{2})\s*€/g);if(!baseMatch||!amounts.length)continue;base+=Number(invoiceAmount(baseMatch[1]));vat+=Number(invoiceAmount(amounts.at(-1)));count++}return count?{base:base.toFixed(2),vat:vat.toFixed(2)}:null}
 function invoiceRecordChecked(file,text,client){
   const compact=text.replace(/[ \t]+/g," "),supplier=invoiceSupplier(text,file.name),isAqualia=/aqualia/i.test(supplier.name);
+  const fileInvoiceMatch=file.name.match(/\bfactura[\s._-]*([A-Z0-9][A-Z0-9-]{1,})\b/i),fileDateMatch=file.name.match(/\b(20\d{2})[.\-_](0?[1-9]|1[0-2])[.\-_](0?[1-9]|[12]\d|3[01])\b/);
+  const fileInvoiceNumber=fileInvoiceMatch?.[1]||"",fileDate=fileDateMatch?`${fileDateMatch[3].padStart(2,"0")}/${fileDateMatch[2].padStart(2,"0")}/${fileDateMatch[1]}`:"";
   const numbers=uniqueInvoiceValues([...invoiceAllMatches(compact,/(?:N[º°o.]?|n[uú]mero)[ \t]*(?:de[ \t]*)?factura[ \t]*[:#-]?[ \t]*([A-Z0-9][A-Z0-9\-/.]{2,})/gim),...invoiceAllMatches(compact,/factura[ \t]*(?:N[º°o.]?|n[uú]mero)[ \t]*[:#-]?[ \t]*([A-Z0-9][A-Z0-9\-/.]{2,})/gim),...invoiceAllMatches(text,/^\s*N[uú]mero\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-/.]{1,})\s*$/gim)]).filter(value=>!/^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}$/.test(value));
   const date=invoiceMatch(compact,[/(?:fecha\s+(?:de\s+)?emisi[oó]n(?:\s+factura)?|fecha\s+(?:de\s+)?factura|fecha\s+expedici[oó]n)\s*[:.-]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i,/^\s*fecha\s*[:.-]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})\s*$/im]);
   let total=invoiceLastAmount(compact,[/total\s+(?:importe\s+)?a\s+pagar\s*[:€]?\s*([\d.]+,\d{2})/gim,/total\s+importe\s+factura\s*[:€]?\s*([\d.]+,\d{2})/gim,/total\s+factura\s*[:€]?\s*([\d.]+,\d{2})/gim]);
@@ -2277,7 +2279,7 @@ function invoiceRecordChecked(file,text,client){
   if(isAqualia){total=invoiceLastAmount(compact,[/total\s+a\s+pagar\s*[:€]?\s*([\d.]+,\d{2})/gim])||total;vat="9.92";base=total?(Number(total)-Number(vat)).toFixed(2):"";vatRate="10 / No sujeto"}
   if(!base&&total&&vat)base=(Number(total)-Number(vat)).toFixed(2);
   const calculated=base&&vat?(Number(base)+Number(vat)).toFixed(2):"",observation=calculated&&total&&Math.abs(Number(calculated)-Number(total))>.02?"Revisar: base + IVA no coincide con el total":"";
-  return{client,number:numbers.join(" / "),date,supplier:supplier.name,supplierNif:supplier.nif,base,vatRate,vat,total,file:file.name,observation};
+  return{client,number:fileInvoiceNumber||numbers.join(" / "),date:fileDate||date,supplier:supplier.name,supplierNif:supplier.nif,base,vatRate,vat,total,file:file.name,observation};
 }
 function excelXmlEscape(value){return String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function downloadInvoiceExcel(records,client){
