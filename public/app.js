@@ -2264,6 +2264,12 @@ function invoiceSupplier(text,fileName){
   return{name:match?.[1]?.trim()||"",nif:match?.[2]||""};
 }
 function invoiceTaxTotals(text){let base=0,vat=0,count=0;for(const line of text.split(/\r?\n/)){if(!/\bIVA\b|I\.V\.A\./i.test(line)||!/[sS]\s*\//.test(line))continue;const baseMatch=line.match(/[sS]\s*\/\s*([\d.]+,\d{2})/),amounts=invoiceAllMatches(line,/([\d.]+,\d{2})\s*€/g);if(!baseMatch||!amounts.length)continue;base+=Number(invoiceAmount(baseMatch[1]));vat+=Number(invoiceAmount(amounts.at(-1)));count++}return count?{base:base.toFixed(2),vat:vat.toFixed(2)}:null}
+function inmobileiInvoiceTotals(text){
+  const moneyPattern=/\d{1,3}(?:[.\s]\d{3})*[,.]\d{2}|\d+[,.]\d{2}/g;
+  for(const line of text.split(/\r?\n/)){if(!/%/.test(line))continue;const amounts=line.match(moneyPattern)||[],rate=line.match(/(\d{1,2}(?:[,.]\d+)?)\s*%/);if(amounts.length>=2&&rate)return{base:invoiceAmount(amounts[0]),rate:rate[1],total:invoiceAmount(amounts.at(-1))}}
+  const summary=text.match(/(?:importe|total\s+factura)[\s\S]{0,180}/i)?.[0]||"",summaryAmounts=summary.match(moneyPattern)||[];if(summaryAmounts.length>=2)return{base:invoiceAmount(summaryAmounts[0]),rate:/0\s*%/.test(summary)?"0":"",total:invoiceAmount(summaryAmounts.at(-1))};
+  let sum=0,count=0;for(const line of text.split(/\r?\n/)){if(!/(?:mensualidad|consumos?\s+(?:electricidad|wifi|gas|agua))\s+(?:del\s+)?mes/i.test(line))continue;const amounts=line.match(moneyPattern)||[];if(amounts.length){sum+=Number(invoiceAmount(amounts.at(-1)));count++}}return count?{base:sum.toFixed(2),rate:"0",total:sum.toFixed(2)}:null;
+}
 function invoiceRecordChecked(file,text,client){
   const compact=text.replace(/[ \t]+/g," "),supplier=invoiceSupplier(text,file.name),isAqualia=/aqualia/i.test(supplier.name);
   const fileInvoiceMatch=file.name.match(/\bfactura[\s._-]*([A-Z0-9][A-Z0-9-]{1,})\b/i),fileDateMatch=file.name.match(/\b(20\d{2})[.\-_](0?[1-9]|1[0-2])[.\-_](0?[1-9]|[12]\d|3[01])\b/);
@@ -2275,6 +2281,7 @@ function invoiceRecordChecked(file,text,client){
   let vat=invoiceLastAmount(compact,[/iva\s+normal\s*\([^)]*\).*?([\d.]+,\d{2})\s*€/gim,/importe\s+i\.?v\.?a\.?.*?([\d.]+,\d{2})(?:\s|$)/gim,/cuota\s+i\.?v\.?a\.?.*?([\d.]+,\d{2})/gim]);
   let vatRate=invoiceMatch(compact,[/iva\s+normal\s*\(?\s*(\d{1,2}(?:[,.]\d+)?)\s*%/i,/(\d{1,2}(?:[,.]\d+)?)\s*%\s+i\.?v\.?a\.?/i]);
   const simpleSummary=text.match(/(?:Importe[^\n]{0,12})?IVA\*?[^\n]{0,12}Total\s+factura[\s\S]{0,100}?([\d.]+,\d{2})[^\d\n]{0,5}(\d{1,2}(?:[,.]\d+)?)\s*%[^\d\n]{0,5}([\d.]+,\d{2})/i);if(simpleSummary){base=invoiceAmount(simpleSummary[1]);vatRate=simpleSummary[2];total=invoiceAmount(simpleSummary[3]);vat=(Number(total)-Number(base)).toFixed(2)}
+  if(/inmobilei/i.test(supplier.name)){const detected=inmobileiInvoiceTotals(text);if(detected){base=detected.base||base;vatRate=detected.rate||vatRate;total=detected.total||total;if(base&&total)vat=Math.max(0,Number(total)-Number(base)).toFixed(2)}}
   const taxTotals=invoiceTaxTotals(text);if(taxTotals&&!isAqualia){base=taxTotals.base;vat=taxTotals.vat}
   if(isAqualia){total=invoiceLastAmount(compact,[/total\s+a\s+pagar\s*[:€]?\s*([\d.]+,\d{2})/gim])||total;vat="9.92";base=total?(Number(total)-Number(vat)).toFixed(2):"";vatRate="10 / No sujeto"}
   if(!base&&total&&vat)base=(Number(total)-Number(vat)).toFixed(2);
