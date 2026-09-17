@@ -226,7 +226,7 @@ function billingDateLabel(value){
 function updateBillingAlerts(){
   const nav=document.querySelector('nav button[data-title="Gestión"]');
   let badge=nav?.querySelector(".billing-nav-alert");
-  if(!billingUnreadCount){badge?.remove();nav?.classList.remove("has-billing-alert")}else if(nav){if(!badge){badge=document.createElement("span");badge.className="billing-nav-alert";badge.setAttribute("aria-label","Nuevos trabajos para facturación");nav.appendChild(badge)}badge.textContent=billingUnreadCount>99?"99+":String(billingUnreadCount);nav.classList.add("has-billing-alert")}
+  if(!billingUnreadCount){badge?.remove();nav?.classList.remove("has-billing-alert")}else if(nav){if(!badge){badge=document.createElement("span");badge.className="billing-nav-alert";nav.appendChild(badge)}const count=billingUnreadCount>99?"99+":String(billingUnreadCount);badge.setAttribute("aria-label",`${count} nuevos avisos de facturación`);badge.innerHTML=`<b>F</b><small>${count}</small>`;nav.classList.add("has-billing-alert")}
   const tab=document.querySelector("[data-billing-tab-alert]");if(tab){tab.hidden=!billingUnreadCount;tab.textContent=billingUnreadCount>99?"99+":String(billingUnreadCount)}
 }
 async function refreshBillingData(redraw=false){
