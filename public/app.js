@@ -2181,6 +2181,11 @@ function renderFolderView(name){
 }
 
 let invoiceProcessorFiles=[],invoiceDraftRecords=[];
+function showInvoiceProcessorBanner(message){
+  const panel=document.querySelector("#invoiceProcessor");if(!panel)return;let banner=panel.querySelector(".invoice-process-banner");
+  if(!banner){banner=document.createElement("div");banner.className="invoice-process-banner";banner.setAttribute("role","alert");panel.querySelector(".invoice-selected-files")?.before(banner)}
+  banner.innerHTML=`<span aria-hidden="true">!</span><strong>${escapeHtml(message)}</strong>`;banner.hidden=false;
+}
 async function setupInvoiceProcessor(){
   const panel=document.querySelector("#invoiceProcessor"),open=document.querySelector("#openInvoiceProcessor");if(!panel||!open)return;
   const select=panel.querySelector("#invoiceClient"),input=panel.querySelector("#invoiceFiles"),drop=panel.querySelector("#invoiceDropZone");
@@ -2193,8 +2198,9 @@ async function setupInvoiceProcessor(){
   ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();drop.classList.add("dragging")}));
   ["dragleave","drop"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();drop.classList.remove("dragging")}));
   drop.addEventListener("drop",event=>addFiles(event.dataTransfer.files));
+  select.addEventListener("change",()=>{panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","")});
   panel.querySelector("#processInvoices").addEventListener("click",()=>processInvoiceFiles(select.value));
-  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);panel.querySelector("#invoiceProcessStatus").textContent="Datos confirmados. El Excel se ha descargado."});
+  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);invoiceProcessorFiles=[];invoiceDraftRecords=[];select.value="";input.value="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";panel.querySelector("#processInvoices").textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()});
 }
 async function invoiceFileText(file){
   if(/\.(xml|txt)$/i.test(file.name))return file.text();
@@ -2255,7 +2261,7 @@ function renderInvoiceDraft(records){
 function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows input").forEach(input=>{records[Number(input.dataset.invoiceRow)][input.dataset.invoiceField]=input.value.trim()});return records}
 async function processInvoiceFiles(client){
   const status=document.querySelector("#invoiceProcessStatus"),button=document.querySelector("#processInvoices");
-  if(!client){status.textContent="Selecciona un cliente.";return}if(!invoiceProcessorFiles.length){status.textContent="Añade al menos una factura.";return}
+  if(!client){status.textContent="";showInvoiceProcessorBanner("Selecciona primero un cliente");document.querySelector("#invoiceClient")?.focus();return}if(!invoiceProcessorFiles.length){status.textContent="Añade al menos una factura.";return}
   button.disabled=true;button.textContent="Leyendo…";status.textContent="Analizando cada factura y comprobando sus importes…";
   const records=[];for(const file of invoiceProcessorFiles){try{records.push(invoiceRecordChecked(file,await invoiceFileText(file),client))}catch{records.push(invoiceRecordChecked(file,"",client))}}
   invoiceDraftRecords=records;renderInvoiceDraft(records);status.textContent=`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Confirma o corrige los datos antes de descargar.`;button.disabled=false;button.textContent="Volver a leer facturas";
