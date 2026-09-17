@@ -1,5 +1,6 @@
 document.documentElement.classList.add("auth-pending");
 let signedInUser=null;
+let clientPreviewMode=false;
 const teamUsers=[
   {id:"manuel",name:"Manuel Molinero",role:"admin"},{id:"alvaro",name:"Álvaro Molinero",role:"admin"},
   {id:"francisco",name:"Francisco Molinero",role:"user"},{id:"araceli",name:"Araceli Frías",role:"user"},{id:"jesus",name:"Jesús Carratalá",role:"user"}
@@ -30,9 +31,10 @@ function authCard({setup=false,users=[]}={}){
 async function checkAuthentication(){try{const status=await apiJson("/api/auth/status");if(status.user){signedInUser=status.user;document.documentElement.classList.remove("auth-pending");updateProfileButtons();loadSharedTasks();refreshChatData();refreshBillingData()}else authCard({setup:status.needsSetup,users:status.users})}catch{authCard()}}
 function openAccountPanel(){
   document.querySelector("#accountPanel")?.remove();const shell=document.createElement("div");shell.id="accountPanel";shell.className="account-shell";
-  shell.innerHTML=`<div class="account-backdrop"></div><section class="account-card"><button class="account-close" aria-label="Cerrar">×</button><p class="eyebrow">MI CUENTA</p><h2>${signedInUser.name}</h2><p>${signedInUser.role==="admin"?"Administración de usuarios y contraseñas":"Sesión de usuario"}</p><div class="account-users">${signedInUser.role==="admin"?teamUsers.map(user=>`<form data-user-id="${user.id}"><div><strong>${user.name}</strong><small>${user.role==="admin"?"Administrador":"Usuario"}</small></div><input type="password" minlength="6" placeholder="Nueva contraseña" required><button type="submit">Guardar</button></form>`).join(""):""}</div><p class="account-message"></p><button class="logout-button" type="button">Cerrar sesión</button></section>`;document.body.appendChild(shell);
+  shell.innerHTML=`<div class="account-backdrop"></div><section class="account-card"><button class="account-close" aria-label="Cerrar">×</button><p class="eyebrow">MI CUENTA</p><h2>${signedInUser.name}</h2><p>${signedInUser.role==="admin"?"Administración de usuarios y contraseñas":"Sesión de usuario"}</p><button class="view-mode-button" type="button"><span>${clientPreviewMode?"▣":"▱"}</span><span><strong>${clientPreviewMode?"Visión como despacho":"Visión como cliente"}</strong><small>${clientPreviewMode?"Volver a la aplicación de gestión":"Abrir la maqueta temporal del portal"}</small></span><b>›</b></button><div class="account-users">${signedInUser.role==="admin"?teamUsers.map(user=>`<form data-user-id="${user.id}"><div><strong>${user.name}</strong><small>${user.role==="admin"?"Administrador":"Usuario"}</small></div><input type="password" minlength="6" placeholder="Nueva contraseña" required><button type="submit">Guardar</button></form>`).join(""):""}</div><p class="account-message"></p><button class="logout-button" type="button">Cerrar sesión</button></section>`;document.body.appendChild(shell);
   const close=()=>shell.remove();shell.querySelector(".account-close").onclick=close;shell.querySelector(".account-backdrop").onclick=close;
   shell.querySelectorAll("[data-user-id]").forEach(form=>form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector("button"),message=shell.querySelector(".account-message");button.disabled=true;try{await apiJson(`/api/users/${form.dataset.userId}`,{method:"PUT",body:JSON.stringify({password:form.querySelector("input").value})});form.reset();message.textContent="Contraseña actualizada correctamente."}catch(reason){message.textContent=reason.message}finally{button.disabled=false}});
+  shell.querySelector(".view-mode-button").onclick=()=>{close();toggleClientPreview()};
   shell.querySelector(".logout-button").onclick=async()=>{await apiJson("/api/auth/logout",{method:"POST"});location.reload()};
 }
 checkAuthentication();
@@ -53,6 +55,26 @@ function installHomeActivityLayout(){
 }
 installHomeActivityLayout();
 const homeMarkup=main.innerHTML;
+const clientPortalIcons={
+  document:'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h5"/></svg>',
+  people:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1M16 6a3 3 0 0 1 0 6M17 14a4 4 0 0 1 4 4v2"/></svg>',
+  shield:'<svg viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6zM9 12l2 2 4-5"/></svg>',
+  chart:'<svg viewBox="0 0 24 24"><path d="M5 20V11h4v9M10 20V5h4v15M15 20v-7h4v7"/></svg>',
+  admin:'<svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6zM14 3v4h4M9 11h6M9 15h6"/></svg>',
+  legal:'<svg viewBox="0 0 24 24"><path d="M12 3v18M6 6h12M7 6l-4 7h8zM17 6l-4 7h8zM8 21h8"/></svg>'
+};
+function clientServiceCard(title,icon,contracted=false){return `<button class="client-service-card${contracted?" contracted":""}" type="button" aria-disabled="true">${contracted?"":'<span class="client-service-lock">●</span>'}<span class="client-service-icon">${clientPortalIcons[icon]}</span><strong>${title}</strong><small>${contracted?"Contratado":"No contratado"}</small></button>`}
+function renderClientPreview(){
+  clientPreviewMode=true;document.body.classList.add("client-preview-mode");closeMenu();
+  const realLogo=document.querySelector(".brand img")?.src||"/app-icon.png";
+  main.innerHTML=`<div class="client-portal-shell"><header class="client-portal-header"><img src="${realLogo}" alt="Asesoría Molinero"><button class="profile client-preview-user" type="button" aria-label="Usuario activo"><span>${initials(signedInUser?.name||"AM")}</span><span class="profile-copy"><strong>${escapeHtml(signedInUser?.name||"Usuario activo")}</strong><small>Visión cliente</small></span></button></header><div class="client-portal-content"><section class="client-greeting"><h1>Hola, Inmobilei</h1><p>Nos alegra verte por aquí.</p></section><button class="client-document-banner" type="button" aria-disabled="true"><span>${clientPortalIcons.document}</span><strong>Tu documentación<br>siempre a mano</strong><b>→</b></button><section class="client-services"><div class="client-section-title"><h2>Mis servicios</h2><button type="button" aria-disabled="true">Ver todos</button></div><div class="client-services-grid">${clientServiceCard("Asesoría Fiscal y Contable","document",true)}${clientServiceCard("Asesoría Laboral","people")}${clientServiceCard("Protección de Datos","shield")}${clientServiceCard("Auditoría de Cuentas","chart")}${clientServiceCard("Gestión Administrativa","admin")}${clientServiceCard("Servicios Jurídicos","legal")}</div></section><button class="client-help-card" type="button" aria-disabled="true"><span>↗</span><span><strong>¿Necesitas algo?</strong><small>Escríbenos y te ayudamos</small></span><b>→</b></button></div><nav class="client-portal-nav" aria-label="Navegación del portal de cliente"><button class="active" type="button"><span>⌂</span><small>Inicio</small></button><button type="button"><span>▤</span><small>Documentos</small></button><button type="button"><span>◌</span><small>Mensajes</small></button><button type="button"><span>♙</span><small>Perfil</small></button></nav></div>`;
+  updateProfileButtons();document.querySelector(".client-preview-user").onclick=openAccountPanel;
+}
+function closeClientPreview(){
+  clientPreviewMode=false;document.body.classList.remove("client-preview-mode");
+  const home=document.querySelector('.sidebar nav button[data-title="Inicio"]');if(home)home.click();else{main.innerHTML=homeMarkup;bindHeader();initHome()}
+}
+function toggleClientPreview(){clientPreviewMode?closeClientPreview():renderClientPreview()}
 let currentEntries=[];
 let folderHistory=[];
 let activeFolderConfig=null;
