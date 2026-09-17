@@ -109,6 +109,7 @@ let activeFolderConfig=null;
 let currentDirectoryHandle=null;
 const FOLDER_VIEW_STORAGE_KEY="app-am-folder-view";
 let folderViewMode=localStorage.getItem(FOLDER_VIEW_STORAGE_KEY)==="list"?"list":"grid";
+const archiveFolderIcon=()=>'<span class="folder-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 7.25V6a2 2 0 0 1 2-2h4.1l2 2h6.9a2 2 0 0 1 2 2v1.25"/><path d="M3 9.25h18l-1.25 9.25a2 2 0 0 1-2 1.75H6.25a2 2 0 0 1-2-1.75L3 9.25Z"/><path d="M9 13.25h6"/></svg></span>';
 const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIONES","ESCRITURAS","LIBROS OFICIALES","OTRA DOCUMENTACIÓN"];
 
 document.querySelector("#menu").addEventListener("click",openMenu);
@@ -576,7 +577,7 @@ async function loadManagementClients(){
     }
     clients.sort((a,b)=>a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
     const historical=managementClientView==="historical";
-    grid.innerHTML=clients.length?clients.map(client=>`<div class="folder-card management-client ${historical?"historical-client":""}" data-client="${escapeHtml(client.name.toLocaleLowerCase("es"))}" data-client-name="${escapeHtml(client.name)}" tabindex="0" role="button" aria-label="Abrir ficha de ${escapeHtml(client.name)}"><span class="folder-icon">${historical?"◷":"▰"}</span><span><strong>${escapeHtml(client.name)}</strong><small>${historical?"Cliente histórico · abrir ficha":"Ver ficha del cliente"}</small></span><span class="client-card-arrow" aria-hidden="true">›</span></div>`).join(""):`<div class="empty folder-empty"><h4>${historical?"No hay clientes históricos":"No hay clientes activos"}</h4></div>`;
+    grid.innerHTML=clients.length?clients.map(client=>`<div class="folder-card management-client ${historical?"historical-client":""}" data-client="${escapeHtml(client.name.toLocaleLowerCase("es"))}" data-client-name="${escapeHtml(client.name)}" tabindex="0" role="button" aria-label="Abrir ficha de ${escapeHtml(client.name)}">${archiveFolderIcon()}<span><strong>${escapeHtml(client.name)}</strong><small>${historical?"Cliente histórico · abrir ficha":"Ver ficha del cliente"}</small></span><span class="client-card-arrow" aria-hidden="true">›</span></div>`).join(""):`<div class="empty folder-empty"><h4>${historical?"No hay clientes históricos":"No hay clientes activos"}</h4></div>`;
     document.querySelector("#managementClientHeading").textContent=historical?"Clientes históricos":"Clientes activos";
     document.querySelector("#managementCount").textContent=`${clients.length} ${clients.length===1?"cliente":"clientes"}`;
     grid.querySelectorAll(".management-client").forEach(card=>{
@@ -2302,7 +2303,7 @@ function renderEntries(entries){
   document.querySelector("#folderCount").textContent=`${entries.length} ${entries.length===1?"elemento":"elementos"}`;
   const grid=document.querySelector("#folderGrid");
   grid.innerHTML=entries.length
-    ? entries.map((entry,index)=>`<button class="folder-card" data-index="${index}" data-client="${escapeHtml(entry.name.toLocaleLowerCase("es"))}">${entry.kind==="directory"?'<span class="folder-icon">▰</span>':documentTypeVisual(entry.name)}<span><strong>${escapeHtml(entry.name)}</strong><small>${entry.kind==="directory"?"Abrir carpeta":"Abrir documento"}</small></span></button>`).join("")
+    ? entries.map((entry,index)=>`<button class="folder-card" data-index="${index}" data-client="${escapeHtml(entry.name.toLocaleLowerCase("es"))}">${entry.kind==="directory"?archiveFolderIcon():documentTypeVisual(entry.name)}<span><strong>${escapeHtml(entry.name)}</strong><small>${entry.kind==="directory"?"Abrir carpeta":"Abrir documento"}</small></span></button>`).join("")
     : `<div class="empty folder-empty"><span>▤</span><h4>Carpeta vacía</h4><p>No contiene documentos ni subcarpetas.</p></div>`;
   grid.querySelectorAll(".folder-card").forEach(card=>card.addEventListener("click",()=>openEntry(Number(card.dataset.index))));
 }
