@@ -2227,7 +2227,7 @@ async function setupInvoiceProcessor(){
 async function getInvoiceOcrWorker(){
   if(invoiceOcrWorker)return invoiceOcrWorker;
   if(!window.Tesseract?.createWorker)throw new Error("No se ha podido cargar el lector OCR");
-  invoiceOcrWorker=await window.Tesseract.createWorker("spa",1,{workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",langPath:"https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa/4.0.0_best_int"});return invoiceOcrWorker;
+  invoiceOcrWorker=await window.Tesseract.createWorker("spa",1,{workerPath:"/vendor/tesseract-worker.min.js?v=5.1.1",corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",langPath:"https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa/4.0.0_best_int"});return invoiceOcrWorker;
 }
 async function closeInvoiceOcrWorker(){if(!invoiceOcrWorker)return;const worker=invoiceOcrWorker;invoiceOcrWorker=null;await worker.terminate().catch(()=>{})}
 async function invoiceFileText(file,onOcr){
