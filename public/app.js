@@ -45,6 +45,7 @@ const main=document.querySelector("main");
 function installHomeActivityLayout(){
   const welcome=main.querySelector(".welcome"),metrics=main.querySelector(".metrics"),news=main.querySelector(".news-portal");
   if(!welcome||!metrics||!news)return;
+  [["homeClientsCount","Clientes"],["homeContactsCount","Contactos"],["homeTasksCount","Tareas"],["homeWorkersCount","Trabajadores"]].forEach(([id,route])=>{const card=metrics.querySelector(`#${id}`)?.closest("article");if(card){card.dataset.homeRoute=route;card.setAttribute("role","button");card.tabIndex=0;card.setAttribute("aria-label",`Abrir ${route}`)}});
   const layout=document.createElement("div"),rail=document.createElement("aside");
   layout.className="home-dashboard-layout";rail.className="home-activity-rail";rail.setAttribute("aria-label","Resumen de actividad");
   rail.innerHTML=`
@@ -915,6 +916,7 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
     const title=destination==="tasks"?"Tareas":destination==="calendar"?"Calendario":destination;
     document.querySelector(`nav button[data-title="${title}"]`)?.click();
   }));
+  document.querySelectorAll(".metrics [data-home-route]").forEach(card=>card.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();card.click()}}));
   document.querySelectorAll("[data-home-open-chat]").forEach(button=>button.addEventListener("click",()=>{document.querySelector("#chatLauncher")?.click();setTimeout(()=>renderConversation(button.dataset.homeOpenChat),0)}));
 }
 async function initHome(){
