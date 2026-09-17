@@ -143,6 +143,8 @@ const usersFile = path.join(dataDirectory, "users.json");
 const sessionsFile = path.join(dataDirectory, "sessions.json");
 const messagesFile = path.join(dataDirectory, "messages.json");
 const tasksFile = path.join(dataDirectory, "tasks.json");
+const billingFile = path.join(dataDirectory, "billing.json");
+const billingReadsFile = path.join(dataDirectory, "billing-reads.json");
 const sessionDuration = 30 * 24 * 60 * 60 * 1000;
 const applicationVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || "local";
 const sessions = new Map();
@@ -461,6 +463,34 @@ http.createServer((req, res) => {
       message,
       unreadCount: messages.filter(item => item.senderId === otherId && item.recipientId === user.id && !item.readAt).length
     })).sort((a,b) => String(b.message.createdAt).localeCompare(String(a.message.createdAt))));
+  }
+  if (requestPath === "/api/billing" && req.method === "GET") {
+    const user = requireUser(req, res);if (!user) return;
+    const entries = loadCollection(billingFile).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    const lastRead = loadCollection(billingReadsFile).find(item => item.userId === user.id)?.readAt || "";
+    const unreadCount = entries.filter(item => item.employeeId !== user.id && String(item.createdAt) > lastRead).length;
+    return json(res, 200, { entries, unreadCount });
+  }
+  if (requestPath === "/api/billing" && req.method === "POST") {
+    const user = requireUser(req, res);if (!user) return;
+    return readJson(req, 64 * 1024).then(({ date, client, description, hours }) => {
+      const workDate = cleanText(date, 10), clientName = cleanText(client, 160), workDescription = cleanText(description, 1500), duration = cleanText(hours, 8);
+      const allowedHours = new Set([...Array.from({ length: 24 }, (_, index) => String((index + 1) / 2)), "12+"]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) return json(res, 400, { error: "Indique una fecha válida." });
+      if (!workDescription) return json(res, 400, { error: "Describa el trabajo realizado." });
+      if (!allowedHours.has(duration)) return json(res, 400, { error: "Seleccione unas horas válidas." });
+      const entries = loadCollection(billingFile);
+      const entry = { id: crypto.randomUUID(), date: workDate, client: clientName, description: workDescription, hours: duration, employeeId: user.id, employee: user.name, createdAt: new Date().toISOString() };
+      entries.push(entry);saveCollection(billingFile, entries.slice(-10000));
+      return json(res, 201, entry);
+    }).catch(() => json(res, 400, { error: "No se pudo guardar el trabajo para facturación." }));
+  }
+  if (requestPath === "/api/billing/read" && req.method === "POST") {
+    const user = requireUser(req, res);if (!user) return;
+    const reads = loadCollection(billingReadsFile), index = reads.findIndex(item => item.userId === user.id);
+    const record = { userId: user.id, readAt: new Date().toISOString() };
+    if (index >= 0) reads[index] = record;else reads.push(record);
+    saveCollection(billingReadsFile, reads);return json(res, 200, { read: true });
   }
   if (requestPath === "/api/tasks" && req.method === "GET") {
     const user = requireUser(req, res);if (!user) return;
