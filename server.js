@@ -220,6 +220,12 @@ function teamMember(value) {
   const key = String(value || "").trim().toLocaleLowerCase("es");
   return team.find(member => member.id === key || member.name.toLocaleLowerCase("es") === key) || null;
 }
+function clientChatParticipant(value) {
+  const id = cleanText(value, 180);
+  if (!id.startsWith("client:") || id.length <= 7) return null;
+  return { id, name: id.slice(7), role: "client" };
+}
+function chatParticipant(value) { return teamMember(value) || clientChatParticipant(value); }
 function cleanText(value, maximum = 500) { return String(value || "").trim().slice(0, maximum); }
 
 const webdavBaseUrl = (process.env.WEBDAV_URL || "https://servidor.asesoriamolinero.es").replace(/\/+$/, "");
@@ -417,8 +423,8 @@ http.createServer((req, res) => {
   }
   if (requestPath === "/api/chat/messages" && req.method === "GET") {
     const user = requireUser(req, res);if (!user) return;
-    const other = teamMember(new URL(req.url, "http://localhost").searchParams.get("with"));
-    if (!other || other.id === user.id) return json(res, 400, { error: "Seleccione otro trabajador." });
+    const other = chatParticipant(new URL(req.url, "http://localhost").searchParams.get("with"));
+    if (!other || other.id === user.id) return json(res, 400, { error: "Seleccione una conversación válida." });
     const messages = loadCollection(messagesFile).filter(message =>
       (message.senderId === user.id && message.recipientId === other.id) ||
       (message.senderId === other.id && message.recipientId === user.id)
@@ -428,7 +434,7 @@ http.createServer((req, res) => {
   if (requestPath === "/api/chat/messages" && req.method === "POST") {
     const user = requireUser(req, res);if (!user) return;
     return readJson(req).then(({ recipientId, text }) => {
-      const recipient = teamMember(recipientId), body = cleanText(text, 500);
+      const recipient = chatParticipant(recipientId), body = cleanText(text, 500);
       if (!recipient || recipient.id === user.id) return json(res, 400, { error: "Destinatario no válido." });
       if (!body) return json(res, 400, { error: "Escriba un mensaje." });
       const messages = loadCollection(messagesFile), createdAt = new Date().toISOString();
@@ -440,12 +446,40 @@ http.createServer((req, res) => {
   if (requestPath === "/api/chat/read" && req.method === "POST") {
     const user = requireUser(req, res);if (!user) return;
     return readJson(req).then(({ withUserId }) => {
-      const other = teamMember(withUserId);
+      const other = chatParticipant(withUserId);
       if (!other || other.id === user.id) return json(res, 400, { error: "Conversación no válida." });
       const messages = loadCollection(messagesFile), readAt = new Date().toISOString();let changed = false;
       for (const message of messages) if (message.senderId === other.id && message.recipientId === user.id && !message.readAt) { message.readAt = readAt;changed = true; }
       if (changed) saveCollection(messagesFile, messages);
       return json(res, 200, { read: true });
+    }).catch(() => json(res, 400, { error: "No se pudo marcar la conversación como leída." }));
+  }
+  if (requestPath === "/api/client-chat/messages" && req.method === "GET") {
+    if (!requireUser(req, res)) return;
+    const url = new URL(req.url, "http://localhost"), clientName = cleanText(url.searchParams.get("client"), 160), employee = teamMember(url.searchParams.get("with"));
+    if (!clientName || !employee || employee.id === "manuel") return json(res, 400, { error: "Conversación no válida." });
+    const clientId = `client:${clientName}`, messages = loadCollection(messagesFile).filter(message =>
+      (message.senderId === clientId && message.recipientId === employee.id) || (message.senderId === employee.id && message.recipientId === clientId)
+    ).sort((a,b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    return json(res, 200, messages);
+  }
+  if (requestPath === "/api/client-chat/messages" && req.method === "POST") {
+    if (!requireUser(req, res)) return;
+    return readJson(req).then(({ client, recipientId, text }) => {
+      const clientName = cleanText(client, 160), recipient = teamMember(recipientId), body = cleanText(text, 500);
+      if (!clientName || !recipient || recipient.id === "manuel") return json(res, 400, { error: "Destinatario no válido." });
+      if (!body) return json(res, 400, { error: "Escriba un mensaje." });
+      const messages = loadCollection(messagesFile), message = { id: crypto.randomUUID(), senderId: `client:${clientName}`, senderName: clientName, clientName, recipientId: recipient.id, text: body, createdAt: new Date().toISOString() };
+      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));return json(res, 201, message);
+    }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
+  }
+  if (requestPath === "/api/client-chat/read" && req.method === "POST") {
+    if (!requireUser(req, res)) return;
+    return readJson(req).then(({ client, withUserId }) => {
+      const clientName = cleanText(client, 160), employee = teamMember(withUserId);if (!clientName || !employee || employee.id === "manuel") return json(res, 400, { error: "Conversación no válida." });
+      const clientId = `client:${clientName}`, messages = loadCollection(messagesFile), readAt = new Date().toISOString();let changed = false;
+      for (const message of messages) if (message.senderId === employee.id && message.recipientId === clientId && !message.readAt) { message.readAt = readAt;changed = true; }
+      if (changed) saveCollection(messagesFile, messages);return json(res, 200, { read: true });
     }).catch(() => json(res, 400, { error: "No se pudo marcar la conversación como leída." }));
   }
   if (requestPath === "/api/chat/recent" && req.method === "GET") {

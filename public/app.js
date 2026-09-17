@@ -109,6 +109,27 @@ async function openClientDocuments(){
     search.addEventListener("input",()=>{const query=search.value.trim().toLocaleLowerCase("es");list.querySelectorAll(".client-document-row").forEach(row=>row.hidden=Boolean(query&&!row.dataset.search.includes(query)))});
   }catch{list.innerHTML='<div class="client-documents-empty"><strong>No se pudo cargar la documentación</strong><small>Comprueba la conexión con el servidor e inténtalo de nuevo.</small></div>'}
 }
+const clientChatAdvisors=[{id:"alvaro",name:"Álvaro Molinero"},{id:"jesus",name:"Jesús Carratalá"},{id:"araceli",name:"Araceli Frías"},{id:"francisco",name:"Francisco Molinero"}];
+let clientChatRefreshTimer=null,activeClientAdvisor=null;
+function closeClientChat(){clearInterval(clientChatRefreshTimer);clientChatRefreshTimer=null;activeClientAdvisor=null;document.querySelector(".client-chat-overlay")?.remove()}
+function clientPortalMessageMarkup(messages){const clientId=`client:${clientPreviewName}`;return messages.length?messages.map(message=>{const outgoing=message.senderId===clientId,read=outgoing&&message.readAt;return `<div class="client-chat-message ${outgoing?"outgoing":"incoming"}"><p>${escapeHtml(message.text)}</p><time>${chatMessageTime(message.createdAt)}${outgoing?` <span class="chat-read-ticks${read?" read":""}">${read?"✓✓":"✓"}</span>`:""}</time></div>`}).join(""):'<div class="client-chat-empty"><strong>Aún no hay mensajes</strong><small>Escribe tu consulta y tu asesor la recibirá en su chat.</small></div>'}
+function renderClientAdvisorList(overlay){
+  activeClientAdvisor=null;clearInterval(clientChatRefreshTimer);clientChatRefreshTimer=null;const content=overlay.querySelector(".client-chat-content");
+  overlay.querySelector(".client-chat-title").textContent="Mensajes";content.innerHTML=`<div class="client-chat-intro"><strong>¿Con quién quieres hablar?</strong><span>Elige el asesor al que deseas enviar tu consulta.</span></div><div class="client-chat-advisors">${clientChatAdvisors.map(advisor=>`<button type="button" data-client-advisor="${advisor.id}"><span>${workerInitials(advisor.name)}</span><div><strong>${advisor.name.split(" ")[0]}</strong><small>Hablar con el asesor</small></div><b>›</b></button>`).join("")}</div>`;
+  content.querySelectorAll("[data-client-advisor]").forEach(button=>button.addEventListener("click",()=>renderClientAdvisorConversation(overlay,button.dataset.clientAdvisor)));
+}
+async function refreshClientAdvisorMessages(overlay,advisor,scroll=false){
+  const box=overlay.querySelector(".client-chat-messages");if(!box||activeClientAdvisor?.id!==advisor.id)return;const messages=await apiJson(`/api/client-chat/messages?client=${encodeURIComponent(clientPreviewName)}&with=${encodeURIComponent(advisor.id)}`);await apiJson("/api/client-chat/read",{method:"POST",body:JSON.stringify({client:clientPreviewName,withUserId:advisor.id})});box.innerHTML=clientPortalMessageMarkup(messages);if(scroll)box.scrollTop=box.scrollHeight;
+}
+async function renderClientAdvisorConversation(overlay,advisorId){
+  const advisor=clientChatAdvisors.find(item=>item.id===advisorId);if(!advisor)return;activeClientAdvisor=advisor;clearInterval(clientChatRefreshTimer);overlay.querySelector(".client-chat-title").textContent=advisor.name.split(" ")[0];const content=overlay.querySelector(".client-chat-content");
+  content.innerHTML=`<div class="client-chat-conversation-head"><button type="button" data-client-chat-back>←</button><span>${workerInitials(advisor.name)}</span><div><strong>${advisor.name}</strong><small>Asesoría Molinero</small></div></div><div class="client-chat-messages"><div class="client-chat-empty"><strong>Cargando conversación…</strong></div></div><form class="client-chat-composer"><textarea rows="1" maxlength="500" required placeholder="Escribe un mensaje…"></textarea><button type="submit" aria-label="Enviar">➤</button></form>`;
+  content.querySelector("[data-client-chat-back]").addEventListener("click",()=>renderClientAdvisorList(overlay));content.querySelector("form").addEventListener("submit",async event=>{event.preventDefault();const input=event.currentTarget.querySelector("textarea"),text=input.value.trim();if(!text)return;const button=event.currentTarget.querySelector("button");button.disabled=true;try{await apiJson("/api/client-chat/messages",{method:"POST",body:JSON.stringify({client:clientPreviewName,recipientId:advisor.id,text})});input.value="";await refreshClientAdvisorMessages(overlay,advisor,true);refreshChatData()}finally{button.disabled=false}});
+  await refreshClientAdvisorMessages(overlay,advisor,true);clientChatRefreshTimer=setInterval(()=>refreshClientAdvisorMessages(overlay,advisor),5000);
+}
+function openClientChat(){
+  closeClientChat();const overlay=document.createElement("div");overlay.className="client-chat-overlay";overlay.innerHTML=`<section class="client-chat-view" role="dialog" aria-modal="true"><header><button type="button" data-close-client-chat aria-label="Cerrar">×</button><div><small>ÁREA DE CLIENTE</small><strong class="client-chat-title">Mensajes</strong></div><span></span></header><div class="client-chat-content"></div></section>`;document.body.appendChild(overlay);overlay.querySelector("[data-close-client-chat]").addEventListener("click",closeClientChat);renderClientAdvisorList(overlay);
+}
 function renderClientPreview(){
   clientPreviewMode=true;document.body.classList.add("client-preview-mode");closeMenu();
   const realLogo=document.querySelector(".brand img")?.src||"/app-icon.png";
@@ -120,9 +141,10 @@ function renderClientPreview(){
   const desktop=`<div class="client-desktop-shell"><header class="client-desktop-header"><img src="${realLogo}" alt="Asesoría Molinero"><span class="client-desktop-motto">Tu tranquilidad,<br>nuestro compromiso</span><nav><button class="active" type="button">${clientDesktopIcon("home")}<span>Inicio</span></button><button type="button">${clientDesktopIcon("documents")}<span>Mis documentos</span></button><button type="button">${clientDesktopIcon("messages")}<span>Mensajes</span></button><button class="client-preview-user client-desktop-profile" type="button">${clientDesktopIcon("profile")}<span>Mi perfil</span></button></nav><button class="client-desktop-logout" type="button" aria-disabled="true">${clientDesktopIcon("logout")}<span>Cerrar sesión</span></button></header><section class="client-desktop-hero"><div><h1>👋 Hola, Inmobilei</h1><h2>Bienvenido a tu área de cliente</h2><p>Aquí tienes toda tu documentación, comunicaciones y gestiones con<br>Asesoría Molinero, de forma rápida, segura y siempre a tu alcance.</p></div><div class="client-desktop-hero-image"><strong>ASESORÍA<br>MOLINERO</strong><small>Personas que te acompañan</small></div></section><div class="client-desktop-content"><section class="client-desktop-services"><div class="client-desktop-title"><div><h2>Nuestros servicios</h2><p>Accede a tus servicios contratados o descubre todo lo que podemos hacer por ti.</p></div><em>Tu crecimiento también es nuestro objetivo</em></div><div class="client-desktop-services-grid">${clientDesktopServiceCard("Asesoría Fiscal y Contable","document",true)}${clientDesktopServiceCard("Asesoría Laboral","people")}${clientDesktopServiceCard("Protección de Datos","shield")}${clientDesktopServiceCard("Auditoría de Cuentas","chart")}${clientDesktopServiceCard("Gestión Administrativa","admin")}${clientDesktopServiceCard("Servicios Jurídicos","legal")}</div></section><section class="client-desktop-dashboard"><article class="client-desktop-panel client-desktop-documents"><div class="client-desktop-panel-title"><h3>${clientDesktopIcon("documents")}<span>Últimos documentos</span></h3><button type="button">Ver todos →</button></div>${documentRows}</article><article class="client-desktop-panel client-desktop-messages"><div class="client-desktop-panel-title"><h3>${clientDesktopIcon("messages")}<span>Mensajes recientes</span></h3><button type="button">Ver todos →</button></div>${messageRows}<button class="client-desktop-outline" type="button">Ir al chat →</button></article><aside><article class="client-desktop-panel client-desktop-help"><h3>${clientDesktopIcon("send")}<span>¿Necesitas algo?</span></h3><p>Estamos aquí para ayudarte. Puedes enviarnos un mensaje, una consulta o solicitar información sobre cualquier servicio.</p><button type="button">${clientDesktopIcon("messages")}<span>Nuevo mensaje</span></button></article><article class="client-desktop-contact"><h3>${clientDesktopIcon("phone")}<span>También puedes contactarnos</span></h3><p>${clientDesktopIcon("phone")}<span>953 24 12 00</span></p><p>${clientDesktopIcon("mail")}<span>info@asesoriamolinero.es</span></p><p>${clientDesktopIcon("map")}<span>C/ Ejemplo 12, 23001 Jaén</span></p></article></aside></section></div><footer class="client-desktop-footer"><span><img src="/app-icon.png" alt=""><strong>ASESORÍA<br>MOLINERO</strong><i>Tu tranquilidad, nuestro compromiso</i></span><small>Política de privacidad &nbsp; | &nbsp; Aviso legal &nbsp; | &nbsp; Contacto</small></footer></div>`;
   main.innerHTML=mobile+desktop;const mobileGreeting=main.querySelector(".client-greeting h1"),desktopGreeting=main.querySelector(".client-desktop-hero h1");if(mobileGreeting)mobileGreeting.textContent=`Hola, ${clientPreviewName}`;if(desktopGreeting)desktopGreeting.textContent=`👋 Hola, ${clientPreviewName}`;updateProfileButtons();document.querySelectorAll(".client-preview-user").forEach(button=>button.onclick=openAccountPanel);document.querySelectorAll("[data-client-unavailable]").forEach(card=>card.addEventListener("click",()=>openClientUnavailable(card.dataset.clientUnavailable)));
   main.querySelectorAll(".client-document-banner,.client-portal-nav button:nth-child(2),.client-desktop-header nav button:nth-child(2),.client-desktop-documents .client-desktop-panel-title button,.client-service-card.contracted,.client-desktop-service.contracted>button").forEach(button=>{button.removeAttribute("aria-disabled");button.addEventListener("click",openClientDocuments)});
+  main.querySelectorAll(".client-portal-nav button:nth-child(3),.client-desktop-header nav button:nth-child(3),.client-desktop-messages .client-desktop-panel-title button,.client-desktop-outline,.client-desktop-help>button,.client-help-card").forEach(button=>{button.removeAttribute("aria-disabled");button.addEventListener("click",openClientChat)});
 }
 function closeClientPreview(){
-  clientPreviewMode=false;document.querySelector(".client-unavailable-overlay")?.remove();closeClientDocuments();document.body.classList.remove("client-preview-mode");
+  clientPreviewMode=false;document.querySelector(".client-unavailable-overlay")?.remove();closeClientDocuments();closeClientChat();document.body.classList.remove("client-preview-mode");
   const home=document.querySelector('.sidebar nav button[data-title="Inicio"]');if(home)home.click();else{main.innerHTML=homeMarkup;bindHeader();initHome()}
 }
 function toggleClientPreview(){clientPreviewMode?closeClientPreview():renderClientPreview()}
@@ -2650,6 +2672,7 @@ const chatCache=new Map();
 
 function workerInitials(name){return name.split(" ").slice(0,2).map(part=>part[0]).join("").toUpperCase()}
 function chatMessageTime(value){if(!value)return"";return new Intl.DateTimeFormat("es-ES",{hour:"2-digit",minute:"2-digit"}).format(new Date(value))}
+function chatParticipantId(name){return recentChatItems.find(item=>item.worker===name)?.otherId||workerByNameOrId(name)?.id||name}
 function getChatMessages(name){return chatCache.get(name)||[]}
 function chatMessagesMarkup(messages,name){return messages.length?messages.map(message=>{const outgoing=message.senderId===signedInUser?.id,read=outgoing&&Boolean(message.readAt);return `<div class="chat-message ${outgoing?"outgoing":"incoming"}"><p>${escapeHtml(message.text)}</p><time>${escapeHtml(chatMessageTime(message.createdAt))}${outgoing?`<span class="chat-read-ticks${read?" read":""}" title="${read?"Leído":"Enviado"}" aria-label="${read?"Leído":"Enviado"}">${read?"✓✓":"✓"}</span>`:""}</time></div>`}).join(""):`<div class="chat-empty"><span>✦</span><strong>Inicia la conversación</strong><small>Escribe el primer mensaje para ${escapeHtml(name)}.</small></div>`}
 function updateChatUnreadBadge(){
@@ -2663,7 +2686,7 @@ async function refreshChatData(refreshOpenConversation=true){
   if(!signedInUser)return;
   try{
     const records=await apiJson("/api/chat/recent");
-    recentChatItems=records.map(item=>({worker:teamUsers.find(user=>user.id===item.otherId)?.name||item.otherId,message:item.message,unreadCount:Number(item.unreadCount)||0}));
+    recentChatItems=records.map(item=>({otherId:item.otherId,worker:teamUsers.find(user=>user.id===item.otherId)?.name||item.message?.clientName||String(item.otherId).replace(/^client:/,""),message:item.message,unreadCount:Number(item.unreadCount)||0}));
     chatUnreadCount=recentChatItems.reduce((total,item)=>total+item.unreadCount,0);updateChatUnreadBadge();
     renderHomeActivityRail();
     if(refreshOpenConversation&&activeChatWorker&&document.querySelector("#chatPanel")?.classList.contains("open"))await refreshOpenChatMessages(activeChatWorker);
@@ -2674,12 +2697,12 @@ async function refreshChatData(refreshOpenConversation=true){
 async function refreshOpenChatMessages(name){
   const messagesBox=document.querySelector("#chatMessages");
   if(!messagesBox||activeChatWorker!==name)return;
-  const user=workerByNameOrId(name);
-  const messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(user?.id||name)}`);
+  const participantId=chatParticipantId(name);
+  const messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(participantId)}`);
   if(activeChatWorker!==name)return;
   const previous=getChatMessages(name);
   chatCache.set(name,messages);
-  await apiJson("/api/chat/read",{method:"POST",body:JSON.stringify({withUserId:user?.id||name})});
+  await apiJson("/api/chat/read",{method:"POST",body:JSON.stringify({withUserId:participantId})});
   const unchanged=previous.length===messages.length&&previous.every((message,index)=>message.id===messages[index]?.id&&message.text===messages[index]?.text&&message.readAt===messages[index]?.readAt);
   if(unchanged||activeChatWorker!==name)return;
   const stayAtBottom=messagesBox.scrollHeight-messagesBox.scrollTop-messagesBox.clientHeight<80;
@@ -2776,7 +2799,7 @@ function closeChatgpt(){
 function renderChatContacts(){
   activeChatWorker=null;
   const content=document.querySelector("#chatContent");
-  const contacts=chatWorkers.filter(name=>name!==signedInUser?.name);
+  const contacts=[...new Set([...recentChatItems.filter(item=>String(item.otherId).startsWith("client:")).map(item=>item.worker),...chatWorkers.filter(name=>name!==signedInUser?.name)])];
   content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Los mensajes llegan a la cuenta personal de cada trabajador.</span></div><div class="chat-contacts">${contacts.map(name=>{const unread=recentChatItems.find(item=>item.worker===name)?.unreadCount||0;return `<button type="button" data-chat-worker="${escapeHtml(name)}"${unread?` aria-label="${escapeHtml(name)}, ${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}"`:""}><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small class="${unread?"has-unread":""}">${unread?`${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}`:"Abrir conversación"}</small></span>${unread?`<span class="chat-contact-unread">${unread>99?"99+":unread}</span>`:""}<b>›</b></button>`}).join("")}</div>`;
   content.querySelectorAll("[data-chat-worker]").forEach(button=>button.addEventListener("click",()=>renderConversation(button.dataset.chatWorker)));
 }
@@ -2785,7 +2808,7 @@ async function renderConversation(name,focus=true){
   const content=document.querySelector("#chatContent");
   content.innerHTML=`<div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación privada</small></div></div><div class="chat-messages"><div class="chat-empty"><span>···</span><strong>Cargando conversación</strong></div></div>`;
   document.querySelector("#chatBack").addEventListener("click",renderChatContacts);
-  try{const user=workerByNameOrId(name),messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(user?.id||name)}`);chatCache.set(name,messages);await apiJson("/api/chat/read",{method:"POST",body:JSON.stringify({withUserId:user?.id||name})});refreshChatData(false)}catch{}
+  try{const participantId=chatParticipantId(name),messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(participantId)}`);chatCache.set(name,messages);await apiJson("/api/chat/read",{method:"POST",body:JSON.stringify({withUserId:participantId})});refreshChatData(false)}catch{}
   if(activeChatWorker!==name)return;
   const messages=getChatMessages(name);
   content.innerHTML=`
@@ -2804,7 +2827,7 @@ async function sendChatMessage(event){
   const text=input.value.trim();
   if(!text||!activeChatWorker)return;
   button.disabled=true;
-  try{await apiJson("/api/chat/messages",{method:"POST",body:JSON.stringify({recipientId:workerByNameOrId(activeChatWorker)?.id,text})});await renderConversation(activeChatWorker);refreshChatData()}
+  try{await apiJson("/api/chat/messages",{method:"POST",body:JSON.stringify({recipientId:chatParticipantId(activeChatWorker),text})});await renderConversation(activeChatWorker);refreshChatData()}
   catch(reason){alert(reason.message)}finally{button.disabled=false}
 }
 
