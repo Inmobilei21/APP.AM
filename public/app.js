@@ -2101,28 +2101,71 @@ function renderFolderView(name){
       <div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>${name}</h1></div>
       <button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button>
     </header>
-    <section class="clients-head">
-      <div><p class="eyebrow">${config.eyebrow}</p><h2>${config.title}</h2><p id="folderStatus">${config.description}</p></div>
-      <button class="primary blue-button" id="connectFolder">${config.button}</button>
-    </section>
     <section class="folder-panel">
       <div class="folder-toolbar">
         <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
-        <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button></div>
+        <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button><button class="upload-button invoice-process-open" id="openInvoiceProcessor" type="button" hidden>▦ Procesar facturas</button></div>
       </div>
+      <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas para generar el Excel.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Procesar y generar Excel</button></div></section>
       <div class="folder-grid" id="folderGrid">
-        <div class="empty folder-empty"><span>▤</span><h4>Carpeta aún no conectada</h4><p>Pulsa “${config.button}” y selecciona ${config.path}.</p></div>
+        <div class="empty folder-empty"><span>▤</span><h4>Cargando documentación</h4></div>
       </div>
     </section>`;
   bindHeader();
-  document.querySelector("#connectFolder").addEventListener("click",()=>connectFolder(config));
   document.querySelector("#clientSearch").addEventListener("input",filterFolders);
   document.querySelector("#folderBack").addEventListener("click",goBackFolder);
   document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
+  setupInvoiceProcessor();
   document.querySelectorAll("[data-folder-view]").forEach(button=>button.addEventListener("click",()=>setFolderViewMode(button.dataset.folderView)));
   if(name==="Clientes") setupClientFolderDropZone();
   setFolderViewMode(folderViewMode,false);
   restoreFolder(config);
+}
+
+let invoiceProcessorFiles=[];
+async function setupInvoiceProcessor(){
+  const panel=document.querySelector("#invoiceProcessor"),open=document.querySelector("#openInvoiceProcessor");if(!panel||!open)return;
+  const select=panel.querySelector("#invoiceClient"),input=panel.querySelector("#invoiceFiles"),drop=panel.querySelector("#invoiceDropZone");
+  try{const clients=(await getAllClientMetadata()).filter(clientIsActive).sort((a,b)=>a.name.localeCompare(b.name,"es"));select.insertAdjacentHTML("beforeend",clients.map(client=>`<option value="${escapeHtml(client.name)}">${escapeHtml(client.name)}</option>`).join(""))}catch{}
+  const renderFiles=()=>{panel.querySelector("#invoiceSelectedFiles").innerHTML=invoiceProcessorFiles.length?`<strong>${invoiceProcessorFiles.length} ${invoiceProcessorFiles.length===1?"archivo":"archivos"}</strong><span>${invoiceProcessorFiles.map(file=>escapeHtml(file.name)).join(" · ")}</span>`:"Ningún archivo seleccionado"};
+  const addFiles=files=>{invoiceProcessorFiles=[...files].filter(file=>/\.(pdf|xml|txt)$/i.test(file.name));renderFiles()};
+  open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
+  panel.querySelector("#closeInvoiceProcessor").addEventListener("click",()=>{panel.hidden=true});
+  input.addEventListener("change",()=>addFiles(input.files));
+  ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();drop.classList.add("dragging")}));
+  ["dragleave","drop"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();drop.classList.remove("dragging")}));
+  drop.addEventListener("drop",event=>addFiles(event.dataTransfer.files));
+  panel.querySelector("#processInvoices").addEventListener("click",()=>processInvoiceFiles(select.value));
+}
+async function invoiceFileText(file){
+  if(/\.(xml|txt)$/i.test(file.name))return file.text();
+  const pdfjs=await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+  const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;let text="";
+  for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){const page=await pdf.getPage(pageNumber),content=await page.getTextContent();text+="\n"+content.items.map(item=>item.str).join(" ")}
+  return text;
+}
+function invoiceMatch(text,patterns){for(const pattern of patterns){const match=text.match(pattern);if(match?.[1])return match[1].trim()}return""}
+function invoiceAmount(value){if(!value)return"";const clean=value.replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",",".").replace(/[^\d.-]/g,"");const number=Number(clean);return Number.isFinite(number)?number.toFixed(2):""}
+function invoiceRecord(file,text,client){
+  const compact=text.replace(/\s+/g," ").trim(),lines=text.split(/[\r\n]+/).map(line=>line.trim()).filter(Boolean);
+  const nif=invoiceMatch(compact,[/(?:NIF|CIF|VAT|N\.I\.F\.?)[\s:.-]*([A-Z]\d{7}[0-9A-Z]|\d{8}[A-Z])/i,/\b([A-Z]\d{7}[0-9A-Z])\b/i]);
+  return{client,number:invoiceMatch(compact,[/(?:n[uú]mero|n[º°o.]|num\.?)[\s]*(?:de[\s]*)?factura[\s:#-]*([A-Z0-9][A-Z0-9\-/.]+)/i,/(?:factura|invoice)[\s]*(?:n[uú]m(?:ero)?|n[º°o.]|#)?[\s:#-]*([A-Z0-9][A-Z0-9\-/.]+)/i]),date:invoiceMatch(compact,[/(?:fecha(?: de)? factura|fecha expedici[oó]n|fecha)[\s:.-]*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i]),supplier:(invoiceMatch(compact,[/(?:proveedor|emisor|raz[oó]n social)[\s:.-]*([^|]{3,80}?)(?=\s+(?:NIF|CIF|VAT|Direcci[oó]n|Factura)|$)/i])||lines[0]||"").slice(0,120),supplierNif:nif,base:invoiceAmount(invoiceMatch(compact,[/(?:base imponible|subtotal)[\s:€]*([\d.,]+)/i])),vatRate:invoiceMatch(compact,[/(?:IVA|I\.V\.A\.)[\s]*(\d{1,2}(?:[,.]\d+)?)\s*%/i]),vat:invoiceAmount(invoiceMatch(compact,[/(?:cuota IVA|total IVA|IVA)[\s:€]*(?:\d{1,2}(?:[,.]\d+)?\s*%)?[\s:€]*([\d.,]+)/i])),total:invoiceAmount(invoiceMatch(compact,[/(?:total factura|importe total|total a pagar|TOTAL)[\s:€]*([\d.,]+)/i])),file:file.name};
+}
+function excelXmlEscape(value){return String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function downloadInvoiceExcel(records,client){
+  const headers=["Cliente","Número de factura","Fecha","Proveedor","NIF/CIF proveedor","Base imponible","Tipo IVA (%)","Cuota IVA","Importe total","Archivo original","Observaciones"];
+  const rows=records.map(record=>[record.client,record.number,record.date,record.supplier,record.supplierNif,record.base,record.vatRate,record.vat,record.total,record.file,record.number&&record.total?"":"Revisar datos no detectados"]);
+  const cell=value=>`<Cell><Data ss:Type="String">${excelXmlEscape(value)}</Data></Cell>`;
+  const xml=`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Facturas"><Table><Row>${headers.map(cell).join("")}</Row>${rows.map(row=>`<Row>${row.map(cell).join("")}</Row>`).join("")}</Table></Worksheet></Workbook>`;
+  const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([xml],{type:"application/vnd.ms-excel"}));link.download=`Facturas ${client} ${new Date().toISOString().slice(0,10)}.xls`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+}
+async function processInvoiceFiles(client){
+  const status=document.querySelector("#invoiceProcessStatus"),button=document.querySelector("#processInvoices");
+  if(!client){status.textContent="Selecciona un cliente.";return}if(!invoiceProcessorFiles.length){status.textContent="Añade al menos una factura.";return}
+  button.disabled=true;button.textContent="Procesando…";status.textContent="Leyendo la información de las facturas…";
+  const records=[];for(const file of invoiceProcessorFiles){try{records.push(invoiceRecord(file,await invoiceFileText(file),client))}catch{records.push(invoiceRecord(file,"",client))}}
+  downloadInvoiceExcel(records,client);status.textContent=`Excel generado con ${records.length} ${records.length===1?"factura":"facturas"}. Revisa las filas marcadas.`;button.disabled=false;button.textContent="Procesar y generar Excel";
 }
 
 function setupClientFolderDropZone(){
@@ -2134,7 +2177,7 @@ function setupClientFolderDropZone(){
   const hide=()=>{dragDepth=0;overlay.classList.remove("active");overlay.setAttribute("aria-hidden","true")};
   panel.addEventListener("dragenter",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;dragDepth++;show()});
   panel.addEventListener("dragover",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;event.dataTransfer.dropEffect="copy";show()});  panel.addEventListener("dragleave",()=>{if(dragDepth>0)dragDepth--;if(!dragDepth)hide()});
-  panel.addEventListener("drop",async event=>{if(!hasFiles(event))return;event.preventDefault();hide();if(!currentDirectoryHandle){document.querySelector("#folderStatus").textContent="Conecta primero la carpeta de clientes para guardar documentación.";return}const items=[...(event.dataTransfer.items||[])],files=items.length?items.filter(item=>item.kind==="file").map(item=>item.getAsFile()).filter(Boolean):[...(event.dataTransfer.files||[])];if(!files.length)return;await addDocumentsToCurrentFolder(files)});
+  panel.addEventListener("drop",async event=>{if(!hasFiles(event))return;event.preventDefault();hide();if(!currentDirectoryHandle){alert("No se puede acceder a la documentación. Contacta con el administrador del servidor.");return}const items=[...(event.dataTransfer.items||[])],files=items.length?items.filter(item=>item.kind==="file").map(item=>item.getAsFile()).filter(Boolean):[...(event.dataTransfer.files||[])];if(!files.length)return;await addDocumentsToCurrentFolder(files)});
 }
 
 function setFolderViewMode(mode,persist=true){
@@ -2173,8 +2216,7 @@ async function restoreFolder(config){
       folderHistory=[];
       await displayFolder(handle,config);
     }else{
-      document.querySelector("#folderStatus").textContent="Carpeta guardada. Pulsa el botón para volver a autorizar el acceso.";
-      document.querySelector("#connectFolder").textContent="Autorizar carpeta guardada";
+      const grid=document.querySelector("#folderGrid");if(grid)grid.innerHTML='<div class="empty folder-empty"><span>▤</span><h4>No se puede acceder a la documentación</h4><p>Contacta con el administrador del servidor.</p></div>';
     }
   }catch(error){
     console.warn("No se pudo restaurar la carpeta",error);
@@ -2215,14 +2257,11 @@ async function displayFolder(handle,config,fromBack=false){
   currentDirectoryHandle=handle;
   activeFolderConfig=config;
   document.querySelector("#folderName").textContent=handle.name;
-  document.querySelector("#folderStatus").textContent=handle.remote?"Servidor conectado. Pulsa un cliente para ver sus documentos.":"Carpeta conectada y guardada. Pulsa un cliente para ver sus documentos.";
-  document.querySelector("#connectFolder").textContent=handle.remote?"● Servidor conectado":"Cambiar carpeta";
-  document.querySelector("#connectFolder").disabled=Boolean(handle.remote);
-  document.querySelector("#connectFolder").dataset.connected="true";
   document.querySelector("#clientSearch").value="";
   document.querySelector("#folderBack").hidden=folderHistory.length===0;
   const upload=document.querySelector("#uploadFiles");
   if(upload) upload.hidden=false;
+  const invoiceProcessor=document.querySelector("#openInvoiceProcessor");if(invoiceProcessor)invoiceProcessor.hidden=false;
   renderEntries(entries);
 }
 
@@ -2346,9 +2385,7 @@ async function addDocumentsToCurrentFolder(files,permissionGranted=false){
     for(const file of files)await copyNamedFile(file,currentDirectoryHandle,file.name);
     const destination=currentDirectoryHandle.name;
     await displayFolder(currentDirectoryHandle,activeFolderConfig,true);
-    document.querySelector("#folderStatus").textContent=files.length===1
-      ? `Documento guardado en “${destination}”.`
-      : `${files.length} documentos guardados en “${destination}”.`;
+    alert(files.length===1?`Documento guardado en “${destination}”.`:`${files.length} documentos guardados en “${destination}”.`);
   }catch(error){
     if(error.name!=="AbortError")alert("No se pudieron guardar los documentos. Comprueba el permiso de escritura de la carpeta.");
   }
