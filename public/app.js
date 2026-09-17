@@ -2217,15 +2217,17 @@ async function setupInvoiceProcessor(){
   open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
   panel.querySelector("#closeInvoiceProcessor").addEventListener("click",()=>{panel.hidden=true});
   input.addEventListener("change",()=>addFiles(input.files));
-  ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();drop.classList.add("dragging")}));
-  ["dragleave","drop"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();drop.classList.remove("dragging")}));
+  ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();event.stopPropagation();drop.classList.add("dragging")}));
+  ["dragleave","drop"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();event.stopPropagation();drop.classList.remove("dragging")}));
   drop.addEventListener("drop",event=>addFiles(event.dataTransfer.files));
   select.addEventListener("change",()=>{panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","")});
   panel.querySelector("#processInvoices").addEventListener("click",()=>processInvoiceFiles(select.value));
   panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);invoiceProcessorFiles=[];invoiceDraftRecords=[];select.value="";input.value="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";panel.querySelector("#processInvoices").textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()});
 }
 async function getInvoiceOcrWorker(){
-  if(invoiceOcrWorker)return invoiceOcrWorker;const tesseract=await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js");invoiceOcrWorker=await tesseract.createWorker("spa");return invoiceOcrWorker;
+  if(invoiceOcrWorker)return invoiceOcrWorker;
+  if(!window.Tesseract?.createWorker)throw new Error("No se ha podido cargar el lector OCR");
+  invoiceOcrWorker=await window.Tesseract.createWorker("spa",1,{workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",langPath:"https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa/4.0.0_best_int"});return invoiceOcrWorker;
 }
 async function closeInvoiceOcrWorker(){if(!invoiceOcrWorker)return;const worker=invoiceOcrWorker;invoiceOcrWorker=null;await worker.terminate().catch(()=>{})}
 async function invoiceFileText(file,onOcr){
@@ -2295,8 +2297,8 @@ async function processInvoiceFiles(client){
   const status=document.querySelector("#invoiceProcessStatus"),button=document.querySelector("#processInvoices");
   if(!client){status.textContent="";showInvoiceProcessorBanner("Selecciona primero un cliente");document.querySelector("#invoiceClient")?.focus();return}if(!invoiceProcessorFiles.length){status.textContent="Añade al menos una factura.";return}
   button.disabled=true;button.textContent="Leyendo…";status.textContent="Analizando cada factura y comprobando sus importes…";
-  const records=[];for(let index=0;index<invoiceProcessorFiles.length;index++){const file=invoiceProcessorFiles[index];try{records.push(invoiceRecordChecked(file,await invoiceFileText(file,()=>{status.textContent=`Factura ${index+1} de ${invoiceProcessorFiles.length}: imagen detectada, aplicando OCR…`}),client))}catch{records.push(invoiceRecordChecked(file,"",client))}}
-  await closeInvoiceOcrWorker();invoiceDraftRecords=records;renderInvoiceDraft(records);status.textContent=`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Confirma o corrige los datos antes de descargar.`;button.disabled=false;button.textContent="Volver a leer facturas";
+  const records=[];let failed=0;for(let index=0;index<invoiceProcessorFiles.length;index++){const file=invoiceProcessorFiles[index];try{records.push(invoiceRecordChecked(file,await invoiceFileText(file,()=>{status.textContent=`Factura ${index+1} de ${invoiceProcessorFiles.length}: imagen detectada, aplicando OCR…`}),client))}catch(error){failed++;console.error("No se pudo leer la factura",file.name,error);records.push({...invoiceRecordChecked(file,"",client),observation:"No se pudo leer automáticamente"})}}
+  await closeInvoiceOcrWorker();invoiceDraftRecords=records;renderInvoiceDraft(records);status.textContent=failed?`No se han podido leer ${failed} ${failed===1?"factura":"facturas"}. Revisa las filas marcadas.`:`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Confirma o corrige los datos antes de descargar.`;button.disabled=false;button.textContent="Volver a leer facturas";
 }
 
 function setupClientFolderDropZone(){
