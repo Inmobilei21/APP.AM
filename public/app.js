@@ -295,7 +295,7 @@ async function openBillingModal(){
   document.querySelector("#billingModal")?.remove();let clients=[];try{clients=(await getAllClientMetadata()).filter(clientIsActive).sort((a,b)=>clientIdentity(a).localeCompare(clientIdentity(b),"es"))}catch{}
   const shell=document.createElement("div");shell.id="billingModal";shell.className="modal-shell billing-modal-shell open";shell.setAttribute("aria-hidden","false");
   const hourOptions=[...Array.from({length:24},(_,index)=>String((index+1)/2)),"12+"];
-  shell.innerHTML=`<div class="modal-backdrop" data-close-billing></div><section class="client-modal billing-modal" role="dialog" aria-modal="true" aria-labelledby="billingModalTitle"><div class="modal-heading"><div><p class="eyebrow">NUEVA NOTA</p><h2 id="billingModalTitle">Trabajo para facturación</h2></div><button class="modal-close" type="button" data-close-billing aria-label="Cerrar">×</button></div><form id="billingForm"><div class="billing-form-grid"><label>Fecha<input id="billingDate" type="date" required value="${localDateKey(new Date())}"></label><label>Horas<select id="billingHours" required>${hourOptions.map(value=>`<option value="${value}">${billingHoursLabel(value)}</option>`).join("")}</select></label><label class="billing-client-field">Cliente <small>Opcional</small><select id="billingClient"><option value="">Sin cliente relacionado</option>${clients.map(client=>`<option value="${escapeHtml(clientIdentity(client))}">${escapeHtml(clientIdentity(client))}</option>`).join("")}</select></label><label class="billing-description-field">Descripción del trabajo<textarea id="billingDescription" rows="5" maxlength="1500" required placeholder="Indica el trabajo que se ha realizado…"></textarea></label></div><p class="billing-form-note">Empleado: <strong>${escapeHtml(signedInUser?.name||"")}</strong></p><p class="form-message" id="billingFormMessage"></p><div class="modal-actions"><button class="task-cancel-button" type="button" data-close-billing><span>×</span>Cancelar</button><button class="primary blue-button" type="submit">Guardar en facturación</button></div></form></section>`;
+  shell.innerHTML=`<div class="modal-backdrop" data-close-billing></div><section class="client-modal billing-modal" role="dialog" aria-modal="true" aria-labelledby="billingModalTitle"><div class="modal-heading"><div><p class="eyebrow">NUEVA NOTA</p><h2 id="billingModalTitle">Trabajo para facturación</h2></div><button class="modal-close" type="button" data-close-billing aria-label="Cerrar">×</button></div><form id="billingForm"><div class="billing-form-grid"><label>Fecha<input id="billingDate" type="date" required value="${localDateKey(new Date())}"></label><label>Horas<select id="billingHours" required>${hourOptions.map(value=>`<option value="${value}">${billingHoursLabel(value)}</option>`).join("")}</select></label><label class="billing-client-field">Cliente <small>Opcional</small><select id="billingClient"><option value="">Sin cliente relacionado</option>${clients.map(client=>`<option value="${escapeHtml(clientIdentity(client))}">${escapeHtml(clientIdentity(client))}</option>`).join("")}</select></label><label class="billing-description-field">Descripci��n del trabajo<textarea id="billingDescription" rows="5" maxlength="1500" required placeholder="Indica el trabajo que se ha realizado…"></textarea></label></div><p class="billing-form-note">Empleado: <strong>${escapeHtml(signedInUser?.name||"")}</strong></p><p class="form-message" id="billingFormMessage"></p><div class="modal-actions"><button class="task-cancel-button" type="button" data-close-billing><span>×</span>Cancelar</button><button class="primary blue-button" type="submit">Guardar en facturación</button></div></form></section>`;
   document.body.appendChild(shell);const close=()=>shell.remove();shell.querySelectorAll("[data-close-billing]").forEach(button=>button.addEventListener("click",close));
   shell.querySelector("form").addEventListener("submit",async event=>{event.preventDefault();const submit=event.currentTarget.querySelector('button[type="submit"]'),message=shell.querySelector("#billingFormMessage");submit.disabled=true;message.textContent="";try{await apiJson("/api/billing",{method:"POST",body:JSON.stringify({date:shell.querySelector("#billingDate").value,client:shell.querySelector("#billingClient").value,description:shell.querySelector("#billingDescription").value,hours:shell.querySelector("#billingHours").value})});close();await refreshBillingData(true)}catch(reason){message.textContent=reason.message}finally{submit.disabled=false}});
   setTimeout(()=>shell.querySelector("#billingDescription")?.focus(),100);
@@ -1899,31 +1899,34 @@ function applyDeclarationFilters(prefix,bodyId){
   });
 }
 
+let declarationViewMode="current";
+function declarationViewSelector(){return `<label class="quarter-selector declaration-view-selector"><span>Periodo</span><select id="declarationView"><option value="current">Periodo actual</option><option value="history">Histórico</option></select></label>`}
+function bindDeclarationViewSelector(){const select=document.querySelector("#declarationView");if(!select)return;select.value=declarationViewMode;select.addEventListener("change",event=>{declarationViewMode=event.target.value;if(declarationViewMode==="history")renderDeclarationHistory();else renderDeclarations()})}
 function renderDeclarations(){
+  declarationViewMode="current";
   activeTaxQuarter=defaultControlTaxPeriod(activeTaxType);
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="declarations-panel">
       <div class="declarations-heading">
-        <div><p class="eyebrow">OBLIGACIONES FISCALES</p><h2>Control de declaraciones</h2><p>Selecciona la periodicidad, el periodo y el modelo que quieres revisar.</p></div>
+        ${declarationViewSelector()}
         <div class="control-period-selectors">
           <label class="quarter-selector"><span>Periodicidad</span><select id="taxType"><option value="trimestral">Trimestral</option><option value="mensual">Mensual</option></select></label>
           <label class="quarter-selector"><span>Periodo fiscal</span><select id="taxQuarter"></select></label>
         </div>
       </div>
-      <div class="declaration-folder-source" id="taxDeclarationFolder"></div>
       <div class="tax-deadlines" id="taxDeadlines"></div>
       <div class="tax-tabs" role="tablist">${[...taxModels,...annualTaxModels].map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner" id="taxLockBanner" hidden></div>
       <div class="tax-table-wrap"><table class="tax-table"><thead><tr id="taxTableHead">${declarationTableHeaders("tax",activeTaxModel)}</tr></thead><tbody id="taxRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
    bindHeader();
+  bindDeclarationViewSelector();
   setupDeclarationFilters("tax","taxRows");
   document.querySelector("#taxType").value=activeTaxType;fillTaxPeriodSelect();syncTaxModelTabs();
   document.querySelector("#taxType").addEventListener("change",event=>{activeTaxType=event.target.value;activeTaxQuarter=defaultControlTaxPeriod(activeTaxType);if(activeTaxType==="mensual"&&activeTaxModel==="130-131")activeTaxModel="111";fillTaxPeriodSelect();syncTaxModelTabs();loadTaxModel(activeTaxModel)});
   document.querySelector("#taxQuarter").addEventListener("change",event=>{activeTaxQuarter=event.target.value;syncTaxModelTabs();loadTaxModel(activeTaxModel)});
   document.querySelectorAll("[data-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{if(tab.disabled)return;activeTaxModel=tab.dataset.taxTab;syncTaxModelTabs();loadTaxModel(activeTaxModel)}));
-  setupDeclarationFolderSource("taxDeclarationFolder",()=>loadTaxModel(activeTaxModel));
   loadTaxModel(activeTaxModel);
 }
 function renderTaxDeadlines(model,period,state){
@@ -2028,25 +2031,26 @@ function syncHistoryModelTabs(){
   document.querySelectorAll("[data-history-tax-tab]").forEach(tab=>{const unavailable=activeHistoryType==="mensual"&&tab.dataset.historyTaxTab==="130-131";tab.disabled=unavailable;tab.classList.toggle("active",tab.dataset.historyTaxTab===activeHistoryModel)});
 }
 function renderDeclarationHistory(){
+  declarationViewMode="history";
   const years=historicalYears(),lastYear=years[years.length-1]||2025;
   if(!years.includes(activeHistoryYear))activeHistoryYear=lastYear;
   main.innerHTML=`
-    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Historial declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Declaraciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="declarations-panel history-panel">
       <div class="declarations-heading">
-        <div><p class="eyebrow">ARCHIVO FISCAL</p><h2>Histórico de declaraciones</h2><p>Consulta las declaraciones de ejercicios y periodos anteriores.</p></div>
+        ${declarationViewSelector()}
         <div class="history-selectors">
           <label class="quarter-selector"><span>Ejercicio</span><select id="historyYear">${years.map(year=>`<option value="${year}">${year}</option>`).join("")}</select></label>
           <label class="quarter-selector"><span>Periodicidad</span><select id="historyType"><option value="trimestral">Trimestral</option><option value="mensual">Mensual</option></select></label>
           <label class="quarter-selector"><span>Periodo fiscal</span><select id="historyQuarter"></select></label>
         </div>
       </div>
-      <div class="declaration-folder-source" id="historyDeclarationFolder"></div>
       <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
       <div class="tax-lock-banner history-lock" id="historyLockBanner"></div>
       <div class="tax-table-wrap"><table class="tax-table history-tax-table"><thead><tr>${historyTableHeaders()}</tr></thead><tbody id="historyTaxRows"><tr><td colspan="${11+historyControlColumns().length}" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
+  bindDeclarationViewSelector();
   setupDeclarationFilters("history","historyTaxRows");
   bindHistoryColumnCreator();
   document.querySelector("#historyYear").value=String(activeHistoryYear);
@@ -2056,7 +2060,6 @@ function renderDeclarationHistory(){
   document.querySelector("#historyType").addEventListener("change",event=>{activeHistoryType=event.target.value;activeHistoryQuarter=activeHistoryType==="mensual"?"M01":"1T";if(activeHistoryType==="mensual"&&activeHistoryModel==="130-131")activeHistoryModel="111";fillHistoryPeriodSelect();syncHistoryModelTabs();loadHistoricalModel(activeHistoryModel)});
   document.querySelector("#historyQuarter").addEventListener("change",event=>{activeHistoryQuarter=event.target.value;loadHistoricalModel(activeHistoryModel)});
   document.querySelectorAll("[data-history-tax-tab]").forEach(tab=>tab.addEventListener("click",()=>{if(tab.disabled)return;activeHistoryModel=tab.dataset.historyTaxTab;syncHistoryModelTabs();loadHistoricalModel(activeHistoryModel)}));
-  setupDeclarationFolderSource("historyDeclarationFolder",()=>loadHistoricalModel(activeHistoryModel));
   loadHistoricalModel(activeHistoryModel);
 }
 async function loadHistoricalModel(model){

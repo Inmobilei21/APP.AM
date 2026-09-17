@@ -173,9 +173,10 @@
 .control-period-selectors .quarter-selector,.history-selectors .quarter-selector{min-width:0;width:auto}
 .control-period-selectors .quarter-selector select,.history-selectors .quarter-selector select{width:100%;min-width:0}
 .control-period-selectors{grid-template-columns:minmax(150px,.75fr) minmax(220px,1.25fr);gap:16px}
+.declaration-view-selector{width:230px;min-width:230px}
 .history-selectors{display:grid;grid-template-columns:minmax(120px,.6fr) minmax(155px,.85fr) minmax(210px,1.15fr);gap:14px;min-width:540px}
 @media(max-width:1100px){.declarations-heading{align-items:stretch;flex-direction:column}.control-period-selectors,.history-selectors{min-width:0;width:100%}}
-@media(max-width:650px){.history-selectors{grid-template-columns:1fr}.control-period-selectors{grid-template-columns:1fr}}
+@media(max-width:650px){.history-selectors{grid-template-columns:1fr}.control-period-selectors{grid-template-columns:1fr}.declaration-view-selector{width:100%;min-width:0}}
 
 
 /* Tablero de tareas */
