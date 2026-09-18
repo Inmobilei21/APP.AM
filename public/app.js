@@ -224,7 +224,35 @@ function installMobileChrome(){
   chrome.querySelector('[data-mobile-action="task"]').addEventListener("click",()=>{closeActions();mobileRoute("Tareas","#openTaskModal")});
   chrome.querySelector('[data-mobile-action="calendar"]').addEventListener("click",()=>{closeActions();mobileRoute("Calendario","#newCalendarItem")});
 }
-installMobileChrome();
+function installMobileTableAccordions(){
+  const selector=".tax-table,.courtesy-table,.contacts-table";
+  const decorate=table=>{
+    table.classList.add("mobile-collapsible-table");
+    const headers=[...table.querySelectorAll("thead th")].map(cell=>cell.textContent.trim());
+    table.querySelectorAll("tbody tr").forEach(row=>{
+      if(row.querySelector(".table-empty"))return;
+      row.classList.add("mobile-client-row");
+      row.tabIndex=0;
+      row.setAttribute("role","button");
+      row.setAttribute("aria-expanded",String(row.classList.contains("mobile-expanded")));
+      [...row.children].forEach((cell,index)=>cell.dataset.mobileLabel=headers[index]||"Información");
+    });
+  };
+  const refresh=()=>document.querySelectorAll(selector).forEach(decorate);
+  new MutationObserver(refresh).observe(main,{childList:true,subtree:true});
+  main.addEventListener("click",event=>{
+    if(window.innerWidth>760||event.target.closest("a,button,input,select,textarea,label"))return;
+    const row=event.target.closest(".mobile-client-row");if(!row)return;
+    const open=row.classList.toggle("mobile-expanded");row.setAttribute("aria-expanded",String(open));
+  });
+  main.addEventListener("keydown",event=>{
+    if(window.innerWidth>760||!["Enter"," "].includes(event.key)||event.target.closest("a,button,input,select,textarea,label"))return;
+    const row=event.target.closest(".mobile-client-row");if(!row)return;
+    event.preventDefault();const open=row.classList.toggle("mobile-expanded");row.setAttribute("aria-expanded",String(open));
+  });
+  refresh();
+}
+installMobileTableAccordions();
 
 const views={
   "Clientes":{
@@ -1156,6 +1184,7 @@ async function renderTasks(){
       <div><p class="eyebrow">CONTROL DE TAREAS</p><h2>Tablero de trabajo</h2><p>Organiza los plazos y mueve cada nota según avance el trabajo.</p></div>
       <div class="tasks-head-actions">${signedInUser?.role==="admin"?`<label>Mostrar<select id="taskScope"><option value="mine" ${taskScope==="mine"?"selected":""}>Mis tareas</option><option value="all" ${taskScope==="all"?"selected":""}>Todo el equipo</option></select></label>`:""}<button class="primary blue-button" id="openTaskModal">＋ Añadir tarea</button></div>
     </section>
+    <label class="mobile-task-stage-filter">Estado de las tareas<select id="mobileTaskStage"><option value="pending">Sin empezar</option><option value="progress">En proceso</option><option value="done">Final</option></select></label>
     <section class="task-board" aria-label="Tablero de tareas">
       ${taskStatuses.map(status=>`<section class="task-column status-${status.id}" data-task-status="${status.id}">
         <header class="task-column-head"><div><span></span><h3>${status.label}</h3></div><strong data-task-count="${status.id}">0</strong></header>
@@ -1238,6 +1267,10 @@ async function renderTasks(){
     setTimeout(()=>clientInput.focus(),180);
   };
   document.querySelector("#openTaskModal").addEventListener("click",()=>openTaskForm());
+  const mobileTaskStage=document.querySelector("#mobileTaskStage");
+  const applyMobileTaskStage=()=>{if(window.innerWidth<=760)document.querySelectorAll(".task-column").forEach(column=>column.hidden=column.dataset.taskStatus!==mobileTaskStage.value);else document.querySelectorAll(".task-column").forEach(column=>column.hidden=false)};
+  mobileTaskStage.addEventListener("change",applyMobileTaskStage);
+  applyMobileTaskStage();
   taskEditHandler=id=>{const task=getTasks().find(item=>item.id===id);if(task)openTaskForm(task)};
   function renderTaskFormSteps(){
     const shell=document.querySelector("#taskFormChecklist"),list=document.querySelector("#taskFormStepList");shell.hidden=false;
