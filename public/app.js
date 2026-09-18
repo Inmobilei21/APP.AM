@@ -2796,14 +2796,6 @@ function createWorkerChat(){
   const widget=document.createElement("div");
   widget.className="worker-chat";
   widget.innerHTML=`
-    <div class="ai-launchers">
-      <button class="perplexity-launcher" id="perplexityLauncher" type="button" aria-label="Abrir Perplexity" title="Perplexity">
-        <img src="/perplexity-logo.png" alt="" aria-hidden="true">
-      </button>
-      <button class="chatgpt-launcher" id="chatgptLauncher" type="button" aria-label="Abrir ChatGPT" title="ChatGPT">
-        <img src="/chatgpt-logo.svg" alt="" aria-hidden="true">
-      </button>
-    </div>
     <button class="chat-launcher" id="chatLauncher" type="button" aria-label="Abrir chat de trabajadores">
       <span class="chat-launcher-icon">✉</span><span class="chat-launcher-label">Chat</span>
     </button>
@@ -2823,8 +2815,8 @@ function createWorkerChat(){
     </section>`;
   document.body.appendChild(widget);
   document.querySelector("#chatLauncher").addEventListener("click",toggleWorkerChat);
-  document.querySelector("#perplexityLauncher").addEventListener("click",togglePerplexity);
-  document.querySelector("#chatgptLauncher").addEventListener("click",toggleChatgpt);
+
+
   document.querySelector("#closeChat").addEventListener("click",closeWorkerChat);
   document.querySelector("#closePerplexity").addEventListener("click",closePerplexity);
   document.querySelector("#closeChatgpt").addEventListener("click",closeChatgpt);
@@ -2854,7 +2846,7 @@ function togglePerplexity(){
   if(opening){const frame=panel.querySelector("iframe");if(!frame.src)frame.src=frame.dataset.src}
   panel.classList.toggle("open",opening);
   panel.setAttribute("aria-hidden",String(!opening));
-  document.querySelector("#perplexityLauncher").classList.toggle("active",opening);
+  document.querySelector("#perplexityLauncher")?.classList.toggle("active",opening);
 }
 function closePerplexity(){
   const panel=document.querySelector("#perplexityPanel");  if(!panel)return;
@@ -2870,7 +2862,7 @@ function toggleChatgpt(){
   if(opening){const frame=panel.querySelector("iframe");if(!frame.src)frame.src=frame.dataset.src}
   panel.classList.toggle("open",opening);
   panel.setAttribute("aria-hidden",String(!opening));
-  document.querySelector("#chatgptLauncher").classList.toggle("active",opening);
+  document.querySelector("#chatgptLauncher")?.classList.toggle("active",opening);
 }
 function closeChatgpt(){
   const panel=document.querySelector("#chatgptPanel");if(!panel)return;
