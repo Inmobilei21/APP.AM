@@ -709,14 +709,14 @@ function contactLines(value){return String(value||"").split(/\r?\n/).map(item=>i
 function normalizePhoneSearch(value){return String(value||"").replace(/\D/g,"")}
 async function renderContacts(){
   main.innerHTML=`
-    <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Contactos</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
+    <header><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Contactos</h1></div><button class="profile"><span>ÁM</span><span class="profile-copy"><strong>Álvaro Molinero</strong><small>Administrador</small></span></button></header>
     <section class="contacts-panel">
       <div class="contacts-heading">
         <div><p class="eyebrow">AGENDA DE CLIENTES</p><h2>Teléfonos de contacto</h2><p>Localiza rápidamente quién está llamando.</p></div>
-        <label class="phone-search"><span>⌕</span><input id="phoneSearch" type="search" inputmode="tel" autocomplete="off" placeholder="Buscar teléfono, cliente o persona…"></label>
+        <label class="phone-search"><span>⌕</span><input id="phoneSearch" type="search" autocomplete="off" placeholder="Buscar teléfono, correo, cliente o persona…"></label>
       </div>
       <div class="contacts-summary"><strong id="contactsCount">0</strong><span>contactos encontrados</span></div>
-      <div class="contacts-table-wrap"><table class="contacts-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Contacto</th><th>Persona</th></tr></thead><tbody id="contactsRows"><tr><td colspan="4" class="table-empty">Cargando contactos…</td></tr></tbody></table></div>
+      <div class="contacts-table-wrap"><table class="contacts-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Contacto</th><th>Correo</th><th>Persona</th></tr></thead><tbody id="contactsRows"><tr><td colspan="5" class="table-empty">Cargando contactos…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
   document.querySelector("#phoneSearch").addEventListener("input",filterContacts);
@@ -727,13 +727,22 @@ async function loadContacts(){
   try{
     const clients=(await getAllClientMetadata()).filter(clientIsActive),rows=[];
     clients.forEach(client=>{
-      const phones=contactLines(client.phones),people=contactLines(client.administrators);
-      phones.forEach((phone,index)=>rows.push({client:client.name,cif:client.cif||"",phone,person:people[index]||people[0]||""}));
+      const contacts=Array.isArray(client.contacts)?client.contacts.filter(contact=>contact&&(contact.name||contact.phone||contact.email)):[];
+      if(contacts.length){
+        contacts.forEach(contact=>rows.push({client:client.name,cif:client.cif||"",phone:contact.phone||"",email:contact.email||"",person:contact.name||""}));
+        return;
+      }
+      const phones=contactLines(client.phones),people=contactLines(client.administrators),emails=contactLines(client.emails);
+      const length=Math.max(phones.length,people.length,emails.length);
+      for(let index=0;index<length;index++){
+        const phone=phones[index]||"",email=emails[index]||"",person=people[index]||people[0]||"";
+        if(phone||email||person)rows.push({client:client.name,cif:client.cif||"",phone,email,person});
+      }
     });
     rows.sort((a,b)=>a.client.localeCompare(b.client,"es",{sensitivity:"base"})||a.person.localeCompare(b.person,"es",{sensitivity:"base"}));
-    body.innerHTML=rows.length?rows.map(row=>`<tr data-contact-search="${escapeHtml((row.client+" "+row.cif+" "+row.phone+" "+row.person).toLocaleLowerCase("es"))}" data-contact-phone="${escapeHtml(normalizePhoneSearch(row.phone))}"><td><strong title="${escapeHtml(row.client)}">${escapeHtml(row.client)}</strong></td><td>${escapeHtml(row.cif||"—")}</td><td><a class="contact-phone-link" href="tel:${escapeHtml(normalizePhoneSearch(row.phone))}"><span>☎</span>${escapeHtml(row.phone)}</a></td><td>${escapeHtml(row.person||"—")}</td></tr>`).join(""):'<tr><td colspan="4" class="table-empty">Todavía no hay teléfonos guardados en las fichas de clientes.</td></tr>';
+    body.innerHTML=rows.length?rows.map(row=>`<tr data-contact-search="${escapeHtml((row.client+" "+row.cif+" "+row.phone+" "+row.email+" "+row.person).toLocaleLowerCase("es"))}" data-contact-phone="${escapeHtml(normalizePhoneSearch(row.phone))}"><td><strong title="${escapeHtml(row.client)}">${escapeHtml(row.client)}</strong></td><td>${escapeHtml(row.cif||"—")}</td><td>${row.phone?`<a class="contact-phone-link" href="tel:${escapeHtml(normalizePhoneSearch(row.phone))}"><span>☎</span>${escapeHtml(row.phone)}</a>`:"—"}</td><td>${row.email?`<a class="contact-email-link" href="mailto:${escapeHtml(row.email)}">${escapeHtml(row.email)}</a>`:"—"}</td><td>${escapeHtml(row.person||"—")}</td></tr>`).join(""):'<tr><td colspan="5" class="table-empty">Todavía no hay contactos guardados en las fichas de clientes.</td></tr>';
     document.querySelector("#contactsCount").textContent=String(rows.length);
-  }catch{body.innerHTML='<tr><td colspan="4" class="table-empty">No se pudieron cargar los contactos.</td></tr>'}
+  }catch{body.innerHTML='<tr><td colspan="5" class="table-empty">No se pudieron cargar los contactos.</td></tr>'}
 }
 function filterContacts(event){
   const query=event.target.value.trim().toLocaleLowerCase("es"),digits=normalizePhoneSearch(query);
