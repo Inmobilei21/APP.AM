@@ -1228,3 +1228,9 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
 .client-copy-registry-panels{min-height:205px;padding:9px;border:1px solid #e1e6ee;border-top:0;background:#fafbfe}.client-copy-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.client-copy-fields>.wide{grid-column:1/-1}
 @media(max-width:980px){.client-copy-identity{grid-template-columns:1fr 1fr}.client-copy-identity>.wide{grid-column:1/-1}.client-copy-columns{grid-template-columns:1fr}.client-copy-models{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.client-copy-identity,.client-copy-admin,.client-copy-signature,.client-copy-tax-head,.client-copy-fields{grid-template-columns:1fr}.client-copy-identity>.wide,.client-copy-fields>.wide{grid-column:auto}.client-copy-signature>.wide{grid-row:auto;min-height:48px}.client-copy-models{grid-template-columns:1fr 1fr}.client-copy-registry-tabs{display:flex;overflow-x:auto}.client-copy-registry-tabs button{min-width:95px}.client-copy-person-head{display:none}.client-copy-person-row{grid-template-columns:1fr}}
+
+
+/* Tarjetas de servicio completamente seleccionables */
+.client-desktop-service.contracted,.client-desktop-service[data-client-unavailable]{cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.client-desktop-service.contracted:hover,.client-desktop-service[data-client-unavailable]:hover{transform:translateY(-3px);box-shadow:0 12px 25px rgba(20,39,105,.12);border-color:#99a8e8}
+.client-desktop-service.contracted:focus-visible,.client-desktop-service[data-client-unavailable]:focus-visible{outline:3px solid rgba(36,61,193,.25);outline-offset:3px}
