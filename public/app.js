@@ -729,7 +729,14 @@ async function loadContacts(){
     clients.forEach(client=>{
       const contacts=Array.isArray(client.contacts)?client.contacts.filter(contact=>contact&&(contact.name||contact.phone||contact.email)):[];
       if(contacts.length){
-        contacts.forEach(contact=>rows.push({client:client.name,cif:client.cif||"",phone:contact.phone||"",email:contact.email||"",person:contact.name||""}));
+        const clientRows=[];
+        contacts.forEach(contact=>{
+          const person=String(contact.name||"").trim(),phone=String(contact.phone||"").trim(),email=String(contact.email||"").trim();
+          const existing=clientRows.find(row=>row.person.toLocaleLowerCase("es")===person.toLocaleLowerCase("es")&&((phone&&!row.phone)||(email&&!row.email)));
+          if(existing){if(phone&&!existing.phone)existing.phone=phone;if(email&&!existing.email)existing.email=email}
+          else clientRows.push({client:client.name,cif:client.cif||"",phone,email,person});
+        });
+        rows.push(...clientRows);
         return;
       }
       const phones=contactLines(client.phones),people=contactLines(client.administrators),emails=contactLines(client.emails);
