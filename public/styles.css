@@ -1300,3 +1300,42 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     margin-right:calc(50% - 50vw);
   }
 }
+
+
+/* Portal de cliente móvil: sin barra inferior y servicios al final en carrusel */
+@media(max-width:760px){
+  .mobile-bottom-nav,
+  .mobile-quick-button,
+  .client-portal-nav,
+  .client-unavailable-nav{display:none!important}
+
+  .client-mobile-portal,
+  .client-unavailable-card{padding-bottom:max(18px,env(safe-area-inset-bottom))}
+
+  .client-fiscal-page{padding:9px 10px max(20px,env(safe-area-inset-bottom))}
+  .client-fiscal-layout{display:flex;flex-direction:column;width:100%;gap:14px}
+  .client-fiscal-layout>main{order:1;width:100%!important;min-height:calc(100dvh - 145px)}
+  .client-fiscal-layout>aside{order:2;width:100%;max-width:100%;padding:17px 14px;overflow:hidden}
+  .client-fiscal-layout>aside>p{margin-bottom:13px}
+
+  .client-fiscal-other-services{
+    display:flex;
+    width:100%;
+    max-width:100%;
+    gap:10px;
+    padding:2px 1px 8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scroll-snap-type:x mandatory;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .client-fiscal-other-services::-webkit-scrollbar{display:none}
+  .client-fiscal-other-services>article,
+  .client-fiscal-other-services>button{
+    flex:0 0 min(238px,78vw);
+    width:min(238px,78vw);
+    scroll-snap-align:start;
+  }
+}
