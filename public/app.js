@@ -189,7 +189,7 @@ document.addEventListener("touchend",event=>{
   mobileSwipeStart=null;
   if(dx>=75&&dx>dy*1.3&&elapsed<900)openMenu();
 },{passive:true});
-function bindHeader(){document.querySelector("#menu")?.addEventListener("click",openMenu);updateProfileButtons()}
+function bindHeader(){const header=main.querySelector(":scope>header");if(header&&!header.querySelector("#menu"))header.insertAdjacentHTML("afterbegin",'<button class="menu" id="menu" aria-label="Abrir menú">☰</button>');header?.querySelector("#menu")?.addEventListener("click",openMenu);updateProfileButtons()}
 
 function syncMobileNavigation(title="Inicio"){
   document.querySelectorAll("[data-mobile-route]").forEach(button=>button.classList.toggle("active",button.dataset.mobileRoute===title));
