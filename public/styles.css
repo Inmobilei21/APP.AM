@@ -1234,3 +1234,47 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
 .client-desktop-service.contracted,.client-desktop-service[data-client-unavailable]{cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .client-desktop-service.contracted:hover,.client-desktop-service[data-client-unavailable]:hover{transform:translateY(-3px);box-shadow:0 12px 25px rgba(20,39,105,.12);border-color:#99a8e8}
 .client-desktop-service.contracted:focus-visible,.client-desktop-service[data-client-unavailable]:focus-visible{outline:3px solid rgba(36,61,193,.25);outline-offset:3px}
+
+
+/* Vista móvil compacta: fichas ajustadas y tablas desplegables por cliente */
+.mobile-task-stage-filter{display:none}
+@media(max-width:760px){
+  html,body{width:100%;max-width:100%;overflow-x:hidden}
+  main{width:100%;max-width:100%;min-width:0;overflow-x:hidden;padding-bottom:28px}
+  main>*{max-width:100%;min-width:0}
+  .mobile-app-chrome,.ai-launchers{display:none!important}
+  .worker-chat{right:16px;bottom:16px}
+  .login-card input,.login-card select,.login-card textarea{font-size:16px!important}
+  .client-modal{width:calc(100vw - 20px);max-width:calc(100vw - 20px);padding:18px;overflow-x:hidden}
+  .client-modal form,.client-modal fieldset,.client-modal section,.client-modal div,
+  .management-clients,.management-search,.folder-panel,.folder-grid,.folder-card,.management-client{min-width:0;max-width:100%}
+  .client-modal input,.client-modal select,.client-modal textarea,.client-modal label{min-width:0;max-width:100%;width:100%}
+  .folder-card,.management-client{width:100%;overflow:hidden}
+  .folder-card>span:not(.folder-icon),.management-client>span:not(.folder-icon){min-width:0;overflow:hidden}
+  .folder-card strong,.folder-card small,.management-client strong,.management-client small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .management-clients{padding:14px}
+  .management-client-toolbar{min-width:0}
+  .management-client-sections{max-width:100%;flex-wrap:wrap}
+
+  .tax-table-wrap,.courtesy-table-wrap,.contacts-table-wrap{overflow:visible}
+  .mobile-collapsible-table{display:block;width:100%;min-width:0!important}
+  .mobile-collapsible-table thead{display:none}
+  .mobile-collapsible-table tbody{display:grid;gap:10px;width:100%}
+  .mobile-collapsible-table .mobile-client-row{display:block;width:100%;border:1px solid #dfe4ef;border-radius:15px;background:#fff;overflow:hidden;box-shadow:0 5px 16px rgba(20,35,80,.05);cursor:pointer}
+  .mobile-collapsible-table .mobile-client-row>td{display:none;width:100%!important;max-width:none!important;border:0;padding:11px 14px}
+  .mobile-collapsible-table .mobile-client-row>td:first-child{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:58px;padding:15px 42px 15px 14px;position:relative}
+  .mobile-collapsible-table .mobile-client-row>td:first-child::after{content:"›";position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:25px;color:#77829a;transition:.18s}
+  .mobile-collapsible-table .mobile-client-row:not(.mobile-expanded)>td:first-child small{display:none}
+  .mobile-collapsible-table .mobile-client-row.mobile-expanded>td{display:grid;grid-template-columns:minmax(90px,.42fr) minmax(0,1fr);align-items:center;gap:10px;border-top:1px solid #edf0f5;white-space:normal}
+  .mobile-collapsible-table .mobile-client-row.mobile-expanded>td:first-child{display:flex;border-top:0}
+  .mobile-collapsible-table .mobile-client-row.mobile-expanded>td:first-child::after{transform:translateY(-50%) rotate(90deg)}
+  .mobile-collapsible-table .mobile-client-row.mobile-expanded>td:not(:first-child)::before{content:attr(data-mobile-label);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#6f7a91}
+  .mobile-collapsible-table input,.mobile-collapsible-table select,.mobile-collapsible-table textarea{min-width:0!important;width:100%!important;max-width:100%;font-size:16px}
+  .mobile-collapsible-table .amount-input{width:100%}
+  .mobile-collapsible-table .table-empty{display:block!important}
+
+  .mobile-task-stage-filter{display:grid;gap:7px;margin:12px 0 14px;padding:15px;border:1px solid #dfe4ef;border-radius:16px;background:#fff;color:#667189;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+  .mobile-task-stage-filter select{height:46px;width:100%;border:1px solid #d8deea;border-radius:11px;background:#f8f9fc;padding:0 13px;color:var(--ink);font-size:16px;font-weight:750;text-transform:none;letter-spacing:0}
+  .task-board{display:block}
+  .task-column[hidden]{display:none!important}
+}
