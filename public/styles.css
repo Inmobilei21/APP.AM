@@ -1339,3 +1339,51 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     scroll-snap-align:start;
   }
 }
+
+
+/* La cabecera fiscal móvil conserva exactamente la identidad del inicio */
+.client-fiscal-profile{display:none}
+@media(max-width:760px){
+  .client-fiscal-header{
+    height:84px;
+    padding:14px 16px max(13px,env(safe-area-inset-top));
+    border-radius:0 0 20px 20px;
+    background:linear-gradient(135deg,#14279b,#263bc5);
+    justify-content:space-between;
+  }
+  .client-fiscal-brand img{width:150px;height:51px}
+  .client-fiscal-brand>span,
+  .client-fiscal-header>strong{display:none}
+  .client-fiscal-profile{
+    display:flex;
+    width:auto;
+    height:42px;
+    margin:0;
+    padding:3px;
+    border:1px solid rgba(255,255,255,.28);
+    border-radius:14px;
+    background:rgba(255,255,255,.13);
+    align-items:center;
+    justify-content:center;
+  }
+  .client-fiscal-profile>span:first-child{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:#fff;
+    color:#14279b;
+    display:grid;
+    place-items:center;
+    font-size:10px;
+    font-weight:800;
+  }
+  .client-fiscal-profile .profile-copy{display:none}
+  .client-fiscal-back{
+    width:auto;
+    height:41px;
+    padding:0 12px;
+    gap:7px;
+  }
+  .client-fiscal-back span{display:inline}
+  .client-fiscal-back .client-ui-icon{display:grid;color:#173b60}
+}
