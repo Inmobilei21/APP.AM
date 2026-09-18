@@ -1278,3 +1278,14 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
   .task-board{display:block}
   .task-column[hidden]{display:none!important}
 }
+
+
+/* Encabezado móvil simétrico */
+@media(max-width:760px){
+  main>header{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:12px;width:100%}
+  main>header>.menu{grid-column:1;width:42px;height:42px;margin:0}
+  main>header>div:nth-of-type(1){grid-column:2;text-align:center;width:100%;min-width:0}
+  main>header h1{max-width:100%;text-align:center}
+  main>header .profile{grid-column:3;width:42px;height:42px;margin:0;padding:3px;justify-self:end;justify-content:center}
+  main>header .profile>span:first-child{width:34px;height:34px}
+}
