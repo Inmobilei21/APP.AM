@@ -1387,3 +1387,10 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
   .client-fiscal-back span{display:inline}
   .client-fiscal-back .client-ui-icon{display:grid;color:#173b60}
 }
+
+
+/* Fuerza logo a la izquierda y perfil a la derecha en la cabecera fiscal */
+@media(max-width:760px){
+  .client-fiscal-header>.client-fiscal-brand{display:flex!important;align-items:center;flex:0 0 auto}
+  .client-fiscal-header>.client-fiscal-profile{margin-left:auto!important;flex:0 0 auto}
+}
