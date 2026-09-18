@@ -1132,3 +1132,31 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
 .client-fiscal-empty.compact{min-height:250px}.client-fiscal-readonly{border:1px solid #d8dfeb;border-radius:999px;background:#f5f7fb;color:#66788d;padding:7px 11px;font-size:10px;font-weight:800}
 .client-fiscal-info-sections{display:grid;gap:16px;margin-top:22px}.client-fiscal-info-sections>section{border:1px solid #e2e7ee;border-radius:13px;background:#fff;padding:17px}.client-fiscal-info-sections h3{margin:0 0 13px;color:#173754;font-size:13px}.client-fiscal-info-grid{margin-top:0}.client-fiscal-info-field.wide{grid-column:1/-1}.client-fiscal-info-field strong{overflow-wrap:anywhere}
 @media(max-width:760px){.client-fiscal-year-folders,.client-fiscal-quarter-folders{grid-template-columns:1fr 1fr}.client-fiscal-year-folders{grid-template-columns:1fr}.client-fiscal-section-title .client-fiscal-year-filter{margin-top:14px}.client-fiscal-info-field.wide{grid-column:auto}.client-fiscal-readonly{display:inline-block;margin-top:12px}}
+
+
+/* Portal cliente: cabecera limpia y hero de formas fluidas */
+@media(min-width:761px){
+  .client-desktop-header nav,
+  .client-desktop-logout{display:none!important}
+  .client-desktop-header{height:92px;justify-content:flex-start;padding:0 34px;background:linear-gradient(112deg,#12279d 0%,#2039bd 58%,#14279b 100%)}
+  .client-desktop-header>img{width:190px;height:66px}
+  .client-desktop-motto{display:block!important;margin-left:24px;padding-left:25px;border-left:1px solid rgba(255,255,255,.38);font-size:14px;line-height:1.4}
+  .client-desktop-hero{min-height:245px;grid-template-columns:42% 58%;overflow:hidden;background:linear-gradient(135deg,#fff 0%,#f8faff 68%,#eef3ff 100%)}
+  .client-desktop-hero>div:first-child{position:relative;z-index:2;padding:45px 26px 38px 34px}
+  .client-desktop-hero-image{
+    min-height:220px;
+    margin:14px 18px 14px -10px;
+    padding:38px 55px 38px 78px;
+    border-radius:46% 18px 18px 54% / 22% 18px 18px 78%;
+    overflow:hidden;
+    background-image:linear-gradient(90deg,rgba(255,255,255,.04),rgba(8,26,62,.16)),url("https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1600&q=86");
+    background-position:center 52%;
+    box-shadow:0 16px 38px rgba(18,39,88,.18);
+  }
+  .client-desktop-hero-image:after{
+    top:auto;right:22px;bottom:20px;width:255px;height:auto;min-height:78px;
+    padding:18px 24px;border-radius:36px 12px 34px 12px;
+    background:rgba(10,28,55,.68);backdrop-filter:blur(5px);
+    align-items:center;font-size:11px;line-height:1.75;
+  }
+}
