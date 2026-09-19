@@ -40,7 +40,15 @@
     </header>
 
     <section class="welcome">
-      <div><p class="eyebrow light">RESUMEN GENERAL</p><h2>Buenos días</h2><p>Toda la actividad del despacho, organizada en un único lugar.</p></div>
+      <div class="home-date-weather">
+        <p class="eyebrow light">JAÉN · HOY</p>
+        <p class="home-date" id="homeCurrentDate">Cargando fecha…</p>
+        <div class="home-weather-line">
+          <span class="home-weather-icon" id="homeWeatherIcon" aria-hidden="true">☀</span>
+          <strong id="homeWeatherTemp">--°</strong>
+          <span><b id="homeWeatherText">Consultando el tiempo…</b><small id="homeWeatherDetail">Jaén</small></span>
+        </div>
+      </div>
       <div class="welcome-actions"><button class="primary home-billing-button" id="homeBilling" type="button">Facturación</button><button class="primary" id="homeNewTask" type="button">+ Nueva tarea</button></div>
     </section>
 
