@@ -56,6 +56,39 @@ function installHomeActivityLayout(){
   welcome.before(layout);layout.append(welcome,metrics,rail,news);
 }
 installHomeActivityLayout();
+function updateHomeDateAndWeather(){
+  const dateNode=document.querySelector("#homeCurrentDate");
+  const tempNode=document.querySelector("#homeWeatherTemp");
+  const textNode=document.querySelector("#homeWeatherText");
+  const detailNode=document.querySelector("#homeWeatherDetail");
+  const iconNode=document.querySelector("#homeWeatherIcon");
+  if(!dateNode)return;
+  const now=new Date();
+  const formatted=new Intl.DateTimeFormat("es-ES",{weekday:"long",day:"numeric",month:"long"}).format(now);
+  dateNode.textContent=formatted.charAt(0).toUpperCase()+formatted.slice(1);
+  const weatherLabels={
+    0:["Despejado","☀"],1:["Mayormente despejado","🌤"],2:["Parcialmente nublado","⛅"],3:["Nublado","☁"],
+    45:["Niebla","🌫"],48:["Niebla","🌫"],51:["Llovizna débil","🌦"],53:["Llovizna","🌦"],55:["Llovizna intensa","🌧"],
+    61:["Lluvia débil","🌦"],63:["Lluvia","🌧"],65:["Lluvia intensa","🌧"],71:["Nieve débil","🌨"],73:["Nieve","🌨"],75:["Nieve intensa","❄"],
+    80:["Chubascos débiles","🌦"],81:["Chubascos","🌧"],82:["Chubascos intensos","⛈"],95:["Tormenta","⛈"],96:["Tormenta con granizo","⛈"],99:["Tormenta con granizo","⛈"]
+  };
+  fetch("https://api.open-meteo.com/v1/forecast?latitude=37.7796&longitude=-3.7849&current=temperature_2m,apparent_temperature,weather_code&timezone=Europe%2FMadrid")
+    .then(response=>{if(!response.ok)throw new Error("weather");return response.json()})
+    .then(data=>{
+      const current=data.current||{},label=weatherLabels[current.weather_code]||["Tiempo en Jaén","◌"];
+      tempNode.textContent=Math.round(current.temperature_2m)+"°";
+      textNode.textContent=label[0];
+      detailNode.textContent="Sensación de "+Math.round(current.apparent_temperature)+"° · Jaén";
+      iconNode.textContent=label[1];
+    })
+    .catch(()=>{
+      tempNode.textContent="Jaén";
+      textNode.textContent="Tiempo no disponible";
+      detailNode.textContent="La fecha sigue actualizada";
+      iconNode.textContent="◌";
+    });
+}
+updateHomeDateAndWeather();
 const homeMarkup=main.innerHTML;
 const clientPortalIcons={
   document:'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h5"/></svg>',
