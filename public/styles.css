@@ -2896,3 +2896,14 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     filter:none!important;
   }
 }
+
+
+/* Centrado óptico del isotipo en la barra cerrada */
+@media(min-width:761px){
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand::before{
+    inset:0!important;
+    background-size:105px auto!important;
+    background-position:3px center!important;
+    background-repeat:no-repeat!important;
+  }
+}
