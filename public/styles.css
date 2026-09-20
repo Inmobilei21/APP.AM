@@ -2969,39 +2969,39 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
   }
 }
 
-/* Transición sutil entre la barra plegada y desplegada */
+/* Transición especialmente suave entre la barra plegada y desplegada */
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar{
     will-change:width;
-    transition:width .38s cubic-bezier(.22,1,.36,1),
-               min-width .38s cubic-bezier(.22,1,.36,1),
-               max-width .38s cubic-bezier(.22,1,.36,1),
-               box-shadow .32s ease!important;
+    transition:width .56s cubic-bezier(.16,1,.3,1),
+               min-width .56s cubic-bezier(.16,1,.3,1),
+               max-width .56s cubic-bezier(.16,1,.3,1),
+               box-shadow .46s ease!important;
   }
 
   body:not(.client-preview-mode) .sidebar .brand{
-    transition:width .34s cubic-bezier(.22,1,.36,1),
-               min-height .34s cubic-bezier(.22,1,.36,1),
-               height .34s cubic-bezier(.22,1,.36,1),
-               margin .34s cubic-bezier(.22,1,.36,1),
-               padding .34s cubic-bezier(.22,1,.36,1),
-               background-color .24s ease!important;
+    transition:width .50s cubic-bezier(.16,1,.3,1),
+               min-height .50s cubic-bezier(.16,1,.3,1),
+               height .50s cubic-bezier(.16,1,.3,1),
+               margin .50s cubic-bezier(.16,1,.3,1),
+               padding .50s cubic-bezier(.16,1,.3,1),
+               background-color .38s ease!important;
   }
 
   body:not(.client-preview-mode) .sidebar nav button{
-    transition:width .34s cubic-bezier(.22,1,.36,1),
-               margin .34s cubic-bezier(.22,1,.36,1),
-               padding .34s cubic-bezier(.22,1,.36,1),
-               border-radius .28s ease,
-               background-color .22s ease,
-               color .22s ease,
-               transform .22s ease!important;
+    transition:width .50s cubic-bezier(.16,1,.3,1),
+               margin .50s cubic-bezier(.16,1,.3,1),
+               padding .50s cubic-bezier(.16,1,.3,1),
+               border-radius .42s ease,
+               background-color .34s ease,
+               color .34s ease,
+               transform .34s ease!important;
   }
 
   body:not(.client-preview-mode) .sidebar .sidebar-footer{
-    transition:width .34s cubic-bezier(.22,1,.36,1),
-               padding .34s cubic-bezier(.22,1,.36,1),
-               margin .34s cubic-bezier(.22,1,.36,1)!important;
+    transition:width .50s cubic-bezier(.16,1,.3,1),
+               padding .50s cubic-bezier(.16,1,.3,1),
+               margin .50s cubic-bezier(.16,1,.3,1)!important;
   }
 
   @media (prefers-reduced-motion:reduce){
