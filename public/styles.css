@@ -2880,3 +2880,19 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     display:block!important;
   }
 }
+
+
+/* Sin corte visual entre la pestaña lateral y el lienzo */
+@media(min-width:761px){
+  body:not(.client-preview-mode)>main,
+  body:not(.client-preview-mode) main:has(.home-dashboard-layout),
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    background-color:#f6f8fc!important;
+  }
+
+  /* La franja oscura procedía de la sombra exterior del bloque azul. */
+  body:not(.client-preview-mode) .home-dashboard-layout>.welcome{
+    box-shadow:none!important;
+    filter:none!important;
+  }
+}
