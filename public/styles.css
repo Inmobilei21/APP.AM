@@ -1995,3 +1995,45 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     margin-top:27px;
   }
 }
+
+
+/* Interacción de los botones del aviso de servicios */
+.client-unavailable-primary,
+.client-unavailable-secondary,
+.client-unavailable-advisor,
+.client-unavailable-card>header button{
+  cursor:pointer;
+  transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,border-color .18s ease,color .18s ease;
+}
+.client-unavailable-primary:hover{
+  transform:translateY(-2px);
+  background:linear-gradient(135deg,#123b8e,#08659a);
+  box-shadow:0 13px 27px rgba(7,65,109,.28);
+}
+.client-unavailable-secondary:hover{
+  transform:translateY(-2px);
+  border-color:#173f67;
+  background:#f1f5fb;
+  color:#0b3157;
+  box-shadow:0 9px 20px rgba(22,63,101,.12);
+}
+.client-unavailable-advisor:hover{
+  transform:translateY(-1px);
+  color:#075ea0;
+}
+.client-unavailable-advisor:hover span:last-child{text-decoration:underline;text-underline-offset:4px}
+.client-unavailable-card>header button:hover{
+  transform:rotate(5deg) scale(1.06);
+  background:#eef3f8;
+  color:#0d3155;
+}
+.client-unavailable-primary:active,
+.client-unavailable-secondary:active,
+.client-unavailable-advisor:active{transform:translateY(0) scale(.985)}
+.client-unavailable-primary:focus-visible,
+.client-unavailable-secondary:focus-visible,
+.client-unavailable-advisor:focus-visible,
+.client-unavailable-card>header button:focus-visible{
+  outline:3px solid rgba(27,67,184,.3);
+  outline-offset:3px;
+}
