@@ -2834,3 +2834,136 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     filter:none!important;
   }
 }
+
+
+/* Barra lateral integrada v11 · rail estable y etiquetas flotantes */
+@media(min-width:761px){
+  body:not(.client-preview-mode) .sidebar,
+  body:not(.client-preview-mode) .sidebar:hover{
+    width:var(--integrated-rail)!important;
+    padding:18px 10px 16px!important;
+    align-items:center!important;
+    overflow:visible!important;
+    background:#0b1735!important;
+    background-image:none!important;
+    border:0!important;
+    outline:0!important;
+    box-shadow:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar .brand,
+  body:not(.client-preview-mode) .sidebar:hover .brand{
+    width:68px!important;
+    height:76px!important;
+    min-height:76px!important;
+    margin:0 0 13px!important;
+    padding:0!important;
+    overflow:visible!important;
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar .brand img,
+  body:not(.client-preview-mode) .sidebar:hover .brand img{
+    display:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar .brand::before,
+  body:not(.client-preview-mode) .sidebar:hover .brand::before{
+    display:block!important;
+    inset:0 -2px!important;
+    background-size:contain!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar nav,
+  body:not(.client-preview-mode) .sidebar:hover nav{
+    width:100%!important;
+    align-items:center!important;
+    overflow:visible!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar nav button,
+  body:not(.client-preview-mode) .sidebar:hover nav button{
+    width:54px!important;
+    min-width:54px!important;
+    height:46px!important;
+    min-height:46px!important;
+    flex:0 0 46px!important;
+    margin:0!important;
+    padding:0!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:15px!important;
+    font-size:0!important;
+    white-space:nowrap!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar nav button.active,
+  body:not(.client-preview-mode) .sidebar:hover nav button.active{
+    width:calc(100% + 38px)!important;
+    min-width:calc(100% + 38px)!important;
+    margin-left:10px!important;
+    margin-right:-38px!important;
+    padding-left:19px!important;
+    display:flex!important;
+    justify-content:flex-start!important;
+    border-radius:18px 0 0 18px!important;
+    background:#f5f7fb!important;
+    color:#172da6!important;
+    box-shadow:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar nav button::before,
+  body:not(.client-preview-mode) .sidebar nav button.active::before{
+    content:none!important;
+    display:none!important;
+    box-shadow:none!important;
+  }
+
+  /* El nombre aparece como etiqueta al pasar sobre cada icono, sin desplegar toda la barra. */
+  body:not(.client-preview-mode) .sidebar nav button::after,
+  body:not(.client-preview-mode) .sidebar nav button.active::after{
+    content:attr(data-title)!important;
+    display:block!important;
+    position:absolute!important;
+    z-index:100!important;
+    left:72px!important;
+    top:50%!important;
+    right:auto!important;
+    bottom:auto!important;
+    width:auto!important;
+    height:auto!important;
+    padding:8px 11px!important;
+    border:0!important;
+    border-radius:9px!important;
+    background:#08142f!important;
+    color:#fff!important;
+    font-size:11px!important;
+    font-weight:700!important;
+    line-height:1.2!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    transform:translateY(-50%) translateX(-5px)!important;
+    box-shadow:none!important;
+    pointer-events:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar nav button:hover::after,
+  body:not(.client-preview-mode) .sidebar nav button.active:hover::after{
+    opacity:1!important;
+    visibility:visible!important;
+    transform:translateY(-50%) translateX(0)!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar-footer,
+  body:not(.client-preview-mode) .sidebar:hover .sidebar-footer{
+    width:54px!important;
+    justify-content:center!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar-footer>div,
+  body:not(.client-preview-mode) .sidebar:hover .sidebar-footer>div{
+    display:none!important;
+  }
+}
