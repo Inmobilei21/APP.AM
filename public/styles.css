@@ -2461,3 +2461,68 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     display:none;
   }
 }
+
+
+/* Barra lateral integrada v5 · sin franja y marca blanca */
+@media(min-width:761px){
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav{
+    overflow:visible!important;
+  }
+
+  /* La superficie clara se prolonga por encima de todo el borde azul. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    width:54px!important;
+    margin-left:12px!important;
+    margin-right:0!important;
+    padding:0!important;
+    overflow:visible!important;
+    background:transparent!important;
+    isolation:isolate;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{
+    content:"";
+    display:block!important;
+    position:absolute;
+    z-index:-1;
+    top:0;
+    bottom:0;
+    left:0;
+    right:-42px;
+    width:auto;
+    border-radius:18px 0 0 18px;
+    background:var(--bg);
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    display:none!important;
+  }
+
+  /* Marca original blanca, ampliada y recortada para mostrar solo el símbolo. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand{
+    width:62px;
+    height:70px;
+    min-height:70px;
+    padding:0;
+    border-color:rgba(255,255,255,.13);
+    background:rgba(255,255,255,.035);
+    overflow:hidden;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand::before{
+    display:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand img{
+    display:block!important;
+    position:absolute;
+    top:-5px;
+    left:1px;
+    width:210px;
+    max-width:none;
+    height:auto;
+    transform:none;
+    object-fit:initial;
+    filter:brightness(0) invert(1);
+  }
+}
