@@ -2182,3 +2182,107 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     box-shadow:-12px 0 35px rgba(2,10,30,.13);
   }
 }
+
+
+/* Barra lateral integrada v2 · unión real y expansión al pasar el ratón */
+@media(min-width:761px){
+  body:not(.client-preview-mode) .sidebar{
+    z-index:40;
+    overflow:hidden;
+    transition:width .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s ease;
+  }
+
+  body:not(.client-preview-mode)>main{
+    position:relative;
+    z-index:1;
+    border-radius:0;
+    box-shadow:none;
+  }
+
+  body:not(.client-preview-mode) .sidebar nav button.active{
+    border-radius:18px 0 0 18px;
+  }
+
+  body:not(.client-preview-mode) .sidebar nav button.active::before{
+    right:-14px;
+    width:16px;
+    background:var(--bg);
+  }
+
+  body:not(.client-preview-mode) .sidebar nav button::after{
+    display:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover{
+    width:250px;
+    align-items:stretch;
+    box-shadow:18px 0 42px rgba(3,11,30,.24);
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover .brand{
+    width:220px;
+    min-height:70px;
+    margin-left:5px;
+    justify-content:center;
+    padding:7px 12px;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover .brand img{
+    width:190px;
+    height:58px;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover nav{
+    align-items:stretch;
+    overflow-x:hidden;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover nav button,
+  body:not(.client-preview-mode) .sidebar:hover nav button.active{
+    width:100%;
+    min-width:0;
+    margin-left:0;
+    padding:0 17px;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:14px;
+    border-radius:13px;
+    font-size:14px;
+    font-weight:650;
+    white-space:nowrap;
+    color:#dce4f5;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover nav button span{
+    width:24px;
+    flex:0 0 24px;
+    text-align:center;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover nav button.active{
+    background:#f5f7fb;
+    color:#172da6;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover nav button.active::before{
+    display:none;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover nav button:hover:not(.active){
+    transform:none;
+    background:rgba(255,255,255,.1);
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover .sidebar-footer{
+    width:100%;
+    padding:10px 9px 0;
+    justify-content:flex-start;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover .sidebar-footer>div{
+    display:block;
+    min-width:0;
+    white-space:nowrap;
+  }
+}
