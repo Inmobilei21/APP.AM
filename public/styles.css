@@ -2957,13 +2957,14 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
   }
 }
 
-/* Active sidebar icon: corporate blue on the light selected tab */
+/* Active sidebar icon: exact sidebar navy on the light selected tab */
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar nav button.active .nav-icon{
-    color:#18299b!important;
+    color:#0b1735!important;
   }
 
   body:not(.client-preview-mode) .sidebar nav button.active .nav-icon svg{
     stroke:currentColor!important;
+    shape-rendering:geometricPrecision;
   }
 }
