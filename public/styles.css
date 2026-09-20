@@ -2907,3 +2907,13 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     background-repeat:no-repeat!important;
   }
 }
+
+
+/* Encabezado de Inicio sin línea divisoria */
+@media(min-width:761px){
+  body:not(.client-preview-mode) main:has(.home-dashboard-layout)>header{
+    border:0!important;
+    border-bottom:0!important;
+    box-shadow:none!important;
+  }
+}
