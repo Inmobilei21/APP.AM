@@ -864,10 +864,10 @@ function getCourtesyData(client,year=courtesySelectedYear){
 function saveCourtesyData(client,data,year=courtesySelectedYear){localStorage.setItem(courtesyStorageKey(client,year),JSON.stringify(data))}
 function courtesyClientKey(name){return normalizeFiscalClient(name).toLocaleLowerCase("es")}
 function courtesyExerciseState(year=courtesySelectedYear){
-  const now=new Date(),opens=new Date(year,5,15),closes=new Date(year,7,1);
+  const now=new Date(),opens=new Date(year,5,1),closes=new Date(year,7,1);
   const unlocked=courtesyUnlockedYears.has(year);
   if(unlocked)return{editable:true,unlocked:true,label:"Ejercicio desbloqueado",detail:"Edición temporal habilitada con contraseña."};
-  if(now<opens)return{editable:false,label:"Ejercicio bloqueado",detail:`Se abrirá el 15 de junio de ${year}.`};
+  if(now<opens)return{editable:false,label:"Ejercicio bloqueado",detail:`Se abrirá el 1 de junio de ${year}.`};
   if(now>=closes)return{editable:false,label:"Ejercicio cerrado",detail:`Bloqueado desde el 1 de agosto de ${year}.`};
   return{editable:true,label:"Periodo abierto",detail:`Editable hasta el 31 de julio de ${year}.`};
 }
