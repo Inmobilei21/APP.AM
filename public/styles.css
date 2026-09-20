@@ -2526,3 +2526,90 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     filter:brightness(0) invert(1);
   }
 }
+
+
+/* Barra lateral integrada v6 · unión curva real y símbolo blanco centrado */
+@media(min-width:761px){
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav{
+    overflow:visible!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    --active-overlap:30px;
+    position:relative;
+    align-self:stretch;
+    width:calc(100% + var(--active-overlap))!important;
+    margin-left:10px!important;
+    margin-right:calc(-1 * var(--active-overlap))!important;
+    padding:0 0 0 19px!important;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    overflow:visible!important;
+    border-radius:18px 0 0 18px;
+    background:var(--bg)!important;
+    isolation:auto;
+  }
+
+  /* Curvas cóncavas que hacen que la barra nazca del propio lienzo. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    content:"";
+    display:block!important;
+    position:absolute;
+    z-index:0;
+    right:var(--active-overlap);
+    left:auto;
+    width:18px;
+    height:18px;
+    padding:0;
+    background:transparent;
+    opacity:1;
+    visibility:visible;
+    transform:none;
+    pointer-events:none;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{
+    top:-18px;
+    bottom:auto;
+    border-radius:0 0 18px 0;
+    box-shadow:5px 5px 0 4px var(--bg);
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    top:auto;
+    bottom:-18px;
+    border-radius:0 18px 0 0;
+    box-shadow:5px -5px 0 4px var(--bg);
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active .nav-icon,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active .holded-mark{
+    position:relative;
+    z-index:2;
+  }
+
+  /* Símbolo del logo blanco, completo y con aire dentro de su marco. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand{
+    width:62px;
+    height:70px;
+    min-height:70px;
+    padding:0;
+    display:block;
+    overflow:hidden;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand img{
+    display:block!important;
+    position:absolute;
+    top:3px;
+    left:3px;
+    width:168px;
+    max-width:none;
+    height:auto;
+    transform:none;
+    object-fit:initial;
+    filter:brightness(0) invert(1);
+  }
+}
