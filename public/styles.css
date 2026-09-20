@@ -2742,3 +2742,53 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     pointer-events:none;
   }
 }
+
+
+/* Barra lateral integrada v9 · unión plana sin corte ni sombras */
+@media(min-width:761px){
+  body:not(.client-preview-mode){
+    --sidebar-active-surface:#f6f8fc;
+  }
+
+  body:not(.client-preview-mode) .sidebar,
+  body:not(.client-preview-mode) .sidebar:not(:hover),
+  body:not(.client-preview-mode)>main,
+  body:not(.client-preview-mode) main:has(.home-dashboard-layout),
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    box-shadow:none!important;
+    border-right:0!important;
+    background-image:none!important;
+  }
+
+  body:not(.client-preview-mode)>main,
+  body:not(.client-preview-mode) main:has(.home-dashboard-layout),
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    background-color:var(--sidebar-active-surface)!important;
+  }
+
+  /* Sin remates ni sombras: la pestaña entra directamente en el lienzo del mismo color. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    content:none!important;
+    display:none!important;
+    box-shadow:none!important;
+    background:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    --active-overlap:31px;
+    border-radius:18px 0 0 18px!important;
+  }
+
+  /* Símbolo blanco ligeramente mayor. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand{
+    width:68px;
+    height:76px;
+    min-height:76px;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand::before{
+    inset:0 -2px!important;
+    background-size:contain!important;
+  }
+}
