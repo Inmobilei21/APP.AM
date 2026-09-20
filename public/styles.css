@@ -2613,3 +2613,69 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     filter:brightness(0) invert(1);
   }
 }
+
+
+/* Barra lateral integrada v7 · logo sin marco y superficie continua */
+@media(min-width:761px){
+  body:not(.client-preview-mode){
+    --sidebar-active-surface:#f6f8fc;
+  }
+
+  body:not(.client-preview-mode)>main,
+  body:not(.client-preview-mode) main:has(.home-dashboard-layout){
+    background:var(--sidebar-active-surface);
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    background:var(--sidebar-active-surface)!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{
+    box-shadow:5px 5px 0 4px var(--sidebar-active-surface);
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    box-shadow:5px -5px 0 4px var(--sidebar-active-surface);
+  }
+
+  /* Sin tarjeta, borde ni cambio de tono alrededor de la marca. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand{
+    width:62px;
+    height:70px;
+    min-height:70px;
+    padding:0;
+    border:0!important;
+    border-radius:0;
+    background:transparent!important;
+    box-shadow:none!important;
+    overflow:hidden;
+  }
+
+  /* Escala que deja entrar el símbolo completo dentro del ancho disponible. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand img{
+    top:6px;
+    left:4px;
+    width:138px;
+    max-width:none;
+    height:auto;
+    filter:brightness(0) invert(1);
+  }
+
+  /* Oculta únicamente la línea de texto inferior del logotipo horizontal. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand::after{
+    content:"";
+    display:block;
+    position:absolute;
+    z-index:3;
+    left:0;
+    right:0;
+    bottom:0;
+    height:14px;
+    background:#0b1735;
+    pointer-events:none;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover .brand::after{
+    display:none;
+  }
+}
