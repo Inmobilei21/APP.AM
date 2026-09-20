@@ -2286,3 +2286,107 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     white-space:nowrap;
   }
 }
+
+
+/* Barra lateral integrada v3 · pestaña unida, marca y avisos */
+@media(min-width:761px){
+  body:not(.client-preview-mode) .sidebar{
+    overflow:visible;
+  }
+
+  body:not(.client-preview-mode) .sidebar .brand{
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* En modo cerrado se muestra únicamente el isotipo, grande y legible. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) .brand img{
+    position:absolute;
+    left:5px;
+    top:50%;
+    width:178px;
+    max-width:none;
+    height:auto;
+    transform:translateY(-50%);
+    object-fit:initial;
+  }
+
+  /* La pestaña activa llega al borde y entra en el lienzo: no queda franja intermedia. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    width:calc(100% + 14px);
+    margin-left:10px;
+    padding-right:14px;
+    overflow:visible;
+    border-radius:18px 0 0 18px;
+    background:var(--bg);
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{
+    display:block;
+    right:-28px;
+    width:30px;
+    background:var(--bg);
+  }
+
+  /* Avisos compactos: círculo y número sobre la esquina del icono correspondiente. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button .task-nav-alert,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button .billing-nav-alert{
+    position:absolute;
+    z-index:6;
+    top:-2px;
+    right:-2px;
+    width:21px;
+    min-width:21px;
+    height:21px;
+    padding:0;
+    display:grid;
+    place-items:center;
+    gap:0;
+    border:2px solid #0d1938;
+    border-radius:50%;
+    background:#f04438;
+    color:#fff;
+    font-size:10px;
+    font-weight:900;
+    line-height:1;
+    box-shadow:0 4px 10px rgba(240,68,56,.4);
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button .billing-nav-alert b{
+    display:none;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button .billing-nav-alert small{
+    align-self:auto;
+    margin:0;
+    color:#fff;
+    font-size:10px;
+    font-weight:900;
+    line-height:1;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active .task-nav-alert,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active .billing-nav-alert{
+    border-color:var(--bg);
+  }
+
+  /* Al desplegarse vuelve el logotipo completo y los avisos quedan alineados a la derecha. */
+  body:not(.client-preview-mode) .sidebar:hover{
+    overflow:hidden;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover .brand img{
+    position:static;
+    width:190px;
+    max-width:190px;
+    height:58px;
+    transform:none;
+    object-fit:contain;
+  }
+
+  body:not(.client-preview-mode) .sidebar:hover nav button .task-nav-alert,
+  body:not(.client-preview-mode) .sidebar:hover nav button .billing-nav-alert{
+    top:11px;
+    right:12px;
+  }
+}
