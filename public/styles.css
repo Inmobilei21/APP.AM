@@ -2792,3 +2792,45 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     background-size:contain!important;
   }
 }
+
+
+/* Barra lateral integrada v10 · mismo color real que el lienzo */
+@media(min-width:761px){
+  body:not(.client-preview-mode){
+    --sidebar-active-surface:#f5f7fb!important;
+  }
+
+  body:not(.client-preview-mode)>main,
+  body:not(.client-preview-mode) main:has(.home-dashboard-layout),
+  body:not(.client-preview-mode) .home-dashboard-layout,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    background:#f5f7fb!important;
+    background-color:#f5f7fb!important;
+    background-image:none!important;
+    border:0!important;
+    outline:0!important;
+    box-shadow:none!important;
+    filter:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar{
+    border:0!important;
+    outline:0!important;
+    box-shadow:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    width:calc(100% + 38px)!important;
+    margin-right:-38px!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    content:none!important;
+    display:none!important;
+    border:0!important;
+    outline:0!important;
+    box-shadow:none!important;
+    filter:none!important;
+  }
+}
