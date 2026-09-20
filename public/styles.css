@@ -2917,3 +2917,42 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
     box-shadow:none!important;
   }
 }
+
+
+/* Curvas compactas alineadas con el borde real de la barra cerrada */
+@media(min-width:761px){
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    overflow:visible!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    content:""!important;
+    display:block!important;
+    position:absolute!important;
+    z-index:0!important;
+    left:auto!important;
+    right:31px!important;
+    width:16px!important;
+    height:16px!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:none!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{
+    top:-16px!important;
+    bottom:auto!important;
+    background:radial-gradient(circle at 0 0,transparent 15px,#f6f8fc 15.5px)!important;
+  }
+
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    top:auto!important;
+    bottom:-16px!important;
+    background:radial-gradient(circle at 0 100%,transparent 15px,#f6f8fc 15.5px)!important;
+  }
+}
