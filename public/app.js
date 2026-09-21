@@ -2791,6 +2791,7 @@ document.querySelectorAll(".sidebar nav button").forEach(button=>button.addEvent
   if(views[button.dataset.title]) renderFolderView(button.dataset.title);
   else if(button.dataset.title==="Firmas digitales") renderSignatures();
   else if(button.dataset.title==="Holded") renderHolded();
+  else if(button.dataset.title==="Inspecciones") renderInspections();
   else if(button.dataset.title==="Declaraciones") renderDeclarations();
   else if(button.dataset.title==="Historial declaraciones") renderDeclarationHistory();
   else if(button.dataset.title==="Trabajadores") renderWorkers();
@@ -3069,4 +3070,9 @@ function openClientFiscalArea(){
     else content.innerHTML=`<div class="client-fiscal-section-title"><div><h2>Reclamaciones</h2><p>Consulta o inicia una comunicación relacionada con una gestión fiscal.</p></div></div><div class="client-fiscal-empty">${clientDesktopIcon("messages")}<strong>No tienes reclamaciones abiertas</strong><small>Cuando exista una comunicación aparecerá en este apartado.</small></div>`;
   };
   overlay.querySelector(".client-fiscal-back").addEventListener("click",closeClientFiscalArea);overlay.querySelector(".client-fiscal-profile")?.addEventListener("click",openAccountPanel);overlay.querySelectorAll("[data-fiscal-tab]").forEach(button=>button.addEventListener("click",()=>render(button.dataset.fiscalTab)));overlay.querySelectorAll("[data-fiscal-contact]").forEach(button=>button.addEventListener("click",openClientChat));render("documents");
+}
+
+function renderInspections(){
+  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Inspecciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="panel"><div class="empty"><h3>Inspecciones</h3><p>Espacio para el seguimiento de inspecciones del despacho.</p></div></section>`;
+  bindHeader();
 }
