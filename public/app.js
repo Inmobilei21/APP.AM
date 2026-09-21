@@ -3084,15 +3084,18 @@ async function inspectionFolder(record,create=false){
   return year.getDirectoryHandle("Notificación ("+record.reference+")",{create});
 }
 async function renderInspections(){
-  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Inspecciones</h1></div><button class="primary blue-button" id="newInspection" type="button" aria-controls="inspectionForm" aria-expanded="false">+ Nueva notificación</button></header>
+  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Inspecciones</h1></div><button class="primary blue-button" id="newInspection" type="button" aria-controls="inspectionForm" aria-expanded="false">+ Nuevo</button></header>
   <style>
   #newInspection,#inspectionForm button{cursor:pointer;transition:background .15s,box-shadow .15s,transform .15s}
   #newInspection:hover,#inspectionForm .blue-button:hover{background:#243bc0;box-shadow:0 4px 12px rgba(24,41,155,.18)}
   #inspectionForm #cancelInspection:hover{background:#e9edf6;border-color:#bfc9dc}
   #newInspection:active,#inspectionForm button:active{transform:translateY(1px)}
-  #newInspection:focus-visible,#inspectionForm button:focus-visible{outline:2px solid #5369da;outline-offset:3px}
+  #newInspection:focus-visible,#inspectionForm button:focus-visible,.inspection-summary:focus-visible{outline:2px solid #5369da;outline-offset:3px}
   #newInspection:disabled,#inspectionForm button:disabled{opacity:.55;cursor:wait;transform:none;box-shadow:none}
-  .inspection-panel{padding:20px}.inspection-table-wrap{overflow:auto}.inspection-table{width:100%;border-collapse:collapse;min-width:760px}.inspection-table th,.inspection-table td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);font-size:13px}.inspection-table th{color:var(--muted);font-size:12px}.inspection-overdue{color:#c63737;font-weight:700}.inspection-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fafbff}.inspection-form[hidden]{display:none}.inspection-form label{display:grid;gap:5px;font-size:13px}.inspection-form input,.inspection-form select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit}.inspection-wide{grid-column:1/-1}.inspection-docs-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.inspection-file{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.inspection-file button{overflow-wrap:anywhere;text-align:left}.inspection-error{color:#b42318} @media(max-width:760px){.inspection-form{grid-template-columns:1fr}.inspection-panel{padding:12px}}</style>
+  .inspection-panel{padding:20px}.inspection-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fafbff}.inspection-form[hidden]{display:none}.inspection-form label{display:grid;gap:5px;font-size:13px}.inspection-form input,.inspection-form select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit}.inspection-wide{grid-column:1/-1}.inspection-error{color:#b42318}
+  .inspection-list{display:grid;gap:10px}.inspection-row{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}.inspection-summary{width:100%;border:0;background:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto 22px;align-items:center;gap:14px;padding:15px 16px;text-align:left;color:inherit;font:inherit;cursor:pointer}.inspection-summary strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.inspection-days{font-weight:700;color:#273b8f;white-space:nowrap}.inspection-days.overdue{color:#c63737}.inspection-chevron{font-size:22px;color:var(--muted);transition:transform .18s}.inspection-row.open .inspection-chevron{transform:rotate(90deg)}.inspection-detail{display:none;padding:0 16px 16px;border-top:1px solid var(--line);background:#fafbff}.inspection-row.open .inspection-detail{display:block}.inspection-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;padding-top:15px}.inspection-detail-grid div{display:grid;gap:3px}.inspection-detail-grid small{color:var(--muted)}.inspection-detail-actions{display:flex;justify-content:flex-end;padding-top:14px}.inspection-docs-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.inspection-file{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.inspection-file button{overflow-wrap:anywhere;text-align:left}
+  @media(max-width:760px){.inspection-form{grid-template-columns:1fr}.inspection-panel{padding:12px}.inspection-summary{padding:15px 14px;grid-template-columns:minmax(0,1fr) auto 18px}.inspection-summary strong{font-size:15px}.inspection-days{font-size:13px}.inspection-detail-grid{grid-template-columns:1fr;gap:10px}.inspection-detail-actions{justify-content:stretch}.inspection-detail-actions button{width:100%}#newInspection{padding-left:16px;padding-right:16px}}
+  </style>
   <section class="panel inspection-panel"><form id="inspectionForm" class="inspection-form" hidden>
   <label class="inspection-wide">Cliente asignado<select name="client" required><option value="">Seleccionar cliente…</option></select></label>
   <label>Trabajador asignado<select name="assignedId" required><option value="">Seleccionar trabajador…</option>${teamUsers.map(worker=>`<option value="${escapeHtml(worker.id)}">${escapeHtml(worker.name)}</option>`).join("")}</select></label>
@@ -3108,9 +3111,11 @@ async function renderInspections(){
   let records=[],uploaded=null,requestId=crypto.randomUUID();
   form.elements.assignedId.value=signedInUser?.id||"";
   const showError=error=>{message.className="inspection-error";message.textContent=error.message||"No se pudo completar la operación."};
+  const remainingLabel=days=>days<0?"Vencido hace "+Math.abs(days)+" días":days===0?"Vence hoy":days+" días";
   const table=()=>{
-    content.innerHTML=`<div class="inspection-table-wrap"><table class="inspection-table"><thead><tr><th>Nombre</th><th>Trabajador asignado</th><th>Número inspección</th><th>Fecha notificación</th><th>Plazo restante</th><th>Fecha límite</th><th>Documentación</th></tr></thead><tbody>${records.length?records.map(r=>{const days=inspectionDays(r.deadline);return `<tr><td>${escapeHtml(r.client)}</td><td>${escapeHtml(r.assigned||teamUsers.find(worker=>worker.id===r.creatorId)?.name||"—")}</td><td>${escapeHtml(r.reference)}</td><td>${taskDateLabel(r.notificationDate)}</td><td class="${days<0?"inspection-overdue":""}">${days<0?"Vencido hace "+Math.abs(days)+" días":days===0?"Vence hoy":days+" días"}</td><td>${taskDateLabel(r.deadline)}</td><td><button class="secondary-button" data-inspection-docs="${escapeHtml(r.id)}">Ver documentos</button></td></tr>`}).join(""):'<tr><td colspan="7">Todavía no hay notificaciones.</td></tr>'}</tbody></table></div>`;
-    content.querySelectorAll("[data-inspection-docs]").forEach(button=>button.onclick=()=>documents(records.find(r=>r.id===button.dataset.inspectionDocs)));
+    content.innerHTML=`<div class="inspection-list">${records.length?records.map(r=>{const days=inspectionDays(r.deadline),assigned=r.assigned||teamUsers.find(worker=>worker.id===r.assignedId)?.name||teamUsers.find(worker=>worker.id===r.creatorId)?.name||"—";return `<article class="inspection-row" data-inspection-row="${escapeHtml(r.id)}"><button class="inspection-summary" type="button" data-inspection-toggle="${escapeHtml(r.id)}" aria-expanded="false"><strong>${escapeHtml(r.client)}</strong><span class="inspection-days ${days<0?"overdue":""}">${remainingLabel(days)}</span><span class="inspection-chevron" aria-hidden="true">›</span></button><div class="inspection-detail"><div class="inspection-detail-grid"><div><small>Trabajador asignado</small><strong>${escapeHtml(assigned)}</strong></div><div><small>Número de inspección</small><strong>${escapeHtml(r.reference)}</strong></div><div><small>Fecha de notificación</small><strong>${taskDateLabel(r.notificationDate)}</strong></div><div><small>Fecha límite</small><strong>${taskDateLabel(r.deadline)}</strong></div><div><small>Plazo restante</small><strong class="${days<0?"inspection-overdue":""}">${remainingLabel(days)}</strong></div></div><div class="inspection-detail-actions"><button class="secondary-button" type="button" data-inspection-docs="${escapeHtml(r.id)}">Ver documentación</button></div></div></article>`}).join(""):'<p>Todavía no hay notificaciones.</p>'}</div>`;
+    content.querySelectorAll("[data-inspection-toggle]").forEach(button=>button.onclick=()=>{const row=button.closest(".inspection-row"),open=!row.classList.contains("open");content.querySelectorAll(".inspection-row.open").forEach(other=>{if(other!==row){other.classList.remove("open");other.querySelector(".inspection-summary")?.setAttribute("aria-expanded","false")}});row.classList.toggle("open",open);button.setAttribute("aria-expanded",String(open))});
+    content.querySelectorAll("[data-inspection-docs]").forEach(button=>button.onclick=event=>{event.stopPropagation();documents(records.find(r=>r.id===button.dataset.inspectionDocs))});
   };
   const documents=async record=>{
     content.textContent="Cargando documentación…";
@@ -3120,30 +3125,14 @@ async function renderInspections(){
       await collect(folder);files.sort((a,b)=>a.name.localeCompare(b.name,"es"));
       content.innerHTML=`<div class="inspection-docs-head"><div><h3>Notificación ${escapeHtml(record.reference)}</h3><p>${escapeHtml(record.client)} · ${record.year}</p></div><button class="secondary-button" id="inspectionBack">Volver a inspecciones</button></div><label>Adjuntar escritos, respuestas u otros documentos<input id="inspectionAttachments" type="file" multiple></label><div>${files.length?files.map(file=>`<div class="inspection-file"><button class="document-link" data-preview-document="${registerPreviewDocument(file)}">${escapeHtml(file.name)}</button></div>`).join(""):"<p>No hay documentos en esta carpeta.</p>"}</div>`;
       document.querySelector("#inspectionBack").onclick=table;
-      document.querySelector("#inspectionAttachments").onchange=async event=>{
-        const control=event.target;control.disabled=true;
-        try{for(const file of control.files){let exists=false;for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===file.name.toLocaleLowerCase("es"))exists=true;if(exists)throw new Error("Ya existe "+file.name+". Cambia el nombre para no sobrescribirlo.");await copyNamedFile(file,folder,file.name)}await documents(record)}
-        catch(error){showError(error)}finally{control.disabled=false}
-      };
+      document.querySelector("#inspectionAttachments").onchange=async event=>{const control=event.target;control.disabled=true;try{for(const file of control.files){let exists=false;for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===file.name.toLocaleLowerCase("es"))exists=true;if(exists)throw new Error("Ya existe "+file.name+". Cambia el nombre para no sobrescribirlo.");await copyNamedFile(file,folder,file.name)}await documents(record)}catch(error){showError(error)}finally{control.disabled=false}};
     }catch(error){showError(error);table()}
   };
-  const newButton=document.querySelector("#newInspection"),cancelButton=document.querySelector("#cancelInspection");
-  let saving=false;
-  newButton.onclick=()=>{
-    if(saving)return;
-    message.textContent="";message.className="";
-    form.hidden=false;newButton.setAttribute("aria-expanded","true");
-    form.scrollIntoView({behavior:"smooth",block:"nearest"});form.elements.client.focus();
-  };
-  cancelButton.onclick=()=>{
-    if(saving)return;
-    if(!uploaded){form.reset();requestId=crypto.randomUUID();message.textContent="";message.className=""}
-    else{message.className="";message.textContent="El archivo ya está guardado. Abre Nueva notificación para completar el registro pendiente."}
-    form.hidden=true;newButton.setAttribute("aria-expanded","false");newButton.focus();
-  };
+  const newButton=document.querySelector("#newInspection"),cancelButton=document.querySelector("#cancelInspection");let saving=false;
+  newButton.onclick=()=>{if(saving)return;message.textContent="";message.className="";form.hidden=false;newButton.setAttribute("aria-expanded","true");form.scrollIntoView({behavior:"smooth",block:"nearest"});form.elements.client.focus()};
+  cancelButton.onclick=()=>{if(saving)return;if(!uploaded){form.reset();form.elements.assignedId.value=signedInUser?.id||"";requestId=crypto.randomUUID();message.textContent="";message.className=""}else{message.className="";message.textContent="El archivo ya está guardado. Abre Nuevo para completar el registro pendiente."}form.hidden=true;newButton.setAttribute("aria-expanded","false");newButton.focus()};
   form.onsubmit=async event=>{
-    event.preventDefault();if(saving)return;if(!form.reportValidity())return;
-    saving=true;message.className="";message.textContent="Creando carpeta y guardando notificación…";
+    event.preventDefault();if(saving)return;if(!form.reportValidity())return;saving=true;message.className="";message.textContent="Creando carpeta y guardando notificación…";
     const button=form.querySelector('[type="submit"]');button.disabled=true;cancelButton.disabled=true;newButton.disabled=true;button.textContent="Guardando…";form.setAttribute("aria-busy","true");
     try{
       const client=form.elements.client.value,reference=form.elements.reference.value.trim(),notificationDate=form.elements.notificationDate.value,deadline=form.elements.deadline.value,file=form.elements.notification.files[0];
@@ -3152,24 +3141,11 @@ async function renderInspections(){
       if(deadline<notificationDate)throw new Error("La fecha límite no puede ser anterior a la notificación.");
       const year=Number(inspectionToday().slice(0,4)),extension=file.name.includes(".")?"."+file.name.split(".").pop():"",filename=notificationDate.replaceAll("-",".")+" Notificación ("+reference+")"+extension;
       const assignedId=form.elements.assignedId.value;if(!assignedId)throw new Error("Selecciona un trabajador.");
-      const record={id:requestId,client,reference,notificationDate,deadline,year,filename,assignedId};
-      const fingerprint=JSON.stringify([client,reference,notificationDate,filename,file.size,file.lastModified]);
+      const record={id:requestId,client,reference,notificationDate,deadline,year,filename,assignedId},fingerprint=JSON.stringify([client,reference,notificationDate,filename,file.size,file.lastModified]);
       if(uploaded&&uploaded!==fingerprint)throw new Error("El documento ya se guardó. Mantén los datos originales y vuelve a guardar para terminar la operación.");
-      if(!uploaded){
-        if(records.some(r=>r.client===client&&r.year===year&&r.reference.toLocaleLowerCase("es")===reference.toLocaleLowerCase("es")))throw new Error("Ya existe esa referencia para este cliente.");
-        const folder=await inspectionFolder(record,true);
-        for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===filename.toLocaleLowerCase("es"))throw new Error("La notificación ya existe en la carpeta. No se ha sobrescrito.");
-        await copyNamedFile(file,folder,filename);uploaded=fingerprint;
-      }
-      const saved=await apiJson("/api/inspections",{method:"POST",body:JSON.stringify(record)});
-      records=[saved,...records.filter(r=>r.id!==saved.id)];uploaded=null;requestId=crypto.randomUUID();form.reset();form.hidden=true;newButton.setAttribute("aria-expanded","false");table();newButton.focus();
-      message.className="";message.textContent="Notificación guardada, carpeta creada y tarea pendiente asignada.";
-      await loadSharedTasks();
+      if(!uploaded){if(records.some(r=>r.client===client&&r.year===year&&r.reference.toLocaleLowerCase("es")===reference.toLocaleLowerCase("es")))throw new Error("Ya existe esa referencia para este cliente.");const folder=await inspectionFolder(record,true);for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===filename.toLocaleLowerCase("es"))throw new Error("La notificación ya existe en la carpeta. No se ha sobrescrito.");await copyNamedFile(file,folder,filename);uploaded=fingerprint}
+      const saved=await apiJson("/api/inspections",{method:"POST",body:JSON.stringify(record)});records=[saved,...records.filter(r=>r.id!==saved.id)];uploaded=null;requestId=crypto.randomUUID();form.reset();form.elements.assignedId.value=signedInUser?.id||"";form.hidden=true;newButton.setAttribute("aria-expanded","false");table();newButton.focus();message.className="";message.textContent="Notificación guardada, carpeta creada y tarea pendiente asignada.";await loadSharedTasks();
     }catch(error){showError(error);if(uploaded)message.textContent+=" El archivo está guardado; vuelve a pulsar Guardar para completar el registro y la tarea."}finally{saving=false;button.disabled=false;cancelButton.disabled=false;newButton.disabled=false;button.textContent="Guardar y crear carpeta";form.removeAttribute("aria-busy")}
   };
-  try{
-    const [names,data]=await Promise.all([getTaskClientNames(),apiJson("/api/inspections")]);
-    for(const name of names)form.elements.client.add(new Option(name,name));
-    records=data;table();
-  }catch(error){content.textContent="No se pudieron cargar las inspecciones.";showError(error)}
+  try{const [names,data]=await Promise.all([getTaskClientNames(),apiJson("/api/inspections")]);for(const name of names)form.elements.client.add(new Option(name,name));records=data;table()}catch(error){content.textContent="No se pudieron cargar las inspecciones.";showError(error)}
 }
