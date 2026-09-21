@@ -3072,7 +3072,80 @@ function openClientFiscalArea(){
   overlay.querySelector(".client-fiscal-back").addEventListener("click",closeClientFiscalArea);overlay.querySelector(".client-fiscal-profile")?.addEventListener("click",openAccountPanel);overlay.querySelectorAll("[data-fiscal-tab]").forEach(button=>button.addEventListener("click",()=>render(button.dataset.fiscalTab)));overlay.querySelectorAll("[data-fiscal-contact]").forEach(button=>button.addEventListener("click",openClientChat));render("documents");
 }
 
-function renderInspections(){
-  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Inspecciones</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header><section class="panel"><div class="empty"><h3>Inspecciones</h3><p>Espacio para el seguimiento de inspecciones del despacho.</p></div></section>`;
+
+function inspectionToday(){return new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Madrid",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
+function inspectionDays(date){return Math.round((Date.parse(date+"T00:00:00Z")-Date.parse(inspectionToday()+"T00:00:00Z"))/86400000)}
+async function inspectionFolder(record,create=false){
+  const root=await getSavedHandle("clients-folder");
+  if(!root||await root.requestPermission({mode:"readwrite"})!=="granted")throw new Error("Conecta primero la carpeta de Clientes.");
+  const client=await root.getDirectoryHandle(record.client);
+  const declarations=await client.getDirectoryHandle("DECLARACIONES",{create});
+  const year=await declarations.getDirectoryHandle(String(record.year),{create});
+  return year.getDirectoryHandle("Notificación ("+record.reference+")",{create});
+}
+async function renderInspections(){
+  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Inspecciones</h1></div><button class="primary blue-button" id="newInspection">+ Nueva notificación</button></header>
+  <style>.inspection-panel{padding:20px}.inspection-table-wrap{overflow:auto}.inspection-table{width:100%;border-collapse:collapse;min-width:760px}.inspection-table th,.inspection-table td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);font-size:13px}.inspection-table th{color:var(--muted);font-size:12px}.inspection-overdue{color:#c63737;font-weight:700}.inspection-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fafbff}.inspection-form[hidden]{display:none}.inspection-form label{display:grid;gap:5px;font-size:13px}.inspection-form input,.inspection-form select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit}.inspection-wide{grid-column:1/-1}.inspection-docs-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.inspection-file{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.inspection-file button{overflow-wrap:anywhere;text-align:left}.inspection-error{color:#b42318} @media(max-width:760px){.inspection-form{grid-template-columns:1fr}.inspection-panel{padding:12px}}</style>
+  <section class="panel inspection-panel"><form id="inspectionForm" class="inspection-form" hidden>
+  <label class="inspection-wide">Cliente<select name="client" required><option value="">Seleccionar cliente…</option></select></label>
+  <label>Número de referencia / inspección<input name="reference" required maxlength="100"></label>
+  <label>Fecha de notificación<input name="notificationDate" type="date" required></label>
+  <label>Fecha límite<input name="deadline" type="date" required></label>
+  <label>Documento de notificación<input name="notification" type="file" required></label>
+  <p class="inspection-wide">Se creará una tarea pendiente asignada a ti.</p>
+  <div class="inspection-wide"><button class="primary blue-button" type="submit">Guardar y crear carpeta</button> <button class="secondary-button" id="cancelInspection" type="button">Cancelar</button></div>
+  </form><p id="inspectionMessage" role="status"></p><div id="inspectionContent">Cargando notificaciones…</div></section>`;
   bindHeader();
+  const form=document.querySelector("#inspectionForm"),content=document.querySelector("#inspectionContent"),message=document.querySelector("#inspectionMessage");
+  let records=[],uploaded=null,requestId=crypto.randomUUID();
+  const showError=error=>{message.className="inspection-error";message.textContent=error.message||"No se pudo completar la operación."};
+  const table=()=>{
+    content.innerHTML=`<div class="inspection-table-wrap"><table class="inspection-table"><thead><tr><th>Nombre</th><th>Número inspección</th><th>Fecha notificación</th><th>Plazo restante</th><th>Fecha límite</th><th>Documentación</th></tr></thead><tbody>${records.length?records.map(r=>{const days=inspectionDays(r.deadline);return `<tr><td>${escapeHtml(r.client)}</td><td>${escapeHtml(r.reference)}</td><td>${taskDateLabel(r.notificationDate)}</td><td class="${days<0?"inspection-overdue":""}">${days<0?"Vencido hace "+Math.abs(days)+" días":days===0?"Vence hoy":days+" días"}</td><td>${taskDateLabel(r.deadline)}</td><td><button class="secondary-button" data-inspection-docs="${escapeHtml(r.id)}">Ver documentos</button></td></tr>`}).join(""):'<tr><td colspan="6">Todavía no hay notificaciones.</td></tr>'}</tbody></table></div>`;
+    content.querySelectorAll("[data-inspection-docs]").forEach(button=>button.onclick=()=>documents(records.find(r=>r.id===button.dataset.inspectionDocs)));
+  };
+  const documents=async record=>{
+    content.textContent="Cargando documentación…";
+    try{
+      const folder=await inspectionFolder(record),files=[];
+      async function collect(dir,prefix="",depth=0){if(depth>10)return;for await(const entry of dir.values()){if(entry.kind==="file")files.push({name:prefix+entry.name,handle:entry});else if(entry.kind==="directory")await collect(entry,prefix+entry.name+"/",depth+1)}}
+      await collect(folder);files.sort((a,b)=>a.name.localeCompare(b.name,"es"));
+      content.innerHTML=`<div class="inspection-docs-head"><div><h3>Notificación ${escapeHtml(record.reference)}</h3><p>${escapeHtml(record.client)} · ${record.year}</p></div><button class="secondary-button" id="inspectionBack">Volver a inspecciones</button></div><label>Adjuntar escritos, respuestas u otros documentos<input id="inspectionAttachments" type="file" multiple></label><div>${files.length?files.map(file=>`<div class="inspection-file"><button class="document-link" data-preview-document="${registerPreviewDocument(file)}">${escapeHtml(file.name)}</button></div>`).join(""):"<p>No hay documentos en esta carpeta.</p>"}</div>`;
+      document.querySelector("#inspectionBack").onclick=table;
+      document.querySelector("#inspectionAttachments").onchange=async event=>{
+        const control=event.target;control.disabled=true;
+        try{for(const file of control.files){let exists=false;for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===file.name.toLocaleLowerCase("es"))exists=true;if(exists)throw new Error("Ya existe "+file.name+". Cambia el nombre para no sobrescribirlo.");await copyNamedFile(file,folder,file.name)}await documents(record)}
+        catch(error){showError(error)}finally{control.disabled=false}
+      };
+    }catch(error){showError(error);table()}
+  };
+  document.querySelector("#newInspection").onclick=()=>{form.hidden=false;form.elements.client.focus()};
+  document.querySelector("#cancelInspection").onclick=()=>{form.hidden=true};
+  form.onsubmit=async event=>{
+    event.preventDefault();message.textContent="";const button=form.querySelector('[type="submit"]');button.disabled=true;
+    try{
+      const client=form.elements.client.value,reference=form.elements.reference.value.trim(),notificationDate=form.elements.notificationDate.value,deadline=form.elements.deadline.value,file=form.elements.notification.files[0];
+      if(!client||!reference||!file||!notificationDate||!deadline)throw new Error("Completa los datos y adjunta la notificación.");
+      if(/[\\/:*?"<>|\x00-\x1f]/.test(reference)||/[. ]$/.test(reference))throw new Error("La referencia contiene caracteres no válidos para una carpeta.");
+      if(deadline<notificationDate)throw new Error("La fecha límite no puede ser anterior a la notificación.");
+      const year=Number(inspectionToday().slice(0,4)),extension=file.name.includes(".")?"."+file.name.split(".").pop():"",filename=notificationDate.replaceAll("-",".")+" Notificación ("+reference+")"+extension;
+      const record={id:requestId,client,reference,notificationDate,deadline,year,filename};
+      const fingerprint=JSON.stringify([client,reference,notificationDate,filename,file.size,file.lastModified]);
+      if(uploaded&&uploaded!==fingerprint)throw new Error("El documento ya se guardó. Mantén los datos originales y vuelve a guardar para terminar la operación.");
+      if(!uploaded){
+        if(records.some(r=>r.client===client&&r.year===year&&r.reference.toLocaleLowerCase("es")===reference.toLocaleLowerCase("es")))throw new Error("Ya existe esa referencia para este cliente.");
+        const folder=await inspectionFolder(record,true);
+        for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===filename.toLocaleLowerCase("es"))throw new Error("La notificación ya existe en la carpeta. No se ha sobrescrito.");
+        await copyNamedFile(file,folder,filename);uploaded=fingerprint;
+      }
+      const saved=await apiJson("/api/inspections",{method:"POST",body:JSON.stringify(record)});
+      records=[saved,...records.filter(r=>r.id!==saved.id)];uploaded=null;requestId=crypto.randomUUID();form.reset();form.hidden=true;table();
+      message.className="";message.textContent="Notificación guardada, carpeta creada y tarea pendiente asignada.";
+      await loadSharedTasks();
+    }catch(error){showError(error);if(uploaded)message.textContent+=" El archivo está guardado; vuelve a pulsar Guardar para completar el registro y la tarea."}finally{button.disabled=false}
+  };
+  try{
+    const [names,data]=await Promise.all([getTaskClientNames(),apiJson("/api/inspections")]);
+    for(const name of names)form.elements.client.add(new Option(name,name));
+    records=data;table();
+  }catch(error){content.textContent="No se pudieron cargar las inspecciones.";showError(error)}
 }

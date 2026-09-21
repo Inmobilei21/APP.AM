@@ -526,6 +526,29 @@ http.createServer((req, res) => {
     if (index >= 0) reads[index] = record;else reads.push(record);
     saveCollection(billingReadsFile, reads);return json(res, 200, { read: true });
   }
+
+  if (requestPath === "/api/inspections" && ["GET","POST"].includes(req.method)) {
+    const user=requireUser(req,res);if(!user)return;
+    const inspectionsFile=path.join(dataDirectory,"inspections.json");
+    if(req.method==="GET")return json(res,200,loadCollection(inspectionsFile));
+    return readJson(req,256*1024).then(input=>{
+      const safe=value=>typeof value==="string"&&value.trim()&&value.length<=140&&!/[\\/:*?"<>|\x00-\x1f]/.test(value)&&!/[. ]$/.test(value);
+      const date=value=>typeof value==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+      if(!/^[a-zA-Z0-9-]{10,80}$/.test(input.id||"")||!safe(input.client)||!safe(input.reference)||!date(input.notificationDate)||!date(input.deadline)||input.deadline<input.notificationDate||!Number.isInteger(input.year)||input.year<2000||input.year>2200||!safe(input.filename))return json(res,400,{error:"Revisa cliente, referencia y fechas."});
+      const records=loadCollection(inspectionsFile);
+      const existing=records.find(r=>r.id===input.id);
+      if(existing)return json(res,200,existing);
+      if(records.some(r=>r.client===input.client&&r.year===input.year&&r.reference.toLocaleLowerCase("es")===input.reference.toLocaleLowerCase("es")))return json(res,409,{error:"Ya existe una notificación con esa referencia para este cliente y año."});
+      const record={id:input.id,client:input.client,reference:input.reference,notificationDate:input.notificationDate,deadline:input.deadline,year:input.year,filename:input.filename,folder:"Notificación ("+input.reference+")",creatorId:user.id,createdAt:new Date().toISOString(),taskId:"inspection-"+input.id};
+      const tasks=loadCollection(tasksFile);
+      if(!tasks.some(task=>task.id===record.taskId)){
+        tasks.push({id:record.taskId,client:record.client,assignedId:user.id,assigned:user.name,creatorId:user.id,concept:"Inspecciones",customConcept:"Notificación "+record.reference,description:"Atender notificación "+record.reference+"\nDocumentación: "+record.client+"/DECLARACIONES/"+record.year+"/"+record.folder,startDate:record.notificationDate,finalDate:record.deadline,status:"pending",sourceType:"inspection",sourceInspectionId:record.id,updatedAt:record.createdAt});
+        saveCollection(tasksFile,tasks);
+      }
+      records.push(record);saveCollection(inspectionsFile,records);return json(res,201,record);
+    }).catch(()=>json(res,400,{error:"No se pudo guardar la notificación y su tarea. Puedes volver a intentarlo."}));
+  }
+
   if (requestPath === "/api/tasks" && req.method === "GET") {
     const user = requireUser(req, res);if (!user) return;
     const tasks = loadCollection(tasksFile);
