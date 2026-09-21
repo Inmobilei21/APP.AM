@@ -3095,19 +3095,21 @@ async function renderInspections(){
   .inspection-panel{padding:20px}.inspection-table-wrap{overflow:auto}.inspection-table{width:100%;border-collapse:collapse;min-width:760px}.inspection-table th,.inspection-table td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);font-size:13px}.inspection-table th{color:var(--muted);font-size:12px}.inspection-overdue{color:#c63737;font-weight:700}.inspection-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fafbff}.inspection-form[hidden]{display:none}.inspection-form label{display:grid;gap:5px;font-size:13px}.inspection-form input,.inspection-form select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit}.inspection-wide{grid-column:1/-1}.inspection-docs-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.inspection-file{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.inspection-file button{overflow-wrap:anywhere;text-align:left}.inspection-error{color:#b42318} @media(max-width:760px){.inspection-form{grid-template-columns:1fr}.inspection-panel{padding:12px}}</style>
   <section class="panel inspection-panel"><form id="inspectionForm" class="inspection-form" hidden>
   <label class="inspection-wide">Cliente asignado<select name="client" required><option value="">Seleccionar cliente…</option></select></label>
+  <label>Trabajador asignado<select name="assignedId" required><option value="">Seleccionar trabajador…</option>${teamUsers.map(worker=>`<option value="${escapeHtml(worker.id)}">${escapeHtml(worker.name)}</option>`).join("")}</select></label>
   <label>Número de referencia / inspección<input name="reference" required maxlength="100"></label>
   <label>Fecha de notificación<input name="notificationDate" type="date" required></label>
   <label>Fecha límite<input name="deadline" type="date" required></label>
   <label>Documento de notificación<input name="notification" type="file" required></label>
-  <p class="inspection-wide">Se creará una tarea pendiente asignada a ti.</p>
+  <p class="inspection-wide">Se creará una tarea pendiente para el trabajador seleccionado.</p>
   <div class="inspection-wide"><button class="primary blue-button" type="submit">Guardar y crear carpeta</button> <button class="secondary-button" id="cancelInspection" type="button">Cancelar</button></div>
   </form><p id="inspectionMessage" role="status"></p><div id="inspectionContent">Cargando notificaciones…</div></section>`;
   bindHeader();
   const form=document.querySelector("#inspectionForm"),content=document.querySelector("#inspectionContent"),message=document.querySelector("#inspectionMessage");
   let records=[],uploaded=null,requestId=crypto.randomUUID();
+  form.elements.assignedId.value=signedInUser?.id||"";
   const showError=error=>{message.className="inspection-error";message.textContent=error.message||"No se pudo completar la operación."};
   const table=()=>{
-    content.innerHTML=`<div class="inspection-table-wrap"><table class="inspection-table"><thead><tr><th>Nombre</th><th>Número inspección</th><th>Fecha notificación</th><th>Plazo restante</th><th>Fecha límite</th><th>Documentación</th></tr></thead><tbody>${records.length?records.map(r=>{const days=inspectionDays(r.deadline);return `<tr><td>${escapeHtml(r.client)}</td><td>${escapeHtml(r.reference)}</td><td>${taskDateLabel(r.notificationDate)}</td><td class="${days<0?"inspection-overdue":""}">${days<0?"Vencido hace "+Math.abs(days)+" días":days===0?"Vence hoy":days+" días"}</td><td>${taskDateLabel(r.deadline)}</td><td><button class="secondary-button" data-inspection-docs="${escapeHtml(r.id)}">Ver documentos</button></td></tr>`}).join(""):'<tr><td colspan="6">Todavía no hay notificaciones.</td></tr>'}</tbody></table></div>`;
+    content.innerHTML=`<div class="inspection-table-wrap"><table class="inspection-table"><thead><tr><th>Nombre</th><th>Trabajador asignado</th><th>Número inspección</th><th>Fecha notificación</th><th>Plazo restante</th><th>Fecha límite</th><th>Documentación</th></tr></thead><tbody>${records.length?records.map(r=>{const days=inspectionDays(r.deadline);return `<tr><td>${escapeHtml(r.client)}</td><td>${escapeHtml(r.assigned||teamUsers.find(worker=>worker.id===r.creatorId)?.name||"—")}</td><td>${escapeHtml(r.reference)}</td><td>${taskDateLabel(r.notificationDate)}</td><td class="${days<0?"inspection-overdue":""}">${days<0?"Vencido hace "+Math.abs(days)+" días":days===0?"Vence hoy":days+" días"}</td><td>${taskDateLabel(r.deadline)}</td><td><button class="secondary-button" data-inspection-docs="${escapeHtml(r.id)}">Ver documentos</button></td></tr>`}).join(""):'<tr><td colspan="7">Todavía no hay notificaciones.</td></tr>'}</tbody></table></div>`;
     content.querySelectorAll("[data-inspection-docs]").forEach(button=>button.onclick=()=>documents(records.find(r=>r.id===button.dataset.inspectionDocs)));
   };
   const documents=async record=>{
@@ -3149,7 +3151,8 @@ async function renderInspections(){
       if(/[\\/:*?"<>|\x00-\x1f]/.test(reference)||/[. ]$/.test(reference))throw new Error("La referencia contiene caracteres no válidos para una carpeta.");
       if(deadline<notificationDate)throw new Error("La fecha límite no puede ser anterior a la notificación.");
       const year=Number(inspectionToday().slice(0,4)),extension=file.name.includes(".")?"."+file.name.split(".").pop():"",filename=notificationDate.replaceAll("-",".")+" Notificación ("+reference+")"+extension;
-      const record={id:requestId,client,reference,notificationDate,deadline,year,filename};
+      const assignedId=form.elements.assignedId.value;if(!assignedId)throw new Error("Selecciona un trabajador.");
+      const record={id:requestId,client,reference,notificationDate,deadline,year,filename,assignedId};
       const fingerprint=JSON.stringify([client,reference,notificationDate,filename,file.size,file.lastModified]);
       if(uploaded&&uploaded!==fingerprint)throw new Error("El documento ya se guardó. Mantén los datos originales y vuelve a guardar para terminar la operación.");
       if(!uploaded){
