@@ -3084,10 +3084,17 @@ async function inspectionFolder(record,create=false){
   return year.getDirectoryHandle("Notificación ("+record.reference+")",{create});
 }
 async function renderInspections(){
-  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Inspecciones</h1></div><button class="primary blue-button" id="newInspection">+ Nueva notificación</button></header>
-  <style>.inspection-panel{padding:20px}.inspection-table-wrap{overflow:auto}.inspection-table{width:100%;border-collapse:collapse;min-width:760px}.inspection-table th,.inspection-table td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);font-size:13px}.inspection-table th{color:var(--muted);font-size:12px}.inspection-overdue{color:#c63737;font-weight:700}.inspection-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fafbff}.inspection-form[hidden]{display:none}.inspection-form label{display:grid;gap:5px;font-size:13px}.inspection-form input,.inspection-form select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit}.inspection-wide{grid-column:1/-1}.inspection-docs-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.inspection-file{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.inspection-file button{overflow-wrap:anywhere;text-align:left}.inspection-error{color:#b42318} @media(max-width:760px){.inspection-form{grid-template-columns:1fr}.inspection-panel{padding:12px}}</style>
+  main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Inspecciones</h1></div><button class="primary blue-button" id="newInspection" type="button" aria-controls="inspectionForm" aria-expanded="false">+ Nueva notificación</button></header>
+  <style>
+  #newInspection,#inspectionForm button{cursor:pointer;transition:background .15s,box-shadow .15s,transform .15s}
+  #newInspection:hover,#inspectionForm .blue-button:hover{background:#243bc0;box-shadow:0 4px 12px rgba(24,41,155,.18)}
+  #inspectionForm #cancelInspection:hover{background:#e9edf6;border-color:#bfc9dc}
+  #newInspection:active,#inspectionForm button:active{transform:translateY(1px)}
+  #newInspection:focus-visible,#inspectionForm button:focus-visible{outline:2px solid #5369da;outline-offset:3px}
+  #newInspection:disabled,#inspectionForm button:disabled{opacity:.55;cursor:wait;transform:none;box-shadow:none}
+  .inspection-panel{padding:20px}.inspection-table-wrap{overflow:auto}.inspection-table{width:100%;border-collapse:collapse;min-width:760px}.inspection-table th,.inspection-table td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);font-size:13px}.inspection-table th{color:var(--muted);font-size:12px}.inspection-overdue{color:#c63737;font-weight:700}.inspection-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fafbff}.inspection-form[hidden]{display:none}.inspection-form label{display:grid;gap:5px;font-size:13px}.inspection-form input,.inspection-form select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit}.inspection-wide{grid-column:1/-1}.inspection-docs-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.inspection-file{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.inspection-file button{overflow-wrap:anywhere;text-align:left}.inspection-error{color:#b42318} @media(max-width:760px){.inspection-form{grid-template-columns:1fr}.inspection-panel{padding:12px}}</style>
   <section class="panel inspection-panel"><form id="inspectionForm" class="inspection-form" hidden>
-  <label class="inspection-wide">Cliente<select name="client" required><option value="">Seleccionar cliente…</option></select></label>
+  <label class="inspection-wide">Cliente asignado<select name="client" required><option value="">Seleccionar cliente…</option></select></label>
   <label>Número de referencia / inspección<input name="reference" required maxlength="100"></label>
   <label>Fecha de notificación<input name="notificationDate" type="date" required></label>
   <label>Fecha límite<input name="deadline" type="date" required></label>
@@ -3118,10 +3125,24 @@ async function renderInspections(){
       };
     }catch(error){showError(error);table()}
   };
-  document.querySelector("#newInspection").onclick=()=>{form.hidden=false;form.elements.client.focus()};
-  document.querySelector("#cancelInspection").onclick=()=>{form.hidden=true};
+  const newButton=document.querySelector("#newInspection"),cancelButton=document.querySelector("#cancelInspection");
+  let saving=false;
+  newButton.onclick=()=>{
+    if(saving)return;
+    message.textContent="";message.className="";
+    form.hidden=false;newButton.setAttribute("aria-expanded","true");
+    form.scrollIntoView({behavior:"smooth",block:"nearest"});form.elements.client.focus();
+  };
+  cancelButton.onclick=()=>{
+    if(saving)return;
+    if(!uploaded){form.reset();requestId=crypto.randomUUID();message.textContent="";message.className=""}
+    else{message.className="";message.textContent="El archivo ya está guardado. Abre Nueva notificación para completar el registro pendiente."}
+    form.hidden=true;newButton.setAttribute("aria-expanded","false");newButton.focus();
+  };
   form.onsubmit=async event=>{
-    event.preventDefault();message.textContent="";const button=form.querySelector('[type="submit"]');button.disabled=true;
+    event.preventDefault();if(saving)return;if(!form.reportValidity())return;
+    saving=true;message.className="";message.textContent="Creando carpeta y guardando notificación…";
+    const button=form.querySelector('[type="submit"]');button.disabled=true;cancelButton.disabled=true;newButton.disabled=true;button.textContent="Guardando…";form.setAttribute("aria-busy","true");
     try{
       const client=form.elements.client.value,reference=form.elements.reference.value.trim(),notificationDate=form.elements.notificationDate.value,deadline=form.elements.deadline.value,file=form.elements.notification.files[0];
       if(!client||!reference||!file||!notificationDate||!deadline)throw new Error("Completa los datos y adjunta la notificación.");
@@ -3138,10 +3159,10 @@ async function renderInspections(){
         await copyNamedFile(file,folder,filename);uploaded=fingerprint;
       }
       const saved=await apiJson("/api/inspections",{method:"POST",body:JSON.stringify(record)});
-      records=[saved,...records.filter(r=>r.id!==saved.id)];uploaded=null;requestId=crypto.randomUUID();form.reset();form.hidden=true;table();
+      records=[saved,...records.filter(r=>r.id!==saved.id)];uploaded=null;requestId=crypto.randomUUID();form.reset();form.hidden=true;newButton.setAttribute("aria-expanded","false");table();newButton.focus();
       message.className="";message.textContent="Notificación guardada, carpeta creada y tarea pendiente asignada.";
       await loadSharedTasks();
-    }catch(error){showError(error);if(uploaded)message.textContent+=" El archivo está guardado; vuelve a pulsar Guardar para completar el registro y la tarea."}finally{button.disabled=false}
+    }catch(error){showError(error);if(uploaded)message.textContent+=" El archivo está guardado; vuelve a pulsar Guardar para completar el registro y la tarea."}finally{saving=false;button.disabled=false;cancelButton.disabled=false;newButton.disabled=false;button.textContent="Guardar y crear carpeta";form.removeAttribute("aria-busy")}
   };
   try{
     const [names,data]=await Promise.all([getTaskClientNames(),apiJson("/api/inspections")]);
