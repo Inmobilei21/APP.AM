@@ -3059,3 +3059,6 @@ body .sidebar nav button[data-title="Tareas"]{position:relative}
 body .sidebar nav button .task-nav-alert{position:static!important;flex:0 0 auto!important;margin:0 0 0 auto!important;min-width:22px!important;width:auto!important;height:22px!important;padding:0 6px!important;border:1px solid rgba(165,180,252,.25)!important;border-radius:7px!important;background:#35446c!important;color:#eef2ff!important;display:inline-flex!important;align-items:center;justify-content:center;font-size:11px!important;font-weight:700!important;font-variant-numeric:tabular-nums;line-height:1!important;box-shadow:none!important;animation:none!important;transform:none!important;pointer-events:none}
 body .sidebar nav button.active .task-nav-alert{background:#465781!important;border-color:rgba(193,205,255,.25)!important}
 @media(min-width:761px){body:not(.client-preview-mode) .sidebar:not(:hover) nav button .task-nav-alert{position:absolute!important;top:1px!important;right:1px!important;margin:0!important;min-width:17px!important;height:17px!important;padding:0 4px!important;font-size:9px!important;border-radius:5px!important}}
+
+/* High-visibility task count, retaining the compact layout. */
+body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-nav-alert{background:#e53935!important;color:#fff!important;border-color:#e53935!important}
