@@ -56,39 +56,60 @@ function installHomeActivityLayout(){
   welcome.before(layout);layout.append(welcome,metrics,rail,news);
 }
 installHomeActivityLayout();
-function updateHomeDateAndWeather(){
-  const dateNode=document.querySelector("#homeCurrentDate");
-  const tempNode=document.querySelector("#homeWeatherTemp");
-  const textNode=document.querySelector("#homeWeatherText");
-  const detailNode=document.querySelector("#homeWeatherDetail");
-  const iconNode=document.querySelector("#homeWeatherIcon");
-  if(!dateNode)return;
-  const now=new Date();
-  const formatted=new Intl.DateTimeFormat("es-ES",{weekday:"long",day:"numeric",month:"long"}).format(now);
+const HOME_WEATHER_KEY="app-am-weather-scheduled-v1";
+const HOME_WEATHER_HOURS=[9,12,17,20,22];
+const homeWeatherClock=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Madrid",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+let homeWeatherCache=null,homeWeatherRequest=null,homeWeatherTimer;
+try{homeWeatherCache=JSON.parse(localStorage.getItem(HOME_WEATHER_KEY)||"null")}catch{}
+function homeWeatherSlot(now=new Date()){
+  const p=Object.fromEntries(homeWeatherClock.formatToParts(now).map(part=>[part.type,part.value]));
+  const hour=HOME_WEATHER_HOURS.filter(hour=>hour<=Number(p.hour)).pop();
+  if(hour!==undefined)return p.year+"-"+p.month+"-"+p.day+"-"+hour;
+  const previous=new Date(Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day)-1));
+  return previous.toISOString().slice(0,10)+"-22";
+}
+function scheduleHomeWeather(){
+  clearTimeout(homeWeatherTimer);
+  const now=Date.now(),slot=homeWeatherSlot(new Date(now));
+  let next=Math.floor(now/60000)*60000+60000;
+  while(homeWeatherSlot(new Date(next))===slot)next+=60000;
+  homeWeatherTimer=setTimeout(()=>{updateHomeDateAndWeather();scheduleHomeWeather()},next-now+100);
+}
+function renderHomeWeather(){
+  const dateNode=document.querySelector("#homeCurrentDate");if(!dateNode)return;
+  const formatted=new Intl.DateTimeFormat("es-ES",{timeZone:"Europe/Madrid",weekday:"long",day:"numeric",month:"long"}).format(new Date());
   dateNode.textContent=formatted.charAt(0).toUpperCase()+formatted.slice(1);
+  const tempNode=document.querySelector("#homeWeatherTemp"),textNode=document.querySelector("#homeWeatherText"),detailNode=document.querySelector("#homeWeatherDetail"),iconNode=document.querySelector("#homeWeatherIcon");
   const weatherLabels={
     0:["Despejado","☀"],1:["Mayormente despejado","🌤"],2:["Parcialmente nublado","⛅"],3:["Nublado","☁"],
     45:["Niebla","🌫"],48:["Niebla","🌫"],51:["Llovizna débil","🌦"],53:["Llovizna","🌦"],55:["Llovizna intensa","🌧"],
     61:["Lluvia débil","🌦"],63:["Lluvia","🌧"],65:["Lluvia intensa","🌧"],71:["Nieve débil","🌨"],73:["Nieve","🌨"],75:["Nieve intensa","❄"],
     80:["Chubascos débiles","🌦"],81:["Chubascos","🌧"],82:["Chubascos intensos","⛈"],95:["Tormenta","⛈"],96:["Tormenta con granizo","⛈"],99:["Tormenta con granizo","⛈"]
   };
-  fetch("https://api.open-meteo.com/v1/forecast?latitude=37.7796&longitude=-3.7849&current=temperature_2m,apparent_temperature,weather_code&timezone=Europe%2FMadrid")
-    .then(response=>{if(!response.ok)throw new Error("weather");return response.json()})
-    .then(data=>{
-      const current=data.current||{},label=weatherLabels[current.weather_code]||["Tiempo en Jaén","◌"];
-      tempNode.textContent=Math.round(current.temperature_2m)+"°";
-      textNode.textContent=label[0];
-      detailNode.textContent="Sensación de "+Math.round(current.apparent_temperature)+"° · Jaén";
-      iconNode.textContent=label[1];
-    })
-    .catch(()=>{
-      tempNode.textContent="Jaén";
-      textNode.textContent="Tiempo no disponible";
-      detailNode.textContent="La fecha sigue actualizada";
-      iconNode.textContent="◌";
-    });
+
+  const current=homeWeatherCache?.current;
+  if(current){
+    const label=weatherLabels[current.weather_code]||["Tiempo en Jaén","◌"];
+    tempNode.textContent=Math.round(current.temperature_2m)+"°";textNode.textContent=label[0];
+    detailNode.textContent="Sensación de "+Math.round(current.apparent_temperature)+"° · Jaén";iconNode.textContent=label[1];
+  }else{tempNode.textContent="—";textNode.textContent=homeWeatherRequest?"Consultando el tiempo…":"Tiempo no disponible";detailNode.textContent="Jaén";iconNode.textContent="◌"}
 }
+function updateHomeDateAndWeather(){
+  renderHomeWeather();
+  const slot=homeWeatherSlot();
+  if(homeWeatherRequest||homeWeatherCache?.slot===slot)return homeWeatherRequest;
+  homeWeatherCache={...homeWeatherCache,slot};
+  try{localStorage.setItem(HOME_WEATHER_KEY,JSON.stringify(homeWeatherCache))}catch{}
+  homeWeatherRequest=fetch("https://api.open-meteo.com/v1/forecast?latitude=37.7796&longitude=-3.7849&current=temperature_2m,apparent_temperature,weather_code&timezone=Europe%2FMadrid",{signal:AbortSignal.timeout(15000)})
+    .then(response=>{if(!response.ok)throw new Error("weather");return response.json()})
+    .then(data=>{if(!Number.isFinite(data.current?.temperature_2m)||!Number.isFinite(data.current?.apparent_temperature))throw new Error("weather");
+      homeWeatherCache={slot,current:data.current};try{localStorage.setItem(HOME_WEATHER_KEY,JSON.stringify(homeWeatherCache))}catch{}
+    }).catch(()=>{}).finally(()=>{homeWeatherRequest=null;renderHomeWeather()});
+  renderHomeWeather();return homeWeatherRequest;
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){updateHomeDateAndWeather();scheduleHomeWeather()}});
 updateHomeDateAndWeather();
+scheduleHomeWeather();
 const homeMarkup=main.innerHTML;
 const clientPortalIcons={
   document:'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h5"/></svg>',
@@ -202,7 +223,7 @@ function renderClientPreview(){
 }
 function closeClientPreview(){
   clientPreviewMode=false;document.querySelector(".client-unavailable-overlay")?.remove();closeClientFiscalArea();closeClientDocuments();closeClientChat();document.body.classList.remove("client-preview-mode");
-  const home=document.querySelector('.sidebar nav button[data-title="Inicio"]');if(home)home.click();else{main.innerHTML=homeMarkup;bindHeader();initHome()}
+  const home=document.querySelector('.sidebar nav button[data-title="Inicio"]');if(home)home.click();else{main.innerHTML=homeMarkup;updateHomeDateAndWeather();bindHeader();initHome()}
 }
 function toggleClientPreview(){clientPreviewMode?closeClientPreview():renderClientPreview()}
 function previewAsClient(name){clientPreviewName=name||"Cliente";renderClientPreview()}
@@ -2782,7 +2803,7 @@ document.querySelectorAll(".sidebar nav button").forEach(button=>button.addEvent
   else if(button.dataset.title==="Gestión") openProtectedManagement();
   else if(button.dataset.title==="Trabajos") renderWorkProcedures();
   else{
-    main.innerHTML=homeMarkup;
+    main.innerHTML=homeMarkup;updateHomeDateAndWeather();
     bindHeader();
     const title=document.querySelector("#pageTitle");
     if(title) title.textContent=button.dataset.title;
