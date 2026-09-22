@@ -3097,12 +3097,12 @@ async function renderInspections(){
   @media(max-width:760px){.inspection-form{grid-template-columns:1fr}.inspection-panel{padding:12px}.inspection-summary{padding:15px 14px;grid-template-columns:minmax(0,1fr) auto 18px}.inspection-summary strong{font-size:15px}.inspection-days{font-size:13px}.inspection-detail-grid{grid-template-columns:1fr;gap:10px}.inspection-detail-actions{justify-content:stretch}.inspection-detail-actions button{width:100%}header:has(#newInspection){grid-template-columns:auto minmax(0,1fr) auto;gap:12px}header:has(#newInspection)>div{min-width:0}header:has(#newInspection) h1{font-size:clamp(27px,8vw,36px)}#newInspection{position:static!important;transform:none!important;width:auto!important;min-width:0;max-width:96px;padding:12px 13px!important;margin:0!important;white-space:nowrap;font-size:14px;line-height:1.1;justify-self:end;border-radius:14px}#newInspection:active{transform:translateY(1px)!important}}
   </style>
   <section class="panel inspection-panel"><form id="inspectionForm" class="inspection-form" hidden>
-  <label class="inspection-wide">Cliente asignado<select name="client" required><option value="">Seleccionar cliente…</option></select></label>
-  <label>Trabajador asignado<select name="assignedId" required><option value="">Seleccionar trabajador…</option>${teamUsers.map(worker=>`<option value="${escapeHtml(worker.id)}">${escapeHtml(worker.name)}</option>`).join("")}</select></label>
+  <label>Cliente asignado<select name="client" required><option value="">Seleccionar cliente…</option></select></label>
+  <label>Persona encargada<select name="assignedId" required><option value="">Seleccionar trabajador…</option>${teamUsers.map(worker=>`<option value="${escapeHtml(worker.id)}">${escapeHtml(worker.name)}</option>`).join("")}</select></label>
   <label>Número de referencia / inspección<input name="reference" required maxlength="100"></label>
-  <label>Fecha de notificación<input name="notificationDate" type="date" required></label>
-  <label>Fecha límite<input name="deadline" type="date" required></label>
   <label>Documento de notificación<input name="notification" type="file" required></label>
+  <label>Fecha de inicio<input name="notificationDate" type="date" required></label>
+  <label>Fecha final<input name="deadline" type="date" required></label>
   <p class="inspection-wide">Se creará una tarea pendiente para el trabajador seleccionado.</p>
   <div class="inspection-wide"><button class="primary blue-button" type="submit">Guardar y crear carpeta</button> <button class="secondary-button" id="cancelInspection" type="button">Cancelar</button></div>
   </form><p id="inspectionMessage" role="status"></p><div id="inspectionContent">Cargando notificaciones…</div></section>`;
