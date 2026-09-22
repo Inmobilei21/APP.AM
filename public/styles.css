@@ -3404,3 +3404,23 @@ body:has(.suggestion-modal-shell[aria-hidden="false"]) .suggestion-modal-shell[a
   body:not(.client-preview-mode) #clientModal .client-modal{max-width:calc(100vw - var(--integrated-rail) - 32px)}
   body:not(.client-preview-mode):has(#clientModal.open) .sidebar{width:var(--integrated-rail)!important;pointer-events:none;box-shadow:none!important}
 }
+
+
+/* Compact client identity and portal access layout */
+@media(min-width:1100px){
+  #newClientForm{grid-template-areas:"identity identity" "internal fiscal" "access registry" "courtesy registry" "signature registry" "message message" "actions actions"}
+  #newClientForm .client-identity-grid{grid-template-columns:minmax(260px,1.7fr) minmax(165px,.85fr) minmax(150px,.72fr) minmax(170px,.85fr) minmax(180px,.9fr);align-items:start}
+  #newClientForm .client-portal-access{grid-area:access;align-self:start;margin:0;padding:11px 13px 13px}
+  #newClientForm .client-portal-access-grid{grid-template-columns:minmax(0,1fr) minmax(105px,.5fr);gap:12px;align-items:end}
+  #newClientForm .client-portal-access legend{font-size:14px}
+  #newClientForm .client-portal-access-grid input{height:30px;min-height:30px;padding:4px 8px;border-radius:7px;font-size:12px}
+  #newClientForm .client-portal-access-grid label,#newClientForm .client-portal-access-grid>div{gap:4px}
+  #newClientForm .portal-status{min-height:30px;padding:5px 9px}
+}
+@media(max-width:1099px){
+  #newClientForm .client-portal-access{margin:0}
+  #newClientForm .client-portal-access-grid{grid-template-columns:minmax(0,1fr) auto}
+}
+@media(max-width:600px){
+  #newClientForm .client-portal-access-grid{grid-template-columns:1fr}
+}
