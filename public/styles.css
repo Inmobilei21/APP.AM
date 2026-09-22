@@ -3196,49 +3196,52 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
   }
 }
 
-/* Unión activa definitiva: una sola superficie blanca, sin costura al plegar */
+/* Pestaña activa integrada: extremo izquierdo redondo y unión derecha continua */
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar nav{overflow:visible!important}
   body:not(.client-preview-mode) .sidebar nav button.active{
-    --active-overlap:31px!important;
+    --active-overlap:30px!important;
     position:relative!important;
     overflow:visible!important;
-    background:transparent!important;
-    border-radius:18px 0 0 18px!important;
-    isolation:isolate!important;
-  }
-  body:not(.client-preview-mode) .sidebar nav button.active::before{
-    content:""!important;
-    display:block!important;
-    position:absolute!important;
-    z-index:-1!important;
-    top:0!important;
-    bottom:0!important;
-    left:0!important;
-    right:calc(-1 * var(--active-overlap))!important;
-    width:auto!important;
-    height:auto!important;
-    padding:0!important;
     border-radius:18px 0 0 18px!important;
     background:var(--sidebar-active-surface,#f6f8fc)!important;
-    box-shadow:none!important;
-    opacity:1!important;
-    visibility:visible!important;
-    pointer-events:none!important;
+    isolation:auto!important;
   }
-  body:not(.client-preview-mode) .sidebar nav button.active::after{display:none!important}
   body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
     width:calc(100% + var(--active-overlap))!important;
     margin-left:10px!important;
     margin-right:calc(-1 * var(--active-overlap))!important;
+    padding:0 0 0 19px!important;
   }
-  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{
-    right:0!important;
+  body:not(.client-preview-mode) .sidebar nav button.active::before,
+  body:not(.client-preview-mode) .sidebar nav button.active::after{
+    content:""!important;
+    display:block!important;
+    position:absolute!important;
+    z-index:0!important;
+    right:var(--active-overlap)!important;
+    left:auto!important;
+    width:18px!important;
+    height:18px!important;
+    padding:0!important;
+    background:transparent!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:none!important;
+  }
+  body:not(.client-preview-mode) .sidebar nav button.active::before{
+    top:-18px!important;
+    bottom:auto!important;
+    border-radius:0 0 18px 0!important;
+    box-shadow:5px 5px 0 4px var(--sidebar-active-surface,#f6f8fc)!important;
+  }
+  body:not(.client-preview-mode) .sidebar nav button.active::after{
+    top:auto!important;
+    bottom:-18px!important;
+    border-radius:0 18px 0 0!important;
+    box-shadow:5px -5px 0 4px var(--sidebar-active-surface,#f6f8fc)!important;
   }
   body:not(.client-preview-mode) .sidebar:not(:hover){
     box-shadow:none!important;
-  }
-  body:not(.client-preview-mode) .sidebar:not(:hover)::after{
-    opacity:0!important;
   }
 }
