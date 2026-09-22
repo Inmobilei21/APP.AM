@@ -3389,3 +3389,10 @@ body:has(.modal-shell[aria-hidden="false"]),
 body:has(.suggestion-modal-shell[aria-hidden="false"]){overflow:hidden!important;overscroll-behavior:none;touch-action:none}
 body:has(.modal-shell[aria-hidden="false"]) .modal-shell[aria-hidden="false"] .modal,
 body:has(.suggestion-modal-shell[aria-hidden="false"]) .suggestion-modal-shell[aria-hidden="false"] .suggestion-modal{touch-action:pan-y}
+
+
+/* Interactive new client button */
+#openNewClient{cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,background .2s ease,filter .2s ease;box-shadow:0 8px 20px rgba(20,39,155,.2)}
+#openNewClient:hover{transform:translateY(-2px);background:#263bc5;box-shadow:0 13px 28px rgba(20,39,155,.32);filter:brightness(1.04)}
+#openNewClient:active{transform:translateY(0) scale(.98);box-shadow:0 5px 14px rgba(20,39,155,.24)}
+#openNewClient:focus-visible{outline:3px solid rgba(38,59,197,.3);outline-offset:3px}
