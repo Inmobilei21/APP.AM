@@ -2338,7 +2338,17 @@ function showInvoiceProcessorBanner(message){
 async function setupInvoiceProcessor(){
   const panel=document.querySelector("#invoiceProcessor"),open=document.querySelector("#openInvoiceProcessor");if(!panel||!open)return;
   const select=panel.querySelector("#invoiceClient"),input=panel.querySelector("#invoiceFiles"),drop=panel.querySelector("#invoiceDropZone");
-  try{const clients=(await getAllClientMetadata()).filter(clientIsActive).sort((a,b)=>a.name.localeCompare(b.name,"es"));select.insertAdjacentHTML("beforeend",clients.map(client=>`<option value="${escapeHtml(client.name)}">${escapeHtml(client.name)}</option>`).join(""))}catch{}
+  try{
+    const names=new Set(),inactive=new Set();
+    try{(await getAllClientMetadata()).forEach(client=>{const name=client?.name||client?.id;if(!name)return;if(clientIsActive(client))names.add(name);else inactive.add(name)})}catch{}
+    try{
+      const root=await getSavedHandle("clients-folder");
+      if(root&&await root.queryPermission({mode:"read"})==="granted"){
+        for await(const entry of root.values())if(entry.kind==="directory"&&!inactive.has(entry.name))names.add(entry.name);
+      }
+    }catch{}
+    select.insertAdjacentHTML("beforeend",[...names].sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"})).map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join(""));
+  }catch{}
   const renderFiles=()=>{panel.querySelector("#invoiceSelectedFiles").innerHTML=invoiceProcessorFiles.length?`<strong>${invoiceProcessorFiles.length} ${invoiceProcessorFiles.length===1?"archivo":"archivos"}</strong><span>${invoiceProcessorFiles.map(file=>escapeHtml(file.name)).join(" · ")}</span>`:"Ningún archivo seleccionado"};
   const addFiles=files=>{invoiceProcessorFiles=[...files].filter(file=>/\.(pdf|xml|txt|jpe?g|png|webp|bmp|tiff?)$/i.test(file.name));invoiceDraftRecords=[];panel.querySelector("#invoiceDraft").hidden=true;renderFiles()};
   open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
