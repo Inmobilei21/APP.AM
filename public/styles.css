@@ -2969,6 +2969,38 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
   }
 }
 
+/* Aparición progresiva del fondo azul al desplegar la barra */
+@media (min-width:761px){
+  body:not(.client-preview-mode) .sidebar{
+    position:relative;
+    isolation:isolate;
+    background:#0b1735!important;
+  }
+  body:not(.client-preview-mode) .sidebar::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:-1;
+    pointer-events:none;
+    background:linear-gradient(90deg,#0b1735 0%,#142968 58%,#233fba 100%);
+    opacity:0;
+    transform:scaleX(.82);
+    transform-origin:left center;
+    transition:opacity .95s cubic-bezier(.16,.72,.22,1),
+               transform 1.05s cubic-bezier(.16,.72,.22,1);
+  }
+  body:not(.client-preview-mode) .sidebar:hover::after{
+    opacity:1;
+    transform:scaleX(1);
+  }
+  body:not(.client-preview-mode) .sidebar .brand,
+  body:not(.client-preview-mode) .sidebar nav,
+  body:not(.client-preview-mode) .sidebar .sidebar-footer{
+    position:relative;
+    z-index:1;
+  }
+}
+
 /* Transición especialmente suave entre la barra plegada y desplegada */
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar{
