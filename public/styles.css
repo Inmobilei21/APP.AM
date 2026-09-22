@@ -3372,3 +3372,20 @@ body:has(#suggestionModal){overflow:hidden}
 @media(max-width:760px){.worker-chat .suggestion-launcher{height:54px;padding:0 12px}.suggestion-modal{padding:18px}.suggestion-entry header{align-items:flex-start;flex-wrap:wrap}}
 
 .suggestion-modal{box-sizing:border-box}
+
+/* Móvil: viewport fijo y fondo inmóvil mientras hay un modal/banner */
+@media (max-width:760px){
+  html{width:100%;max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;touch-action:pan-y}
+  body{width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior:none}
+  input,select,textarea,button{font-size:16px}
+  .modal-shell[aria-hidden="false"],
+  .suggestion-modal-shell[aria-hidden="false"]{overscroll-behavior:contain;touch-action:none}
+  .modal-shell[aria-hidden="false"] .modal,
+  .suggestion-modal-shell[aria-hidden="false"] .suggestion-modal{touch-action:pan-y;overscroll-behavior:contain}
+}
+html:has(.modal-shell[aria-hidden="false"]),
+html:has(.suggestion-modal-shell[aria-hidden="false"]){overflow:hidden!important;overscroll-behavior:none}
+body:has(.modal-shell[aria-hidden="false"]),
+body:has(.suggestion-modal-shell[aria-hidden="false"]){overflow:hidden!important;overscroll-behavior:none;touch-action:none}
+body:has(.modal-shell[aria-hidden="false"]) .modal-shell[aria-hidden="false"] .modal,
+body:has(.suggestion-modal-shell[aria-hidden="false"]) .suggestion-modal-shell[aria-hidden="false"] .suggestion-modal{touch-action:pan-y}
