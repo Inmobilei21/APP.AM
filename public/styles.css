@@ -3349,8 +3349,8 @@ html:has(#inspectionDocumentsOverlay),body:has(#inspectionDocumentsOverlay){over
 @media(max-width:600px){.inspection-documents-dialog{width:100%;padding:24px 16px}.inspection-document-grid{grid-template-columns:1fr}.inspection-document-toolbar{align-items:flex-start;flex-direction:column}}
 
 /* Team suggestions */
-.worker-chat .suggestion-launcher{position:absolute;right:calc(100% + 10px);bottom:0;height:56px;white-space:nowrap;display:flex;align-items:center;gap:7px;padding:0 17px;border:1px solid #dce1f0;border-radius:18px;background:#fff;color:#1926a6;font:600 13px inherit;box-shadow:0 8px 24px #12234716;cursor:pointer}
-.suggestion-launcher:hover{background:#eef0ff}
+.worker-chat .suggestion-launcher{position:absolute;right:calc(100% + 10px);bottom:0;height:56px;white-space:nowrap;display:flex;align-items:center;gap:7px;padding:0 17px;border:0;border-radius:18px;background:linear-gradient(135deg,#263bc5,#14279b);color:#fff;font:600 13px inherit;box-shadow:0 14px 36px rgba(20,39,155,.28);cursor:pointer;transition:transform .2s,box-shadow .2s,filter .2s}
+.suggestion-launcher:hover{transform:translateY(-2px);box-shadow:0 18px 42px rgba(20,39,155,.36);filter:brightness(1.06)}
 .suggestion-modal-shell{z-index:2300}
 .suggestion-modal{width:min(540px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;padding:24px}
 .suggestion-modal form{display:grid;gap:15px}
