@@ -3196,11 +3196,17 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
   }
 }
 
-/* Unión activa continua: las curvas viajan pegadas al borde del lienzo durante apertura/cierre */
+/* Unión activa: redondeo permanente y curvas pegadas al lienzo */
 @media (min-width:761px){
+  body:not(.client-preview-mode) .sidebar nav{
+    overflow:visible!important;
+  }
   body:not(.client-preview-mode) .sidebar nav button.active{
     --active-overlap:30px!important;
+    position:relative!important;
     overflow:visible!important;
+    border-radius:18px 0 0 18px!important;
+    background:var(--sidebar-active-surface,#f6f8fc)!important;
   }
   body:not(.client-preview-mode) .sidebar nav button.active::before,
   body:not(.client-preview-mode) .sidebar nav button.active::after{
@@ -3217,8 +3223,6 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
     opacity:1!important;
     visibility:visible!important;
     pointer-events:none!important;
-    transition:right .95s cubic-bezier(.16,.72,.22,1),
-               opacity .32s ease!important;
   }
   body:not(.client-preview-mode) .sidebar nav button.active::before{
     top:-18px!important;
@@ -3232,8 +3236,7 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
     border-radius:0 18px 0 0!important;
     box-shadow:5px -5px 0 4px var(--sidebar-active-surface,#f6f8fc)!important;
   }
-  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
-  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
-    right:0!important;
+  body:not(.client-preview-mode) .sidebar:hover nav button.active{
+    border-radius:18px 0 0 18px!important;
   }
 }
