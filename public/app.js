@@ -2321,7 +2321,8 @@ function renderFolderView(name){
   bindHeader();
   document.querySelector("#clientSearch").addEventListener("input",filterFolders);
   document.querySelector("#folderBack").addEventListener("click",goBackFolder);
-  document.querySelector("#newClientFolder").addEventListener("click",createClientSubfolder);\n  document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
+  document.querySelector("#newClientFolder").addEventListener("click",createClientSubfolder);
+  document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
   setupInvoiceProcessor();
   document.querySelectorAll("[data-folder-view]").forEach(button=>button.addEventListener("click",()=>setFolderViewMode(button.dataset.folderView)));
   if(name==="Clientes") setupClientFolderDropZone();
