@@ -3169,12 +3169,26 @@ async function renderInspections(){
     });
     dialog.focus();
     try{
-      const folder=await inspectionFolder(record),files=[];
-      async function collect(dir,prefix="",depth=0){if(depth>10)return;for await(const entry of dir.values()){if(entry.kind==="file")files.push({name:prefix+entry.name,handle:entry});else if(entry.kind==="directory")await collect(entry,prefix+entry.name+"/",depth+1)}}
-      await collect(folder);if(!overlay.isConnected)return;files.sort((a,b)=>a.name.localeCompare(b.name,"es"));
-      content.innerHTML=`<div class="inspection-docs-head"><div><h3>Notificación ${escapeHtml(record.reference)}</h3><p>${escapeHtml(record.client)} · ${record.year}</p></div><button class="secondary-button" id="inspectionBack">Cerrar</button></div><label>Adjuntar escritos, respuestas u otros documentos<input id="inspectionAttachments" type="file" multiple></label><div>${files.length?files.map(file=>`<div class="inspection-file"><button class="document-link" data-preview-document="${registerPreviewDocument(file)}">${escapeHtml(file.name)}</button></div>`).join(""):"<p>No hay documentos en esta carpeta.</p>"}</div>`;
-      document.querySelector("#inspectionBack").onclick=close;
-      document.querySelector("#inspectionAttachments").onchange=async event=>{const control=event.target;control.disabled=true;try{for(const file of control.files){let exists=false;for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===file.name.toLocaleLowerCase("es"))exists=true;if(exists)throw new Error("Ya existe "+file.name+". Cambia el nombre para no sobrescribirlo.");await copyNamedFile(file,folder,file.name)}if(overlay.isConnected)await documents(record)}catch(error){let notice=content.querySelector('[role="alert"]');if(!notice){notice=document.createElement("p");notice.setAttribute("role","alert");notice.className="inspection-error";content.prepend(notice)}notice.textContent=error.message}finally{control.disabled=false}};
+
+      const root=await inspectionFolder(record),trail=[{name:"Documentación",handle:root}];
+      const renderDirectory=async()=>{
+        const folder=trail.at(-1).handle,entries=[];
+        for await(const entry of folder.values())entries.push(entry);
+        if(!overlay.isConnected)return;
+        entries.sort((a,b)=>Number(b.kind==="directory")-Number(a.kind==="directory")||a.name.localeCompare(b.name,"es"));
+        content.innerHTML=`<div class="inspection-docs-head"><div><h3>Documentación</h3><p>${escapeHtml(record.client)} · Notificación ${escapeHtml(record.reference)}</p></div></div>
+        <div class="inspection-document-toolbar"><nav class="inspection-document-breadcrumbs" aria-label="Ruta de documentación">${trail.map((item,i)=>`<button type="button" data-inspection-level="${i}" ${i===trail.length-1?'aria-current="page"':""}>${escapeHtml(item.name)}</button>`).join('<span aria-hidden="true">›</span>')}</nav><label class="inspection-upload-button">＋ Adjuntar documentos<input id="inspectionAttachments" type="file" multiple></label></div>
+        <p class="inspection-document-hint">Consulta la notificación, los escritos y las respuestas de esta carpeta.</p>
+        <div class="inspection-document-grid">${entries.length?entries.map((entry,i)=>{const folder=entry.kind==="directory";return `<button type="button" class="inspection-document-card" ${folder?'data-inspection-folder="'+i+'"':'data-preview-document="'+registerPreviewDocument({name:entry.name,handle:entry})+'"'}><span class="inspection-document-icon" aria-hidden="true">${clientDesktopIcon(folder?"documents":"file")}</span><span class="inspection-document-copy"><strong>${escapeHtml(entry.name)}</strong><small>${folder?"Abrir carpeta":"Ver documento"}</small></span><span class="inspection-document-arrow" aria-hidden="true">›</span></button>`}).join(""):'<p class="inspection-documents-empty">Esta carpeta todavía no contiene documentos.</p>'}</div>`;
+        content.querySelectorAll("[data-inspection-level]").forEach(button=>button.onclick=()=>{trail.splice(Number(button.dataset.inspectionLevel)+1);renderDirectory().catch(showDocumentError)});
+        content.querySelectorAll("[data-inspection-folder]").forEach(button=>button.onclick=()=>{const entry=entries[Number(button.dataset.inspectionFolder)];trail.push({name:entry.name,handle:entry});renderDirectory().catch(showDocumentError)});
+        content.querySelector("#inspectionAttachments").onchange=async event=>{
+          const control=event.target;control.disabled=true;
+          try{for(const file of control.files){let exists=false;for await(const entry of folder.values())if(entry.name.toLocaleLowerCase("es")===file.name.toLocaleLowerCase("es"))exists=true;if(exists)throw new Error("Ya existe "+file.name+". Cambia el nombre para no sobrescribirlo.");await copyNamedFile(file,folder,file.name)}if(overlay.isConnected)await renderDirectory()}catch(error){showDocumentError(error)}finally{control.disabled=false}
+        };
+      };
+      const showDocumentError=error=>{let notice=content.querySelector('[role="alert"]');if(!notice){notice=document.createElement("p");notice.setAttribute("role","alert");notice.className="inspection-error";content.prepend(notice)}notice.textContent=error.message};
+      await renderDirectory();
     }catch(error){content.textContent=error.message||"No se pudo cargar la documentación."}
   };
   const newButton=document.querySelector("#newInspection"),cancelButton=document.querySelector("#cancelInspection");let saving=false;
