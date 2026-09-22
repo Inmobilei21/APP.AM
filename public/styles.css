@@ -3196,7 +3196,7 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
   }
 }
 
-/* Pestaña activa unida al lienzo: sin hueco y sin curvas anticipadas */
+/* Pestaña activa: unión continua al lienzo sin piezas adelantadas */
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar nav{overflow:visible!important}
   body:not(.client-preview-mode) .sidebar nav button.active{
@@ -3205,48 +3205,37 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
     border-radius:18px 0 0 18px!important;
     background:var(--sidebar-active-surface,#f6f8fc)!important;
   }
-  /* En cerrado la pestaña llega exactamente hasta el borde del contenido. */
   body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
-    width:calc(100% + 1px)!important;
+    width:calc(100% + 32px)!important;
     margin-left:10px!important;
-    margin-right:-1px!important;
+    margin-right:-32px!important;
     padding:0 0 0 19px!important;
   }
-  /* Las curvas pertenecen al borde real, no sobresalen antes de que termine el cierre. */
-  body:not(.client-preview-mode) .sidebar nav button.active::before,
-  body:not(.client-preview-mode) .sidebar nav button.active::after{
+  /* En estado plegado, la superficie blanca cubre también cualquier separación entre rail y main. */
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{
     content:""!important;
     display:block!important;
     position:absolute!important;
-    z-index:0!important;
-    right:-1px!important;
-    left:auto!important;
-    width:18px!important;
-    height:18px!important;
+    z-index:-1!important;
+    top:0!important;
+    bottom:0!important;
+    left:0!important;
+    right:-2px!important;
+    width:auto!important;
+    height:auto!important;
     padding:0!important;
-    background:transparent!important;
-    pointer-events:none!important;
-    opacity:0!important;
-    visibility:hidden!important;
-    transition:opacity .18s ease!important;
-  }
-  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
-  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    border-radius:18px 0 0 18px!important;
+    background:var(--sidebar-active-surface,#f6f8fc)!important;
+    box-shadow:none!important;
     opacity:1!important;
     visibility:visible!important;
-    transition-delay:.68s!important;
+    pointer-events:none!important;
   }
-  body:not(.client-preview-mode) .sidebar nav button.active::before{
-    top:-18px!important;
-    bottom:auto!important;
-    border-radius:0 0 18px 0!important;
-    box-shadow:5px 5px 0 4px var(--sidebar-active-surface,#f6f8fc)!important;
-  }
-  body:not(.client-preview-mode) .sidebar nav button.active::after{
-    top:auto!important;
-    bottom:-18px!important;
-    border-radius:0 18px 0 0!important;
-    box-shadow:5px -5px 0 4px var(--sidebar-active-surface,#f6f8fc)!important;
+  body:not(.client-preview-mode) .sidebar nav button.active::after{display:none!important}
+  /* No se dibujan curvas auxiliares durante la animación: evita el saliente que aparecía antes de tiempo. */
+  body:not(.client-preview-mode) .sidebar:hover nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:hover nav button.active::after{
+    display:none!important;
   }
   body:not(.client-preview-mode) .sidebar:not(:hover){box-shadow:none!important}
 }
