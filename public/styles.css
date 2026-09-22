@@ -2973,35 +2973,35 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar{
     will-change:width;
-    transition:width .72s cubic-bezier(.22,.8,.22,1),
-               min-width .72s cubic-bezier(.22,.8,.22,1),
-               max-width .72s cubic-bezier(.22,.8,.22,1),
-               box-shadow .58s ease!important;
+    transition:width .95s cubic-bezier(.16,.72,.22,1),
+               min-width .95s cubic-bezier(.16,.72,.22,1),
+               max-width .95s cubic-bezier(.16,.72,.22,1),
+               box-shadow .76s ease!important;
   }
 
   body:not(.client-preview-mode) .sidebar .brand{
-    transition:width .66s cubic-bezier(.22,.8,.22,1),
-               min-height .66s cubic-bezier(.22,.8,.22,1),
-               height .66s cubic-bezier(.22,.8,.22,1),
-               margin .66s cubic-bezier(.22,.8,.22,1),
-               padding .66s cubic-bezier(.22,.8,.22,1),
-               background-color .48s ease!important;
+    transition:width .86s cubic-bezier(.16,.72,.22,1),
+               min-height .86s cubic-bezier(.16,.72,.22,1),
+               height .86s cubic-bezier(.16,.72,.22,1),
+               margin .86s cubic-bezier(.16,.72,.22,1),
+               padding .86s cubic-bezier(.16,.72,.22,1),
+               background-color .64s ease!important;
   }
 
   body:not(.client-preview-mode) .sidebar nav button{
-    transition:width .66s cubic-bezier(.22,.8,.22,1),
-               margin .66s cubic-bezier(.22,.8,.22,1),
-               padding .66s cubic-bezier(.22,.8,.22,1),
-               border-radius .52s ease,
-               background-color .44s ease,
-               color .44s ease,
-               transform .44s ease!important;
+    transition:width .86s cubic-bezier(.16,.72,.22,1),
+               margin .86s cubic-bezier(.16,.72,.22,1),
+               padding .86s cubic-bezier(.16,.72,.22,1),
+               border-radius .68s ease,
+               background-color .58s ease,
+               color .58s ease,
+               transform .58s ease!important;
   }
 
   body:not(.client-preview-mode) .sidebar .sidebar-footer{
-    transition:width .66s cubic-bezier(.22,.8,.22,1),
-               padding .66s cubic-bezier(.22,.8,.22,1),
-               margin .66s cubic-bezier(.22,.8,.22,1)!important;
+    transition:width .86s cubic-bezier(.16,.72,.22,1),
+               padding .86s cubic-bezier(.16,.72,.22,1),
+               margin .86s cubic-bezier(.16,.72,.22,1)!important;
   }
 
   @media (prefers-reduced-motion:reduce){
