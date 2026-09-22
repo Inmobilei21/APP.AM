@@ -1130,21 +1130,16 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
 async function initHome(){
   const clients=document.querySelector("#homeClientsCount");if(!clients)return;
   const contacts=document.querySelector("#homeContactsCount"),tasks=document.querySelector("#homeTasksCount"),workersCount=document.querySelector("#homeWorkersCount");
-  try{updateHomeDateAndWeather()}catch{}
-  try{renderHomeActivityRail()}catch{}
+  const [clientCount,contactCount]=await Promise.all([homeClientCount(),homeContactCount()]);
+  if(!document.querySelector("#homeClientsCount"))return;
+  clients.textContent=String(clientCount);contacts.textContent=String(contactCount);
+  tasks.textContent=String(personalTasks().filter(task=>task.status!=="done").length);workersCount.textContent=String(workers.length);
+  renderHomeActivityRail();
   document.querySelector("#homeBilling")?.addEventListener("click",openBillingModal);
   document.querySelector("#homeNewTask")?.addEventListener("click",()=>{document.querySelector('nav button[data-title="Tareas"]')?.click();setTimeout(()=>document.querySelector("#openTaskModal")?.click(),0)});
   document.querySelector("#refreshHomeNews")?.addEventListener("click",()=>loadHomeNews(true));
   document.querySelectorAll("[data-news-topic]").forEach(button=>button.addEventListener("click",()=>{activeHomeNewsTopic=button.dataset.newsTopic;document.querySelector("[data-news-topic].active")?.classList.remove("active");button.classList.add("active");renderFilteredHomeNews()}));
   loadHomeNews();
-  Promise.allSettled([getAllClientMetadata(),getAllClientMetadata()]).then(results=>{
-    if(!document.querySelector("#homeClientsCount"))return;
-    const metadata=results[0].status==="fulfilled"?results[0].value:[];
-    clients.textContent=String(metadata.filter(clientIsActive).length);
-    contacts.textContent=String(metadata.filter(clientIsActive).reduce((total,client)=>total+contactLines(client.phones).length,0));
-  }).catch(()=>{clients.textContent="0";contacts.textContent="0"});
-  try{tasks.textContent=String(personalTasks().filter(task=>task.status!=="done").length)}catch{tasks.textContent="0"}
-  workersCount.textContent=String(workers.length);
 }
 function updateTaskNavAlert(){
   const button=document.querySelector('nav button[data-title="Tareas"]');if(!button)return;
@@ -2318,7 +2313,7 @@ function renderFolderView(name){
         <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
         <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button><button class="upload-button invoice-process-open" id="openInvoiceProcessor" type="button" hidden>▦ Procesar facturas</button></div>
       </div>
-      <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas. Podrás revisar y corregir los datos antes de descargar.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Leer facturas</button></div><section class="invoice-draft" id="invoiceDraft" hidden><div class="invoice-draft-head"><div><p class="eyebrow">BORRADOR DEL EXCEL</p><h4>Comprueba los datos antes de descargar</h4></div><span>Todos los campos se pueden corregir</span></div><div class="invoice-draft-table-wrap"><table><thead><tr><th>Cliente</th><th>Número de factura</th><th>Fecha</th><th>Proveedor</th><th>NIF/CIF proveedor</th><th>Base imponible</th><th>Tipo IVA (%)</th><th>Cuota IVA</th><th>Importe total</th><th>Archivo original</th><th>Observaciones</th></tr></thead><tbody id="invoiceDraftRows"></tbody></table></div><div class="invoice-draft-confirm"><p>Revisa especialmente el proveedor y los importes. La descarga solo se realizará cuando confirmes este borrador.</p><button class="primary blue-button" id="downloadInvoiceDraft" type="button">Confirmar datos y descargar Excel</button></div></section></section>
+      <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas. Podrás revisar y corregir los datos antes de descargar.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Leer facturas</button></div><section class="invoice-draft" id="invoiceDraft" hidden><div class="invoice-draft-head"><div><p class="eyebrow">BORRADOR DEL EXCEL</p><h4>Comprueba los datos antes de descargar</h4></div><span>Todos los campos se pueden corregir</span></div><div class="invoice-draft-table-wrap"><table><thead><tr><th>Cliente</th><th>Número de factura</th><th>Fecha</th><th>Proveedor</th><th>NIF/CIF proveedor</th><th>Base imponible</th><th>Tipo IVA (%)</th><th>Cuota IVA</th><th>Importe total</th><th>Archivo original</th><th>Observaciones</th></tr></thead><tbody id="invoiceDraftRows"></tbody></table></div><div class="invoice-draft-confirm"><p>Revisa especialmente el proveedor y los importes. La descarga solo se realizará cuando confirmes este borrador.</p><button class="primary blue-button" id="downloadInvoiceDraft" type="button">Confirmar datos y descargar Excel</button></div></section></section>
       <div class="folder-grid" id="folderGrid">
         <div class="empty folder-empty"><span>▤</span><h4>Cargando documentación</h4></div>
       </div>
@@ -2343,9 +2338,9 @@ function showInvoiceProcessorBanner(message){
 async function setupInvoiceProcessor(){
   const panel=document.querySelector("#invoiceProcessor"),open=document.querySelector("#openInvoiceProcessor");if(!panel||!open)return;
   const select=panel.querySelector("#invoiceClient"),input=panel.querySelector("#invoiceFiles"),drop=panel.querySelector("#invoiceDropZone");
-  try{const clients=(await getAllClientMetadata()).filter(clientIsActive).sort((a,b)=>(a.name||a.id||"").localeCompare((b.name||b.id||""),"es"));select.insertAdjacentHTML("beforeend",clients.map(client=>{const name=client.name||client.id;return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`}).join(""))}catch{}
+  try{const clients=(await getAllClientMetadata()).filter(clientIsActive).sort((a,b)=>a.name.localeCompare(b.name,"es"));select.insertAdjacentHTML("beforeend",clients.map(client=>`<option value="${escapeHtml(client.name)}">${escapeHtml(client.name)}</option>`).join(""))}catch{}
   const renderFiles=()=>{panel.querySelector("#invoiceSelectedFiles").innerHTML=invoiceProcessorFiles.length?`<strong>${invoiceProcessorFiles.length} ${invoiceProcessorFiles.length===1?"archivo":"archivos"}</strong><span>${invoiceProcessorFiles.map(file=>escapeHtml(file.name)).join(" · ")}</span>`:"Ningún archivo seleccionado"};
-  const addFiles=files=>{invoiceProcessorFiles=[...files].filter(file=>/\.(pdf|xml|txt|jpe?g|png|webp|bmp|tiff?)$/i.test(file.name));invoiceDraftRecords=[];panel.querySelector("#invoiceDraft").hidden=true;renderFiles()};
+  const addFiles=files=>{invoiceProcessorFiles=[...files].filter(file=>/\.(pdf|xml|txt)$/i.test(file.name));invoiceDraftRecords=[];panel.querySelector("#invoiceDraft").hidden=true;renderFiles()};
   open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
   panel.querySelector("#closeInvoiceProcessor").addEventListener("click",()=>{panel.hidden=true});
   input.addEventListener("change",()=>addFiles(input.files));
@@ -2533,7 +2528,8 @@ async function displayFolder(handle,config,fromBack=false){
   document.querySelector("#folderName").textContent=handle.name;
   document.querySelector("#clientSearch").value="";
   document.querySelector("#folderBack").hidden=folderHistory.length===0;
-  const upload=document.querySelector("#uploadFiles");\n  if(upload) upload.hidden=false;
+  const upload=document.querySelector("#uploadFiles");
+  if(upload) upload.hidden=false;
   const invoiceProcessor=document.querySelector("#openInvoiceProcessor");if(invoiceProcessor)invoiceProcessor.hidden=false;
   renderEntries(entries);
 }
