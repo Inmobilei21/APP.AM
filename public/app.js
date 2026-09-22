@@ -2311,7 +2311,7 @@ function renderFolderView(name){
     <section class="folder-panel">
       <div class="folder-toolbar">
         <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
-        <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button><button class="upload-button invoice-process-open" id="openInvoiceProcessor" type="button" hidden>▦ Procesar facturas</button></div>
+        <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="newClientFolder" type="button" hidden>＋ Nueva carpeta</button><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button><button class="upload-button invoice-process-open" id="openInvoiceProcessor" type="button" hidden>▦ Procesar facturas</button></div>
       </div>
       <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas. Podrás revisar y corregir los datos antes de descargar.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Leer facturas</button></div><section class="invoice-draft" id="invoiceDraft" hidden><div class="invoice-draft-head"><div><p class="eyebrow">BORRADOR DEL EXCEL</p><h4>Comprueba los datos antes de descargar</h4></div><span>Todos los campos se pueden corregir</span></div><div class="invoice-draft-table-wrap"><table><thead><tr><th>Cliente</th><th>Número de factura</th><th>Fecha</th><th>Proveedor</th><th>NIF/CIF proveedor</th><th>Base imponible</th><th>Tipo IVA (%)</th><th>Cuota IVA</th><th>Importe total</th><th>Archivo original</th><th>Observaciones</th></tr></thead><tbody id="invoiceDraftRows"></tbody></table></div><div class="invoice-draft-confirm"><p>Revisa especialmente el proveedor y los importes. La descarga solo se realizará cuando confirmes este borrador.</p><button class="primary blue-button" id="downloadInvoiceDraft" type="button">Confirmar datos y descargar Excel</button></div></section></section>
       <div class="folder-grid" id="folderGrid">
@@ -2321,7 +2321,7 @@ function renderFolderView(name){
   bindHeader();
   document.querySelector("#clientSearch").addEventListener("input",filterFolders);
   document.querySelector("#folderBack").addEventListener("click",goBackFolder);
-  document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
+  document.querySelector("#newClientFolder").addEventListener("click",createClientSubfolder);\n  document.querySelector("#uploadFiles").addEventListener("click",uploadDocuments);
   setupInvoiceProcessor();
   document.querySelectorAll("[data-folder-view]").forEach(button=>button.addEventListener("click",()=>setFolderViewMode(button.dataset.folderView)));
   if(name==="Clientes") setupClientFolderDropZone();
@@ -2529,7 +2529,7 @@ async function displayFolder(handle,config,fromBack=false){
   document.querySelector("#clientSearch").value="";
   document.querySelector("#folderBack").hidden=folderHistory.length===0;
   const upload=document.querySelector("#uploadFiles");
-  if(upload) upload.hidden=false;
+  const newFolder=document.querySelector("#newClientFolder");if(newFolder)newFolder.hidden=!(config.storageKey==="clients-folder"&&folderHistory.length>0);\n  if(upload) upload.hidden=false;
   const invoiceProcessor=document.querySelector("#openInvoiceProcessor");if(invoiceProcessor)invoiceProcessor.hidden=false;
   renderEntries(entries);
 }
@@ -2630,6 +2630,18 @@ async function goBackFolder(){
   if(handle) await displayFolder(handle,activeFolderConfig,true);
 }
 
+
+async function createClientSubfolder(){
+  if(!currentDirectoryHandle||activeFolderConfig?.storageKey!=="clients-folder"||!folderHistory.length)return;
+  const raw=prompt("Nombre de la nueva carpeta:");if(raw===null)return;const name=raw.trim();
+  if(!name){alert("Escribe un nombre para la carpeta.");return}
+  if(/[\\/:*?"<>|\x00-\x1f]/.test(name)||/[. ]$/.test(name)){alert("El nombre contiene caracteres no válidos.");return}
+  try{
+    if(await currentDirectoryHandle.requestPermission({mode:"readwrite"})!=="granted")return;
+    for await(const entry of currentDirectoryHandle.values())if(entry.kind==="directory"&&entry.name.toLocaleLowerCase("es")===name.toLocaleLowerCase("es")){alert("Ya existe una carpeta con ese nombre.");return}
+    await currentDirectoryHandle.getDirectoryHandle(name,{create:true});await displayFolder(currentDirectoryHandle,activeFolderConfig,true);
+  }catch(error){if(error.name!=="AbortError")alert("No se pudo crear la carpeta. Comprueba el permiso de escritura.")}
+}
 
 async function uploadDocuments(){
   if(!currentDirectoryHandle) return;
