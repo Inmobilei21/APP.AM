@@ -3298,3 +3298,26 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
 .news-portal #homeNews .news-loading,.news-portal #homeNews .news-empty{flex:1 0 100%;min-height:160px}
 .news-portal .news-topic-filters{padding-top:14px}
 @media(max-width:760px){.news-portal-heading{flex-direction:column;gap:12px}.news-portal #homeNews .news-card{flex-basis:280px}.news-portal .news-carousel-controls{align-self:flex-end}}
+
+/* Continuous concave joins without unpainted corners. */
+@media(min-width:761px){
+ body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{border-radius:0!important;box-shadow:none!important;background:radial-gradient(circle at 0 0,#0b1735 17.5px,var(--sidebar-active-surface,#f6f8fc) 18px)!important}
+ body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{border-radius:0!important;box-shadow:none!important;background:radial-gradient(circle at 0 100%,#0b1735 17.5px,var(--sidebar-active-surface,#f6f8fc) 18px)!important}
+}
+.inspection-table-wrap{overflow-x:auto}
+.inspection-table{width:100%;min-width:840px;border-collapse:collapse;text-align:left}
+.inspection-table th{padding:12px;font-size:11px;color:var(--muted);font-weight:700;background:#f8faff;border-bottom:1px solid var(--line)}
+.inspection-table td{padding:15px 12px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:middle}
+.inspection-reference{display:block;margin-top:4px;color:var(--muted);font-size:11px}
+.inspection-deadline{display:inline-flex;padding:6px 9px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap}
+.inspection-deadline.green{background:#e5f6ec;color:#16703e}
+.inspection-deadline.orange{background:#fff0d9;color:#9a5700}
+.inspection-deadline.red{background:#ffebeb;color:#bc2828}
+.inspection-documents-overlay{position:fixed;inset:0;z-index:2100;display:grid;place-items:center;padding:24px}
+.inspection-documents-backdrop{position:absolute;inset:0;background:rgba(7,17,42,.55);backdrop-filter:blur(3px)}
+.inspection-documents-dialog{position:relative;background:#fff;border-radius:20px;width:min(860px,100%);max-height:85dvh;overflow:auto;overscroll-behavior:contain;padding:28px;box-shadow:0 24px 80px #07112a33}
+.inspection-documents-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:#eef1f7;cursor:pointer;font-size:22px}
+.inspection-documents-content .inspection-docs-head{padding-right:28px}
+.inspection-documents-content input[type=file]{display:block;margin:10px 0 16px;max-width:100%}
+html:has(#inspectionDocumentsOverlay),body:has(#inspectionDocumentsOverlay){overflow:hidden}
+@media(max-width:760px){.inspection-documents-overlay{padding:12px}.inspection-documents-dialog{padding:20px 15px}.inspection-docs-head{align-items:flex-start;flex-direction:column}}
