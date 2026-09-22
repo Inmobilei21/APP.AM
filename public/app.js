@@ -3262,7 +3262,7 @@ function openSuggestionModal(){
  shell.addEventListener("keydown",event=>{if(event.key==="Escape"){event.preventDefault();close()}if(event.key==="Tab"){const items=[...shell.querySelectorAll("button:not(:disabled),input,select,textarea")],first=items[0],last=items.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}});
  shell.querySelector("form").onsubmit=async event=>{event.preventDefault();if(sending)return;const button=shell.querySelector('[type="submit"]'),message=shell.querySelector(".form-message");sending=true;button.disabled=true;button.textContent="Enviando…";message.textContent="";
  try{await apiJson("/api/suggestions",{method:"POST",body:JSON.stringify({id,area:shell.querySelector('[name="area"]').value,idea:shell.querySelector('[name="idea"]').value})});sending=false;close();suggestionNotice("Sugerencia enviada. Administración recibirá el aviso.");refreshSuggestions()}catch(error){message.textContent=error.message}finally{sending=false;button.disabled=false;button.textContent="Enviar sugerencia"}};
- document.body.append(shell);shell.querySelector("select").focus();
+ document.body.append(shell);shell.querySelector("textarea[name=\"idea\"]")?.focus({preventScroll:true});
 }
 document.addEventListener("click",event=>{if(event.target.closest("#suggestionLauncher"))openSuggestionModal()});
 setInterval(refreshSuggestions,15000);
