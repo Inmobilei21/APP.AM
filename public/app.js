@@ -1130,16 +1130,20 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
 async function initHome(){
   const clients=document.querySelector("#homeClientsCount");if(!clients)return;
   const contacts=document.querySelector("#homeContactsCount"),tasks=document.querySelector("#homeTasksCount"),workersCount=document.querySelector("#homeWorkersCount");
-  const [clientCount,contactCount]=await Promise.all([homeClientCount(),homeContactCount()]);
-  if(!document.querySelector("#homeClientsCount"))return;
-  clients.textContent=String(clientCount);contacts.textContent=String(contactCount);
-  tasks.textContent=String(personalTasks().filter(task=>task.status!=="done").length);workersCount.textContent=String(workers.length);
+  updateHomeDateAndWeather();
   renderHomeActivityRail();
   document.querySelector("#homeBilling")?.addEventListener("click",openBillingModal);
   document.querySelector("#homeNewTask")?.addEventListener("click",()=>{document.querySelector('nav button[data-title="Tareas"]')?.click();setTimeout(()=>document.querySelector("#openTaskModal")?.click(),0)});
   document.querySelector("#refreshHomeNews")?.addEventListener("click",()=>loadHomeNews(true));
   document.querySelectorAll("[data-news-topic]").forEach(button=>button.addEventListener("click",()=>{activeHomeNewsTopic=button.dataset.newsTopic;document.querySelector("[data-news-topic].active")?.classList.remove("active");button.classList.add("active");renderFilteredHomeNews()}));
   loadHomeNews();
+  Promise.allSettled([homeClientCount(),homeContactCount()]).then(results=>{
+    if(!document.querySelector("#homeClientsCount"))return;
+    clients.textContent=results[0].status==="fulfilled"?String(results[0].value):"0";
+    contacts.textContent=results[1].status==="fulfilled"?String(results[1].value):"0";
+  });
+  try{tasks.textContent=String(personalTasks().filter(task=>task.status!=="done").length)}catch{tasks.textContent="0"}
+  workersCount.textContent=String(workers.length);
 }
 function updateTaskNavAlert(){
   const button=document.querySelector('nav button[data-title="Tareas"]');if(!button)return;
