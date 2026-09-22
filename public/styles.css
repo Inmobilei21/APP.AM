@@ -3196,38 +3196,45 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
   }
 }
 
-/* Pestaña activa integrada: extremo izquierdo redondo y unión derecha continua */
+/* Pestaña activa unida al lienzo: sin hueco y sin curvas anticipadas */
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar nav{overflow:visible!important}
   body:not(.client-preview-mode) .sidebar nav button.active{
-    --active-overlap:30px!important;
     position:relative!important;
     overflow:visible!important;
     border-radius:18px 0 0 18px!important;
     background:var(--sidebar-active-surface,#f6f8fc)!important;
-    isolation:auto!important;
   }
+  /* En cerrado la pestaña llega exactamente hasta el borde del contenido. */
   body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
-    width:calc(100% + var(--active-overlap))!important;
+    width:calc(100% + 1px)!important;
     margin-left:10px!important;
-    margin-right:calc(-1 * var(--active-overlap))!important;
+    margin-right:-1px!important;
     padding:0 0 0 19px!important;
   }
+  /* Las curvas pertenecen al borde real, no sobresalen antes de que termine el cierre. */
   body:not(.client-preview-mode) .sidebar nav button.active::before,
   body:not(.client-preview-mode) .sidebar nav button.active::after{
     content:""!important;
     display:block!important;
     position:absolute!important;
     z-index:0!important;
-    right:var(--active-overlap)!important;
+    right:-1px!important;
     left:auto!important;
     width:18px!important;
     height:18px!important;
     padding:0!important;
     background:transparent!important;
+    pointer-events:none!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    transition:opacity .18s ease!important;
+  }
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
     opacity:1!important;
     visibility:visible!important;
-    pointer-events:none!important;
+    transition-delay:.68s!important;
   }
   body:not(.client-preview-mode) .sidebar nav button.active::before{
     top:-18px!important;
@@ -3241,7 +3248,5 @@ body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-n
     border-radius:0 18px 0 0!important;
     box-shadow:5px -5px 0 4px var(--sidebar-active-surface,#f6f8fc)!important;
   }
-  body:not(.client-preview-mode) .sidebar:not(:hover){
-    box-shadow:none!important;
-  }
+  body:not(.client-preview-mode) .sidebar:not(:hover){box-shadow:none!important}
 }
