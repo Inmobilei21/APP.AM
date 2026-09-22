@@ -1130,18 +1130,19 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
 async function initHome(){
   const clients=document.querySelector("#homeClientsCount");if(!clients)return;
   const contacts=document.querySelector("#homeContactsCount"),tasks=document.querySelector("#homeTasksCount"),workersCount=document.querySelector("#homeWorkersCount");
-  updateHomeDateAndWeather();
-  renderHomeActivityRail();
+  try{updateHomeDateAndWeather()}catch{}
+  try{renderHomeActivityRail()}catch{}
   document.querySelector("#homeBilling")?.addEventListener("click",openBillingModal);
   document.querySelector("#homeNewTask")?.addEventListener("click",()=>{document.querySelector('nav button[data-title="Tareas"]')?.click();setTimeout(()=>document.querySelector("#openTaskModal")?.click(),0)});
   document.querySelector("#refreshHomeNews")?.addEventListener("click",()=>loadHomeNews(true));
   document.querySelectorAll("[data-news-topic]").forEach(button=>button.addEventListener("click",()=>{activeHomeNewsTopic=button.dataset.newsTopic;document.querySelector("[data-news-topic].active")?.classList.remove("active");button.classList.add("active");renderFilteredHomeNews()}));
   loadHomeNews();
-  Promise.allSettled([homeClientCount(),homeContactCount()]).then(results=>{
+  Promise.allSettled([getAllClientMetadata(),getAllClientMetadata()]).then(results=>{
     if(!document.querySelector("#homeClientsCount"))return;
-    clients.textContent=results[0].status==="fulfilled"?String(results[0].value):"0";
-    contacts.textContent=results[1].status==="fulfilled"?String(results[1].value):"0";
-  });
+    const metadata=results[0].status==="fulfilled"?results[0].value:[];
+    clients.textContent=String(metadata.filter(clientIsActive).length);
+    contacts.textContent=String(metadata.filter(clientIsActive).reduce((total,client)=>total+contactLines(client.phones).length,0));
+  }).catch(()=>{clients.textContent="0";contacts.textContent="0"});
   try{tasks.textContent=String(personalTasks().filter(task=>task.status!=="done").length)}catch{tasks.textContent="0"}
   workersCount.textContent=String(workers.length);
 }
@@ -2342,7 +2343,7 @@ function showInvoiceProcessorBanner(message){
 async function setupInvoiceProcessor(){
   const panel=document.querySelector("#invoiceProcessor"),open=document.querySelector("#openInvoiceProcessor");if(!panel||!open)return;
   const select=panel.querySelector("#invoiceClient"),input=panel.querySelector("#invoiceFiles"),drop=panel.querySelector("#invoiceDropZone");
-  try{const names=await getTaskClientNames();select.insertAdjacentHTML("beforeend",names.map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join(""))}catch{}
+  try{const clients=(await getAllClientMetadata()).filter(clientIsActive).sort((a,b)=>(a.name||a.id||"").localeCompare((b.name||b.id||""),"es"));select.insertAdjacentHTML("beforeend",clients.map(client=>{const name=client.name||client.id;return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`}).join(""))}catch{}
   const renderFiles=()=>{panel.querySelector("#invoiceSelectedFiles").innerHTML=invoiceProcessorFiles.length?`<strong>${invoiceProcessorFiles.length} ${invoiceProcessorFiles.length===1?"archivo":"archivos"}</strong><span>${invoiceProcessorFiles.map(file=>escapeHtml(file.name)).join(" · ")}</span>`:"Ningún archivo seleccionado"};
   const addFiles=files=>{invoiceProcessorFiles=[...files].filter(file=>/\.(pdf|xml|txt|jpe?g|png|webp|bmp|tiff?)$/i.test(file.name));invoiceDraftRecords=[];panel.querySelector("#invoiceDraft").hidden=true;renderFiles()};
   open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
