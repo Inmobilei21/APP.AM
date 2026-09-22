@@ -508,6 +508,37 @@ http.createServer((req, res) => {
       unreadCount: messages.filter(item => item.senderId === otherId && item.recipientId === user.id && !item.readAt).length
     })).sort((a,b) => String(b.message.createdAt).localeCompare(String(a.message.createdAt))));
   }
+
+  if (requestPath === "/api/suggestions" || requestPath === "/api/suggestions/read") {
+    const user=requireUser(req,res);if(!user)return;
+    const file=path.join(dataDirectory,"suggestions.json"),readsFile=path.join(dataDirectory,"suggestion-reads.json");
+    if(requestPath==="/api/suggestions" && req.method==="POST"){
+      return readJson(req,32*1024).then(input=>{
+        if(typeof input.id!=="string"||!/^[a-zA-Z0-9-]{10,80}$/.test(input.id)||typeof input.area!=="string"||!input.area.trim()||input.area.length>80||typeof input.idea!=="string"||!input.idea.trim()||input.idea.length>4000)return json(res,400,{error:"Selecciona un área y explica tu idea (máximo 4.000 caracteres)."});
+        const entries=loadCollection(file),existing=entries.find(e=>e.id===input.id);
+        if(existing)return existing.proposerId===user.id?json(res,200,existing):json(res,409,{error:"Identificador duplicado."});
+        const entry={id:input.id,proposerId:user.id,proposer:user.name,area:input.area.trim(),idea:input.idea.trim(),createdAt:new Date().toISOString()};
+        entries.push(entry);saveCollection(file,entries);return json(res,201,entry);
+      }).catch(()=>json(res,400,{error:"No se pudo guardar la sugerencia. Vuelve a intentarlo."}));
+    }
+    if(user.role!=="admin")return json(res,403,{error:"Acceso reservado a administración."});
+    if(requestPath==="/api/suggestions" && req.method==="GET"){
+      const read=new Set(loadCollection(readsFile).find(r=>r.userId===user.id)?.ids||[]);
+      const entries=loadCollection(file).reverse().map(e=>({...e,unread:!read.has(e.id)}));
+      return json(res,200,{entries,unreadCount:entries.filter(e=>e.unread).length});
+    }
+    if(requestPath==="/api/suggestions/read" && req.method==="POST"){
+      return readJson(req,32*1024).then(input=>{
+        if(!Array.isArray(input.ids)||input.ids.length>100)return json(res,400,{error:"Selección no válida."});
+        const valid=new Set(loadCollection(file).map(e=>e.id)),reads=loadCollection(readsFile);
+        let record=reads.find(r=>r.userId===user.id);if(!record){record={userId:user.id,ids:[]};reads.push(record)}
+        record.ids=[...new Set([...record.ids,...input.ids.filter(id=>valid.has(id))])];
+        saveCollection(readsFile,reads);return json(res,200,{read:true});
+      }).catch(()=>json(res,400,{error:"No se pudo actualizar el aviso."}));
+    }
+    return json(res,405,{error:"Método no permitido."});
+  }
+
   if (requestPath === "/api/billing" && req.method === "GET") {
     const user = requireUser(req, res);if (!user) return;
     const entries = loadCollection(billingFile).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
