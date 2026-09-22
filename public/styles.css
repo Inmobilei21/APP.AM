@@ -3396,3 +3396,11 @@ body:has(.suggestion-modal-shell[aria-hidden="false"]) .suggestion-modal-shell[a
 #openNewClient:hover{transform:translateY(-2px);background:#263bc5;box-shadow:0 13px 28px rgba(20,39,155,.32);filter:brightness(1.04)}
 #openNewClient:active{transform:translateY(0) scale(.98);box-shadow:0 5px 14px rgba(20,39,155,.24)}
 #openNewClient:focus-visible{outline:3px solid rgba(38,59,197,.3);outline-offset:3px}
+
+
+/* Keep client modal clear of the desktop sidebar */
+@media(min-width:761px){
+  body:not(.client-preview-mode) #clientModal{left:var(--integrated-rail);right:0;width:auto}
+  body:not(.client-preview-mode) #clientModal .client-modal{max-width:calc(100vw - var(--integrated-rail) - 32px)}
+  body:not(.client-preview-mode):has(#clientModal.open) .sidebar{width:var(--integrated-rail)!important;pointer-events:none;box-shadow:none!important}
+}
