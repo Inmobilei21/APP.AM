@@ -2969,6 +2969,50 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
   }
 }
 
+/* Barra lateral de escritorio: expansión superpuesta sin desplazar el contenido */
+@media (min-width:761px){
+  body:not(.client-preview-mode){
+    --sidebar-closed-width:86px;
+  }
+  body:not(.client-preview-mode) .sidebar{
+    position:fixed!important;
+    left:0;
+    top:0;
+    bottom:0;
+    z-index:120!important;
+    width:var(--sidebar-closed-width)!important;
+    min-width:var(--sidebar-closed-width)!important;
+    max-width:var(--sidebar-closed-width)!important;
+    overflow:visible;
+    box-shadow:none!important;
+    transition:width .95s cubic-bezier(.16,.72,.22,1),
+               min-width .95s cubic-bezier(.16,.72,.22,1),
+               max-width .95s cubic-bezier(.16,.72,.22,1),
+               box-shadow .7s ease!important;
+  }
+  body:not(.client-preview-mode) .sidebar:hover{
+    width:270px!important;
+    min-width:270px!important;
+    max-width:270px!important;
+    box-shadow:18px 0 34px rgba(11,23,53,.12)!important;
+  }
+  body:not(.client-preview-mode)>main{
+    margin-left:var(--sidebar-closed-width)!important;
+    width:calc(100% - var(--sidebar-closed-width))!important;
+    max-width:none!important;
+    transition:none!important;
+  }
+  body:not(.client-preview-mode) .sidebar:hover + main,
+  body:not(.client-preview-mode) .sidebar:hover ~ main{
+    margin-left:var(--sidebar-closed-width)!important;
+    width:calc(100% - var(--sidebar-closed-width))!important;
+    transform:none!important;
+  }
+  body:not(.client-preview-mode) .sidebar::after{
+    right:0!important;
+  }
+}
+
 /* Aparición progresiva del fondo azul al desplegar la barra */
 @media (min-width:761px){
   body:not(.client-preview-mode) .sidebar{
