@@ -2969,6 +2969,37 @@ body.client-preview-mode{display:block;background:#e8edf5}.client-preview-mode>.
   }
 }
 
+/* Cierre continuo: la superficie azul acompaña a la anchura y evita el hueco blanco */
+@media (min-width:761px){
+  body:not(.client-preview-mode) .sidebar{
+    contain:paint;
+    background:#0b1735!important;
+  }
+  body:not(.client-preview-mode) .sidebar::before{
+    content:"";
+    position:absolute;
+    z-index:-2;
+    top:0;
+    bottom:0;
+    left:0;
+    width:100%;
+    background:#0b1735;
+    pointer-events:none;
+    opacity:1;
+    transition:width .95s cubic-bezier(.16,.72,.22,1);
+  }
+  body:not(.client-preview-mode) .sidebar::after{
+    width:100%!important;
+    inset:0 auto 0 0!important;
+    transform:none!important;
+    transform-origin:left center;
+    transition:opacity .82s cubic-bezier(.16,.72,.22,1)!important;
+  }
+  body:not(.client-preview-mode) .sidebar:hover::after{
+    transform:none!important;
+  }
+}
+
 /* Barra lateral de escritorio: expansión superpuesta sin desplazar el contenido */
 @media (min-width:761px){
   body:not(.client-preview-mode){
