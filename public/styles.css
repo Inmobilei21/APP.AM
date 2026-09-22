@@ -3169,3 +3169,33 @@ body .sidebar nav button.active .task-nav-alert{background:#465781!important;bor
 
 /* High-visibility task count, retaining the compact layout. */
 body .sidebar nav button .task-nav-alert,body .sidebar nav button.active .task-nav-alert{background:#e53935!important;color:#fff!important;border-color:#e53935!important}
+
+/* Cierre de sidebar: la pestaña activa no sobresale mientras la barra se repliega */
+@media (min-width:761px){
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav{
+    overflow:hidden!important;
+  }
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{
+    --active-overlap:0px!important;
+    width:calc(100% - 12px)!important;
+    margin-left:12px!important;
+    margin-right:0!important;
+    padding-left:19px!important;
+    border-radius:18px 0 0 18px!important;
+    overflow:hidden!important;
+    transition:width .82s cubic-bezier(.16,.72,.22,1),
+               margin .82s cubic-bezier(.16,.72,.22,1),
+               padding .82s cubic-bezier(.16,.72,.22,1),
+               border-radius .68s ease!important;
+  }
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{
+    opacity:0!important;
+    visibility:hidden!important;
+    box-shadow:none!important;
+    transition:opacity .22s ease!important;
+  }
+  body:not(.client-preview-mode) .sidebar:hover nav{
+    overflow:hidden!important;
+  }
+}
