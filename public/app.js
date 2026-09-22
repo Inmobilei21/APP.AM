@@ -1081,10 +1081,21 @@ function homeNewsMarkup(article){
   const mailto=`mailto:?subject=${encodeURIComponent(article.title)}&body=${encodeURIComponent(`${article.title}\n\n${article.link}`)}`;
   return `<article class="news-card"><a class="news-card-image" href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(image)}" alt="" loading="lazy"></a><div class="news-card-body"><div class="news-card-meta"><span>${escapeHtml(article.source||"Actualidad")}</span><time>${escapeHtml(date)}</time></div><h4>${escapeHtml(article.title)}</h4><p>${escapeHtml(article.topic||"Fiscal y contable")}</p><div class="news-card-actions"><a href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer">Leer noticia <span>↗</span></a><a href="${escapeHtml(mailto)}" class="news-email-share" title="Compartir por correo">✉ Correo</a></div></div></article>`;
 }
+function bindNewsCarousel(){
+  const track=document.querySelector("#homeNews");if(!track)return;
+  const previous=document.querySelector("#newsPrevious"),next=document.querySelector("#newsNext");
+  const sync=()=>{if(previous)previous.disabled=track.scrollLeft<=2;if(next)next.disabled=track.scrollLeft+track.clientWidth>=track.scrollWidth-2};
+  const move=direction=>track.scrollBy({left:direction*Math.max(250,track.clientWidth*.85),behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"});
+  if(previous)previous.onclick=()=>move(-1);if(next)next.onclick=()=>move(1);
+  track.onscroll=sync;track.onkeydown=event=>{if(event.target===track&&["ArrowLeft","ArrowRight"].includes(event.key)){event.preventDefault();move(event.key==="ArrowLeft"?-1:1)}};
+  if(track.newsResizeObserver)track.newsResizeObserver.disconnect();
+  track.newsResizeObserver=new ResizeObserver(sync);track.newsResizeObserver.observe(track);
+  requestAnimationFrame(sync);
+}
 function renderFilteredHomeNews(){
   const container=document.querySelector("#homeNews");if(!container)return;
   const articles=activeHomeNewsTopic==="Todas"?homeNewsArticles:homeNewsArticles.filter(article=>article.topic===activeHomeNewsTopic);
-  container.innerHTML=articles.length?articles.map(homeNewsMarkup).join(""):'<div class="news-empty"><strong>No hay noticias en esta categoría</strong><p>Prueba con otro filtro.</p></div>';
+  container.scrollLeft=0;container.innerHTML=articles.length?articles.map(homeNewsMarkup).join(""):'<div class="news-empty"><strong>No hay noticias en esta categoría</strong><p>No hay cambios normativos recientes para este filtro.</p></div>';
 }
 async function loadHomeNews(force=false){
   const container=document.querySelector("#homeNews"),button=document.querySelector("#refreshHomeNews");if(!container)return;
@@ -1094,7 +1105,7 @@ async function loadHomeNews(force=false){
     const response=await fetch(`/api/news${force?"?refresh=1":""}`);if(!response.ok)throw new Error();
     homeNewsArticles=await response.json();renderFilteredHomeNews();
   }catch{container.innerHTML='<div class="news-empty"><strong>No se pudieron cargar las noticias</strong><p>Comprueba la conexión y pulsa Actualizar.</p></div>'}
-  finally{if(button){button.disabled=false;button.classList.remove("loading")}}
+  finally{if(button){button.disabled=false;button.classList.remove("loading")}bindNewsCarousel()}
 }
 function homeActivityEmpty(icon,title,text){
   return `<div class="home-activity-empty"><span aria-hidden="true">${icon}</span><strong>${title}</strong><small>${text}</small></div>`;
@@ -1138,7 +1149,7 @@ async function initHome(){
   document.querySelector("#homeBilling")?.addEventListener("click",openBillingModal);
   document.querySelector("#homeNewTask")?.addEventListener("click",()=>{document.querySelector('nav button[data-title="Tareas"]')?.click();setTimeout(()=>document.querySelector("#openTaskModal")?.click(),0)});
   document.querySelector("#refreshHomeNews")?.addEventListener("click",()=>loadHomeNews(true));
-  document.querySelectorAll("[data-news-topic]").forEach(button=>button.addEventListener("click",()=>{activeHomeNewsTopic=button.dataset.newsTopic;document.querySelector("[data-news-topic].active")?.classList.remove("active");button.classList.add("active");renderFilteredHomeNews()}));
+  document.querySelectorAll("[data-news-topic]").forEach(button=>button.addEventListener("click",()=>{activeHomeNewsTopic=button.dataset.newsTopic;document.querySelector("[data-news-topic].active")?.classList.remove("active");button.classList.add("active");renderFilteredHomeNews();bindNewsCarousel()}));
   loadHomeNews();
 }
 function updateTaskNavAlert(){

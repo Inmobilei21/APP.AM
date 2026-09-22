@@ -5,7 +5,7 @@ const crypto = require("crypto");
 
 const root = path.join(__dirname, "public");
 const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml" };
-const newsTopicsQuery = '(AEAT OR IVA OR IRPF OR "Impuesto sobre Sociedades" OR "cuentas anuales" OR ICAC OR "normativa fiscal" OR Verifactu OR autónomos OR pymes OR "Seguridad Social" OR subvenciones)';
+const newsTopicsQuery = '(fiscal OR tributario OR impuestos OR AEAT OR IVA OR IRPF OR "Impuesto sobre Sociedades" OR ICAC OR "Seguridad Social") ("entrada en vigor" OR reforma OR modifica OR aprueba OR "nueva normativa" OR "nuevo procedimiento" OR "nuevas obligaciones" OR "nuevos plazos") when:60d';
 const newsSourceGroups = [
   ["eleconomista.es", "expansion.com", "cincodias.elpais.com", "autonomosyemprendedor.es"],
   ["iberley.es", "noticias.juridicas.com", "legaltoday.com", "confilegal.com"],
@@ -91,13 +91,23 @@ async function fetchNewsFeed(domains) {
     return { title: title.replace(new RegExp(`\\s+-\\s+${escapedSource}$`, "i"), ""), link: xmlTag(item, "link"), source, date: xmlTag(item, "pubDate"), topic: newsTopic(title) };
   }).filter(article => article.title && article.link);
 }
+
+function isRegulatoryNews(article){
+  const title=String(article.title||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const subject=/\b(fiscal|tributari\w*|impuest\w*|iva|irpf|aeat|hacienda|icac|verifactu|cotizaci\w*|seguridad social|factura\w*|contab\w*|cuentas anuales|recaudaci\w*|declaraci\w*)\b/.test(title);
+  const change=/\b(reforma\w*|modific\w*|aprueb\w*|aprobad\w*|decreto\w*|ley|reglament\w*|normativ\w*|novedad\w*|prorrog\w*|ampli\w*|cambi\w*|obligacion\w*|resolucion\w*|instruccion\w*)\b|entra\w* en vigor|nuevo\w* (plazo\w*|procedimiento\w*|modelo\w*|criterio\w*|requisito\w*|sistema\w*)/.test(title);
+  const noise=/\b(opinion|entrevista|patrocinad\w*|cotiza en bolsa|beneficios record)\b/.test(title);
+  const date=Date.parse(article.date);
+  return subject&&change&&!noise&&Number.isFinite(date)&&date<=Date.now()+86400000&&date>=Date.now()-60*86400000;
+}
+
 async function getNews(force = false) {
   if (!force && newsCache.expires > Date.now()) return newsCache.articles;
   const results = await Promise.allSettled(newsSourceGroups.map(fetchNewsFeed));
   const combined = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
   if (!combined.length) throw new Error("News unavailable");
   const seen = new Set();
-  const articles = combined.sort((a,b) => new Date(b.date) - new Date(a.date)).filter(article => {
+  const articles = combined.filter(isRegulatoryNews).sort((a,b) => new Date(b.date) - new Date(a.date)).filter(article => {
     const key = article.title.toLocaleLowerCase("es").replace(/\s+/g, " ").trim();
     if (seen.has(key)) return false;
     seen.add(key);return true;
