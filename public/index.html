@@ -15,7 +15,7 @@
 <body>
   <div id="splash" aria-hidden="true">
     <div class="splash-contenido">
-      <div class="splash-logo" style='--splash-logo-url:url("/app-icon.png?v=4")'><img src="/app-icon.png?v=4" alt="Molinero"></div>
+      <div class="splash-logo" style='--splash-logo-url:url("/splash-logo.png?v=1")'><img src="/splash-logo.png?v=1" alt="Molinero"></div>
       <div class="splash-barra" aria-hidden="true"><span></span></div>
     </div>
   </div>
@@ -77,6 +77,7 @@
     </section>
   </main>
   <div class="overlay" id="overlay"></div>
+  <script>setTimeout(function(){var s=document.getElementById("splash");if(s){s.remove();document.documentElement.classList.remove("splash-activo");}},7000);</script>
   <script src="/spain-locations.js"></script>
   <script src="/vendor/tesseract.min.js?v=5.1.1"></script>
   <script src="/app.js?v=20260917-ocr2"></script>
