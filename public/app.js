@@ -41,28 +41,46 @@ checkAuthentication();
 
 const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
-const mobileSplash=document.getElementById("splash");
-(function(){
-  var DURACION_MIN=2200;
-  var SOLO_UNA_VEZ_POR_SESION=true;
-  var splash=mobileSplash;
-  if(!splash)return;
-  if(!window.matchMedia("(max-width:760px)").matches){splash.remove();document.documentElement.classList.remove("splash-activo");return}
-  try{if(SOLO_UNA_VEZ_POR_SESION&&sessionStorage.getItem("splashVisto")){splash.remove();document.documentElement.classList.remove("splash-activo");return}}catch(e){}
-  var inicio=Date.now(),ocultando=false;
-  function ocultar(){
-    if(ocultando)return;ocultando=true;
-    var espera=Math.max(0,DURACION_MIN-(Date.now()-inicio));
-    setTimeout(function(){
-      splash.classList.add("saliendo");
-      document.body.classList.add("app-entrando");
-      document.documentElement.classList.remove("splash-activo");
-      try{sessionStorage.setItem("splashVisto","1")}catch(e){}
-      setTimeout(function(){splash.remove();document.body.classList.remove("app-entrando")},900);
-    },espera);
+/* ===== Splash Molinero ===== */
+(function () {
+  var DURACION_MIN = 2200;
+  var SOLO_UNA_VEZ_POR_SESION = true;
+
+  var splash = document.getElementById('splash');
+  var app = document.querySelector('main');
+  if (!splash) return;
+
+  if (!window.matchMedia('(max-width:760px)').matches) {
+    splash.remove();
+    document.documentElement.classList.remove('splash-activo');
+    return;
   }
-  if(document.readyState==="complete")ocultar();else window.addEventListener("load",ocultar,{once:true});
-  setTimeout(ocultar,6000);
+
+  try {
+    if (SOLO_UNA_VEZ_POR_SESION && sessionStorage.getItem('splashVisto')) {
+      splash.remove();
+      document.documentElement.classList.remove('splash-activo');
+      return;
+    }
+  } catch (e) {}
+
+  var inicio = Date.now();
+
+  function ocultar() {
+    var espera = Math.max(0, DURACION_MIN - (Date.now() - inicio));
+    setTimeout(function () {
+      splash.classList.add('saliendo');
+      if (app) app.classList.add('app-entrando');
+      document.documentElement.classList.remove('splash-activo');
+      try { sessionStorage.setItem('splashVisto', '1'); } catch (e) {}
+      setTimeout(function () { splash.remove(); }, 900);
+    }, espera);
+  }
+
+  if (document.readyState === 'complete') ocultar();
+  else window.addEventListener('load', ocultar);
+
+  setTimeout(ocultar, 6000);
 })();
 
 const main=document.querySelector("main");
