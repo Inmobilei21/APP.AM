@@ -3770,3 +3770,59 @@ setInterval(refreshSuggestions,15000);
   updateProfileButtons=function(){const r=perfilOriginal.apply(this,arguments);usuario();return r};
   if(esEscritorio())decorar();
 })();
+/* ===== Menú lateral en móvil ===== */
+(function(){
+  const GRUPOS=[["Principal",["Inicio","Clientes","Tareas","Calendario"]],["Área fiscal",["Declaraciones","Renta","Cierres anuales","Inspecciones","Firmas digitales","Días de cortesía"]],["Despacho",["Contactos","Trabajadores","Trabajos","Gestión","Holded"]]];
+  const ICO={
+    cerrar:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    flecha:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+    salir:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>'
+  };
+  function rellenarUsuario(){
+    const u=typeof signedInUser!=="undefined"?signedInUser:null;
+    document.querySelectorAll(".s2-yo").forEach(b=>{
+      b.querySelector(".s2-av").textContent=u?.name?initials(u.name):"AM";
+      b.querySelector("b").textContent=u?.name||"Mi cuenta";
+      b.querySelector("small").textContent=(u?.role==="admin"?"Administrador":"Mi cuenta")+" · Ajustes";
+    });
+  }
+  function instalar(){
+    const barra=document.getElementById("sidebar"),nav=barra?.querySelector("nav");
+    if(!barra||!nav||barra.classList.contains("s2-listo"))return;
+    barra.classList.add("s2-listo");
+    const cerrar=document.createElement("button");
+    cerrar.type="button";cerrar.className="s2-cerrar";cerrar.setAttribute("aria-label","Cerrar menú");cerrar.innerHTML=ICO.cerrar;
+    cerrar.onclick=()=>closeMenu();
+    barra.insertBefore(cerrar,barra.firstChild);
+    const yo=document.createElement("button");
+    yo.type="button";yo.className="s2-yo";
+    yo.innerHTML='<span class="s2-av"></span><span class="s2-yo-txt"><b></b><small></small></span>'+ICO.flecha;
+    yo.onclick=()=>{closeMenu();openAccountPanel()};
+    barra.insertBefore(yo,nav);
+    let orden=0,i=0;
+    const vistos=new Set();
+    GRUPOS.forEach(([nombre,titulos])=>{
+      const cab=document.createElement("p");
+      cab.className="s2-grupo";cab.textContent=nombre;cab.style.setProperty("--s2o",orden++);
+      nav.appendChild(cab);
+      titulos.forEach(t=>{
+        const b=nav.querySelector(`button[data-title="${t}"]`);
+        if(!b)return;vistos.add(b);
+        b.style.setProperty("--s2o",orden++);b.style.setProperty("--s2i",i++);
+      });
+    });
+    nav.querySelectorAll("button[data-title]").forEach(b=>{if(!vistos.has(b)){b.style.setProperty("--s2o",orden++);b.style.setProperty("--s2i",i++)}});
+    const pie=document.createElement("div");
+    pie.className="s2-pie";
+    pie.innerHTML=`<button type="button" class="s2-salir">${ICO.salir}Cerrar sesión</button><small>Despacho Molinero</small>`;
+    pie.querySelector(".s2-salir").onclick=async e=>{e.currentTarget.disabled=true;try{await apiJson("/api/auth/logout",{method:"POST"})}catch(_){}location.reload()};
+    nav.after(pie);
+    rellenarUsuario();
+  }
+  if(typeof updateProfileButtons==="function"){
+    const previo=updateProfileButtons;
+    updateProfileButtons=function(){const r=previo.apply(this,arguments);try{rellenarUsuario()}catch(_){}return r};
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",instalar);else instalar();
+  document.addEventListener("auth-decidida",()=>{instalar();rellenarUsuario()});
+})();
