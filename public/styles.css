@@ -4261,3 +4261,59 @@ html.auth-pending #splash{visibility:visible}
 @media (max-width:760px) and (prefers-reduced-motion:reduce){
   #sidebar.s2-listo nav button[data-title]{opacity:1;transform:none!important}
 }
+/* ===== Menú lateral en escritorio (mismo estilo que el móvil) ===== */
+@media (min-width:761px){
+  body:not(.client-preview-mode) #sidebar.s2-listo{background:linear-gradient(180deg,#0A1A3F 0,#081533 60%,#06112B 100%)!important;transition:width .42s cubic-bezier(.22,.8,.24,1),min-width .42s cubic-bezier(.22,.8,.24,1),max-width .42s cubic-bezier(.22,.8,.24,1),border-radius .3s ease,box-shadow .3s ease}
+  body:not(.client-preview-mode) #sidebar.s2-listo:hover{background:radial-gradient(120% 55% at 0 0,#1b3170 0,transparent 62%),linear-gradient(180deg,#0A1A3F 0,#081533 60%,#06112B 100%)!important;border-radius:0 28px 28px 0!important;box-shadow:24px 0 60px rgba(6,17,43,.35)!important}
+  body:not(.client-preview-mode) #sidebar.s2-listo .brand{order:0}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav{order:1;display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-height:0!important;gap:2px!important}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav>*{order:var(--s2o,99)}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button[data-title]{height:40px!important;min-height:32px!important;flex:0 1 40px!important}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .nav-icon,
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .holded-mark{position:relative!important;z-index:0!important;overflow:visible!important}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .nav-icon::before,
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .holded-mark::before{content:"";position:absolute;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:11px;background:rgba(255,255,255,.07);z-index:-1;transition:background .2s ease}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .nav-icon,
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .holded-mark{color:#fff!important}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .nav-icon::before,
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .holded-mark::before{background:#0A1A3F}
+  body:not(.client-preview-mode) #sidebar.s2-listo:hover nav button.active{color:#0A1A3F!important;font-weight:600}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-grupo{display:block!important;order:var(--s2o,0);position:relative;flex:0 1 26px;min-height:10px;margin:0;padding:10px 0 0 16px;overflow:hidden;white-space:nowrap;font-size:10px;line-height:14px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:transparent;transition:color .25s ease}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-grupo::after{content:"";position:absolute;left:22px;width:22px;top:50%;height:1px;background:rgba(255,255,255,.16);transition:opacity .2s ease}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav>.s2-grupo:first-of-type{flex-basis:18px;padding-top:2px}
+  body:not(.client-preview-mode) #sidebar.s2-listo nav>.s2-grupo:first-of-type::after{display:none}
+  body:not(.client-preview-mode) #sidebar.s2-listo:hover .s2-grupo{color:rgba(255,255,255,.42)}
+  body:not(.client-preview-mode) #sidebar.s2-listo:hover .s2-grupo::after{opacity:0}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-yo{order:2;display:flex!important;align-items:center;gap:12px;align-self:stretch!important;flex:none;margin:10px 0 0;padding:8px 13px;border-radius:16px;border:1px solid transparent;background:transparent;color:#fff;font:inherit;text-align:left;cursor:pointer;overflow:hidden;white-space:nowrap;transition:background .25s ease,border-color .25s ease}
+  body:not(.client-preview-mode) #sidebar.s2-listo:hover .s2-yo{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.08);padding-right:56px}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-av{width:40px;height:40px;border-radius:50%;background:#fff;color:#0A1A3F;display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-yo-txt{min-width:0;flex:1;opacity:0;transition:opacity .2s ease}
+  body:not(.client-preview-mode) #sidebar.s2-listo:hover .s2-yo-txt{opacity:1;transition-delay:.12s}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-yo b{display:block;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-yo small{display:block;font-size:11.5px;color:rgba(255,255,255,.6);margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-yo>svg{display:none}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-pie{display:block!important;position:absolute;right:22px;bottom:26px;opacity:0;pointer-events:none;transition:opacity .2s ease}
+  body:not(.client-preview-mode) #sidebar.s2-listo:hover .s2-pie{opacity:1;pointer-events:auto;transition-delay:.12s}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-pie small{display:none}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-salir{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:11px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);font-size:0;cursor:pointer;transition:background .2s,color .2s}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-salir:hover{background:rgba(239,68,68,.9);color:#fff}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-salir svg{width:18px;height:18px}
+}
+@media (min-width:761px){
+  body:not(.client-preview-mode) #sidebar.s2-listo::before{background:linear-gradient(180deg,#0A1A3F 0,#081533 60%,#06112B 100%)!important}
+  body:not(.client-preview-mode) #sidebar.s2-listo::after{background:radial-gradient(120% 55% at 0 0,#1b3170 0,transparent 62%),linear-gradient(180deg,#0A1A3F 0,#081533 60%,#06112B 100%)!important;border-radius:inherit}
+}
+@media (min-width:761px) and (max-height:860px){
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .nav-icon::before,
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .holded-mark::before{width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:9px}
+  body:not(.client-preview-mode) #sidebar.s2-listo .s2-grupo{flex-basis:22px;padding-top:7px}
+}
+@media (min-width:761px) and (max-height:700px){
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .nav-icon::before,
+  body:not(.client-preview-mode) #sidebar.s2-listo nav button .holded-mark::before{width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:8px}
+}
+@media (min-width:761px){
+  body:not(.client-preview-mode) #sidebar.s2-listo:not(:hover) nav button.active .task-nav-alert,
+  body:not(.client-preview-mode) #sidebar.s2-listo:not(:hover) nav button.active .billing-nav-alert,
+  body:not(.client-preview-mode) #sidebar.s2-listo:not(:hover) nav button.active .suggestion-nav-alert{left:33px!important;right:auto!important;top:-2px!important;z-index:2}
+}
