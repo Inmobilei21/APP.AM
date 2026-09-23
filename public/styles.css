@@ -3843,3 +3843,10 @@ html.auth-pending #splash{visibility:visible}
   body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{top:-17px!important;width:26px!important;right:22px!important}
   body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{bottom:-17px!important;width:26px!important;right:22px!important}
 }
+
+/* Al plegarse, la pestaña activa sigue el ancho real de la barra en cada instante (sin animación propia de ancho) */
+@media (min-width:761px){
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active{transition:padding .86s cubic-bezier(.16,.72,.22,1),border-radius .68s!important}
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{animation-duration:.6s!important}
+}
