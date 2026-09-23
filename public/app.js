@@ -43,12 +43,17 @@ const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
 const mobileLaunchSplash=document.querySelector("#mobileLaunchSplash");
 if(mobileLaunchSplash&&window.matchMedia("(max-width:760px)").matches){
-  const openedAt=performance.now();
-  const dismissMobileSplash=()=>{
-    const wait=Math.max(0,850-(performance.now()-openedAt));
-    setTimeout(()=>{mobileLaunchSplash.classList.add("leaving");setTimeout(()=>mobileLaunchSplash.remove(),760)},wait);
+  const splashStarted=performance.now(),minimumVisible=1550;
+  const finishMobileSplash=()=>{
+    const remaining=Math.max(0,minimumVisible-(performance.now()-splashStarted));
+    setTimeout(()=>{
+      requestAnimationFrame(()=>{
+        mobileLaunchSplash.classList.add("leaving");
+        setTimeout(()=>mobileLaunchSplash.remove(),700);
+      });
+    },remaining);
   };
-  if(document.readyState==="complete")dismissMobileSplash();else window.addEventListener("load",dismissMobileSplash,{once:true});
+  if(document.readyState==="complete")finishMobileSplash();else window.addEventListener("load",finishMobileSplash,{once:true});
 }else mobileLaunchSplash?.remove();
 
 const main=document.querySelector("main");
