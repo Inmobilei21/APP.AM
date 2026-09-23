@@ -3850,3 +3850,8 @@ html.auth-pending #splash{visibility:visible}
   body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before,
   body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{animation-duration:.6s!important}
 }
+
+/* Vista de cliente: no mostrar la barra inferior del despacho */
+@media (max-width:760px){
+  body.client-preview-mode .m2-barra,body.client-preview-mode .m2-hoja,body.client-preview-mode .m2-velo{display:none!important}
+}
