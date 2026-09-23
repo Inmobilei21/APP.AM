@@ -4211,3 +4211,7 @@ html.auth-pending #splash{visibility:visible}
   .e2-logo{top:45px;height:50px;filter:none}
   body.e2-en-inicio:not(.client-preview-mode) .e2-metricas article>div p{display:none!important}
 }
+@media (min-width:761px){
+  /* La cabecera deja sitio a la pestaña activa del menú lateral */
+  .e2-cab{margin-left:40px!important}
+}
