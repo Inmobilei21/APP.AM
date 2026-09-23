@@ -41,20 +41,29 @@ checkAuthentication();
 
 const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
-const mobileLaunchSplash=document.querySelector("#mobileLaunchSplash");
-if(mobileLaunchSplash&&window.matchMedia("(max-width:760px)").matches){
-  const splashStarted=performance.now(),minimumVisible=1550;
-  const finishMobileSplash=()=>{
-    const remaining=Math.max(0,minimumVisible-(performance.now()-splashStarted));
-    setTimeout(()=>{
-      requestAnimationFrame(()=>{
-        mobileLaunchSplash.classList.add("leaving");
-        setTimeout(()=>mobileLaunchSplash.remove(),700);
-      });
-    },remaining);
-  };
-  if(document.readyState==="complete")finishMobileSplash();else window.addEventListener("load",finishMobileSplash,{once:true});
-}else mobileLaunchSplash?.remove();
+const mobileSplash=document.getElementById("splash");
+(function(){
+  var DURACION_MIN=2200;
+  var SOLO_UNA_VEZ_POR_SESION=true;
+  var splash=mobileSplash;
+  if(!splash)return;
+  if(!window.matchMedia("(max-width:760px)").matches){splash.remove();document.documentElement.classList.remove("splash-activo");return}
+  try{if(SOLO_UNA_VEZ_POR_SESION&&sessionStorage.getItem("splashVisto")){splash.remove();document.documentElement.classList.remove("splash-activo");return}}catch(e){}
+  var inicio=Date.now(),ocultando=false;
+  function ocultar(){
+    if(ocultando)return;ocultando=true;
+    var espera=Math.max(0,DURACION_MIN-(Date.now()-inicio));
+    setTimeout(function(){
+      splash.classList.add("saliendo");
+      document.body.classList.add("app-entrando");
+      document.documentElement.classList.remove("splash-activo");
+      try{sessionStorage.setItem("splashVisto","1")}catch(e){}
+      setTimeout(function(){splash.remove();document.body.classList.remove("app-entrando")},900);
+    },espera);
+  }
+  if(document.readyState==="complete")ocultar();else window.addEventListener("load",ocultar,{once:true});
+  setTimeout(ocultar,6000);
+})();
 
 const main=document.querySelector("main");
 let clientPreviewName="Inmobilei";
