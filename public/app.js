@@ -43,7 +43,7 @@ const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
 /* ===== Splash Molinero ===== */
 (function () {
-  var DURACION_MIN = 3900;
+  var DURACION_MIN = 4300;
   var SOLO_UNA_VEZ_POR_SESION = true;
 
   var splash = document.getElementById('splash');
@@ -67,7 +67,7 @@ const overlay=document.querySelector("#overlay");
   var inicio = Date.now();
 
   function ocultar() {
-    var espera = Math.max(0, DURACION_MIN - performance.now());
+    var espera = Math.max(0, DURACION_MIN - (performance.now() - (window.__splashInicio || 0)));
     setTimeout(function () {
       splash.classList.add('saliendo');
       if (app) app.classList.add('app-entrando');
@@ -80,7 +80,7 @@ const overlay=document.querySelector("#overlay");
   if (document.readyState === 'complete') ocultar();
   else window.addEventListener('load', ocultar);
 
-  setTimeout(ocultar, 8000);
+  setTimeout(ocultar, 9000);
 })();
 
 const main=document.querySelector("main");
