@@ -563,13 +563,27 @@ function openPeopleTab(name){
   document.querySelectorAll('[data-people-tab]').forEach(tab=>tab.setAttribute('aria-selected',String(tab.dataset.peopleTab===name)));
   for(const item of ['Socios','Contactos'])document.querySelector('#people'+item).hidden=item!==name;
 }
+let clientPartnerCarouselIndex=0;
+function syncClientPartnerCarousel(preferredIndex=clientPartnerCarouselIndex){
+  const list=document.querySelector('#clientPartnerRows');if(!list)return;
+  const rows=[...list.querySelectorAll('[data-person-kind="partner"]')];
+  clientPartnerCarouselIndex=Math.max(0,Math.min(Number(preferredIndex)||0,Math.max(0,rows.length-1)));
+  rows.forEach((row,index)=>{row.classList.toggle('is-carousel-hidden',index!==clientPartnerCarouselIndex);row.setAttribute('aria-hidden',String(index!==clientPartnerCarouselIndex))});
+  let controls=document.querySelector('#clientPartnerCarouselControls');
+  if(!controls){controls=document.createElement('div');controls.id='clientPartnerCarouselControls';controls.className='client-partner-carousel-controls';controls.innerHTML='<button type="button" data-partner-prev aria-label="Socio anterior">‹</button><span data-partner-counter></span><button type="button" data-partner-next aria-label="Socio siguiente">›</button>';list.after(controls);controls.querySelector('[data-partner-prev]').onclick=()=>syncClientPartnerCarousel(clientPartnerCarouselIndex-1);controls.querySelector('[data-partner-next]').onclick=()=>syncClientPartnerCarousel(clientPartnerCarouselIndex+1)}
+  controls.hidden=!rows.length;
+  if(!rows.length)return;
+  controls.querySelector('[data-partner-counter]').textContent=(clientPartnerCarouselIndex+1)+' de '+rows.length;
+  controls.querySelector('[data-partner-prev]').disabled=clientPartnerCarouselIndex===0;
+  controls.querySelector('[data-partner-next]').disabled=clientPartnerCarouselIndex===rows.length-1;
+}
 function addClientPerson(kind,value={}){
   const partner=kind==='partner',row=document.createElement('div');row.className='client-person-row';row.dataset.personKind=kind;if(partner)row.dataset.partnerId=value.id||crypto.randomUUID();
   const fields=partner?[['name','Nombre','text'],['dni','DNI','text'],['participation','% de participación','number']]:[['name','Nombre','text'],['phone','Teléfono','tel'],['email','Correo electrónico','email']];
-  for(const [key,label,type] of fields){const wrapper=document.createElement('label');wrapper.textContent=label;const input=document.createElement('input');input.type=type;input.dataset.personField=key;input.addEventListener('invalid',()=>openPeopleTab(partner?'Socios':'Contactos'));input.value=value[key]??'';if(type==='number'){input.min='0';input.max='100';input.step='0.01'}else input.maxLength=key==='dni'?9:254;if(partner)input.addEventListener('input',()=>refreshAdministratorOptions());wrapper.append(input);row.append(wrapper)}
+  for(const [key,label,type] of fields){const wrapper=document.createElement('label');wrapper.textContent=label;const input=document.createElement('input');input.type=type;input.dataset.personField=key;input.addEventListener('invalid',()=>{openPeopleTab(partner?'Socios':'Contactos');if(partner){const rows=[...document.querySelectorAll('[data-person-kind="partner"]')];syncClientPartnerCarousel(rows.indexOf(row))}});input.value=value[key]??'';if(type==='number'){input.min='0';input.max='100';input.step='0.01'}else input.maxLength=key==='dni'?9:254;if(partner)input.addEventListener('input',()=>refreshAdministratorOptions());wrapper.append(input);row.append(wrapper)}
   if(!partner){const label=document.createElement('label');label.className='client-primary-contact';const radio=document.createElement('input');radio.type='radio';radio.name='clientPrimaryContact';radio.dataset.personField='primary';radio.checked=Boolean(value.primary);label.append(radio,document.createTextNode('Contacto principal'));row.append(label)}
-  const remove=document.createElement('button');remove.type='button';remove.className='client-person-delete';remove.setAttribute('aria-label',partner?'Eliminar socio':'Eliminar contacto');remove.title=partner?'Eliminar socio':'Eliminar contacto';remove.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg>';remove.onclick=()=>{row.remove();if(partner)refreshAdministratorOptions()};row.append(remove);
-  document.querySelector(partner?'#clientPartnerRows':'#clientContactRows').append(row);if(partner)refreshAdministratorOptions();
+  const remove=document.createElement('button');remove.type='button';remove.className='client-person-delete';remove.setAttribute('aria-label',partner?'Eliminar socio':'Eliminar contacto');remove.title=partner?'Eliminar socio':'Eliminar contacto';remove.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg>';remove.onclick=()=>{const removedIndex=partner?[...document.querySelectorAll('[data-person-kind="partner"]')].indexOf(row):-1;row.remove();if(partner){refreshAdministratorOptions();syncClientPartnerCarousel(Math.max(0,removedIndex-1))}};row.append(remove);
+  document.querySelector(partner?'#clientPartnerRows':'#clientContactRows').append(row);if(partner){refreshAdministratorOptions();const rows=[...document.querySelectorAll('[data-person-kind="partner"]')];syncClientPartnerCarousel(Object.keys(value).length?clientPartnerCarouselIndex:rows.length-1)}
 }
 function refreshAdministratorOptions(selected){
   const select=document.querySelector('#clientAdministratorPartner');if(!select)return;
