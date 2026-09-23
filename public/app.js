@@ -3442,6 +3442,15 @@ setInterval(refreshSuggestions,15000);
     cliente:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5A4.5 4.5 0 0 1 8 14h2a4.5 4.5 0 0 1 4.5 4.5V20M19 8v6M16 11h6"/>',
     aviso:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',idea:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>'};
   const iconoSeccion=titulo=>{const b=document.querySelector(`.sidebar nav button[data-title="${titulo}"]`);const s=b?.querySelector(".nav-icon svg,.holded-mark img");return s?s.outerHTML:svg(I.tarea)};
+  const ALERTAS=".task-nav-alert,.billing-nav-alert,.suggestion-nav-alert";
+  const alertas=titulo=>{const b=document.querySelector(`.sidebar nav button[data-title="${titulo}"]`);if(!b)return"";
+    return [...b.querySelectorAll(ALERTAS)].map(a=>{const txt=a.matches(".billing-nav-alert")?`F ${a.querySelector("small")?.textContent||""}`:a.textContent.trim();
+      const tipo=a.matches(".task-nav-alert")?"tareas":a.matches(".billing-nav-alert")?"factura":"idea";
+      return `<em class="m2-alerta m2-alerta-${tipo}" title="${escapeHtml(a.getAttribute("aria-label")||a.title||"")}">${escapeHtml(txt)}</em>`}).join("")};
+  function refrescarAlertas(){
+    document.querySelectorAll(".m2-acceso[data-m2-ruta]").forEach(b=>{const s=b.querySelector("span");if(!s)return;s.querySelectorAll(".m2-alerta").forEach(x=>x.remove());s.insertAdjacentHTML("beforeend",alertas(b.dataset.m2Ruta))});
+    const punto=document.querySelector(".m2-menu .m2-punto");if(punto)punto.hidden=!document.querySelector(`.sidebar nav :is(${ALERTAS})`);
+  }
   const saludo=()=>{const h=+new Intl.DateTimeFormat("es-ES",{hour:"numeric",hourCycle:"h23",timeZone:"Europe/Madrid"}).format(new Date());return h>=6&&h<14?"Buenos días":h>=14&&h<21?"Buenas tardes":"Buenas noches"};
 
   function actualizarUsuario(){
@@ -3487,7 +3496,7 @@ setInterval(refreshSuggestions,15000);
     }
     layout.prepend(hero,flota,accesos,actividad);
     if(news)layout.append(news);
-    actualizarUsuario();
+    actualizarUsuario();refrescarAlertas();
   }
 
   // Barra inferior, acciones rápidas y menú
@@ -3498,6 +3507,7 @@ setInterval(refreshSuggestions,15000);
     const yaAbierta=hoja.classList.contains("on");cerrarHojas();if(yaAbierta)return;
     if(tipo==="menu")hoja.querySelector(".m2-rejilla").innerHTML=[...document.querySelectorAll(".sidebar nav button[data-title]")].map(b=>`<button type="button" class="m2-acceso" data-m2-ruta="${escapeHtml(b.dataset.title)}"><span>${iconoSeccion(b.dataset.title)}</span>${escapeHtml(b.dataset.title)}</button>`).join("");
     hoja.querySelectorAll("[data-m2-ruta]").forEach(b=>b.onclick=()=>{cerrarHojas();mobileRoute(b.dataset.m2Ruta)});
+    refrescarAlertas();
     hoja.classList.add("on");velo.classList.add("on");if(tipo==="acciones")barra.querySelector(".m2-mas").classList.add("abierto");
   }
   function instalarBarra(){
@@ -3507,7 +3517,7 @@ setInterval(refreshSuggestions,15000);
       <button type="button" class="m2-tab" data-mobile-route="Clientes">${svg(I.clientes)}<small>Clientes</small></button>
       <button type="button" class="m2-mas" aria-label="Acciones rápidas">${svg(I.mas,2.2)}</button>
       <button type="button" class="m2-tab m2-chat">${svg(I.chat)}<small>Chat</small><b class="m2-badge" hidden></b></button>
-      <button type="button" class="m2-tab m2-menu">${svg(I.menu)}<small>Menú</small></button>`;
+      <button type="button" class="m2-tab m2-menu">${svg(I.menu)}<small>Menú</small><i class="m2-punto" hidden></i></button>`;
     velo=document.createElement("div");velo.className="m2-velo";velo.onclick=cerrarHojas;
     const op=(accion,ico,fondo,color,titulo,texto)=>`<button type="button" class="m2-op" data-accion="${accion}"><span style="background:${fondo};color:${color}">${svg(ico,2)}</span><div><b>${titulo}</b><small>${texto}</small></div></button>`;
     const acciones=document.createElement("section");acciones.className="m2-hoja";acciones.dataset.hoja="acciones";
@@ -3527,7 +3537,7 @@ setInterval(refreshSuggestions,15000);
     const hacer={tarea:()=>mobileRoute("Tareas","#openTaskModal"),factura:()=>openBillingModal(),cliente:()=>mobileRoute("Gestión","#openNewClient"),
       aviso:()=>mobileRoute("Calendario","#newCalendarItem"),idea:()=>document.querySelector("#suggestionLauncher")?.click()};
     acciones.querySelectorAll("[data-accion]").forEach(b=>b.onclick=()=>{cerrarHojas();hacer[b.dataset.accion]?.()});
-    actualizarBadge();
+    actualizarBadge();refrescarAlertas();
   }
   function actualizarBadge(){const b=barra?.querySelector(".m2-badge");if(!b)return;const n=typeof chatUnreadCount==="number"?chatUnreadCount:0;b.hidden=!n;b.textContent=n>9?"9+":String(n)}
 
@@ -3538,9 +3548,27 @@ setInterval(refreshSuggestions,15000);
   syncMobileNavigation=function(title="Inicio"){if(title!=="Inicio")document.body.classList.remove("m2-en-inicio");return syncOriginal.apply(this,arguments)};
   const perfilOriginal=updateProfileButtons;
   updateProfileButtons=function(){const r=perfilOriginal.apply(this,arguments);actualizarUsuario();return r};
+  [["updateTaskNavAlert",()=>updateTaskNavAlert,f=>updateTaskNavAlert=f],["updateBillingAlerts",()=>updateBillingAlerts,f=>updateBillingAlerts=f],["updateSuggestionAlerts",()=>updateSuggestionAlerts,f=>updateSuggestionAlerts=f]].forEach(([,leer,poner])=>{
+    const original=leer();if(typeof original!=="function")return;poner(function(){const r=original.apply(this,arguments);refrescarAlertas();return r});
+  });
   const badgeOriginal=updateChatUnreadBadge;
   updateChatUnreadBadge=function(){const r=badgeOriginal.apply(this,arguments);actualizarBadge();return r};
 
   if(esMovil()){instalarBarra();decorarInicio()}
   matchMedia("(max-width:760px)").addEventListener?.("change",e=>{if(e.matches){instalarBarra();decorarInicio()}});
+})();
+
+/* Barra lateral de escritorio: evita cortes en la pestaña activa al plegarse */
+(function(){
+  const sidebar=document.querySelector(".sidebar");if(!sidebar)return;
+  let temporizador=null;
+  const terminar=()=>{clearTimeout(temporizador);sidebar.classList.remove("plegando")};
+  sidebar.addEventListener("mouseleave",()=>{
+    if(matchMedia("(max-width:760px)").matches)return;
+    sidebar.classList.add("plegando");clearTimeout(temporizador);
+    const ms=parseFloat(getComputedStyle(sidebar).transitionDuration)*1000||950;
+    temporizador=setTimeout(terminar,ms+30);
+  });
+  sidebar.addEventListener("mouseenter",terminar);
+  sidebar.addEventListener("transitionend",event=>{if(event.target===sidebar&&event.propertyName==="width"&&!sidebar.matches(":hover"))terminar()});
 })();
