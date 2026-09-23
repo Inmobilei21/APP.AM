@@ -3819,11 +3819,13 @@ html.auth-pending #splash{visibility:visible}
 
 /* Unión de la pestaña activa: se oculta mientras la barra lateral se pliega y aparece con fundido al terminar */
 @media (min-width:761px){
-  body:not(.client-preview-mode) .sidebar nav button.active::before,
-  body:not(.client-preview-mode) .sidebar nav button.active::after{transition:opacity .35s ease}
-  body:not(.client-preview-mode) .sidebar.plegando:not(:hover) nav button.active::before,
-  body:not(.client-preview-mode) .sidebar.plegando:not(:hover) nav button.active::after{opacity:0!important;transition:none}
+  /* Curva con interior transparente: nunca pinta esquinas oscuras sobre el lienzo */
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::before{background:radial-gradient(circle at 0 0,transparent 17.5px,var(--sidebar-active-surface,#f6f8fc) 18px)!important;
+    animation:curva-aparece .95s cubic-bezier(.4,0,.2,1) both}
+  body:not(.client-preview-mode) .sidebar:not(:hover) nav button.active::after{background:radial-gradient(circle at 0 100%,transparent 17.5px,var(--sidebar-active-surface,#f6f8fc) 18px)!important;
+    animation:curva-aparece .95s cubic-bezier(.4,0,.2,1) both}
 }
+@keyframes curva-aparece{from{opacity:0}to{opacity:1}}
 @media (max-width:760px){
   .m2-acceso span{position:relative}
   .m2-alerta{position:absolute;top:-6px;right:-8px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;border:2px solid #fff;
