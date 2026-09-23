@@ -3572,3 +3572,73 @@ setInterval(refreshSuggestions,15000);
   sidebar.addEventListener("mouseenter",terminar);
   sidebar.addEventListener("transitionend",event=>{if(event.target===sidebar&&event.propertyName==="width"&&!sidebar.matches(":hover"))terminar()});
 })();
+
+/* ===== Área de cliente en móvil (solo móvil) ===== */
+(function(){
+  const esMovil=()=>matchMedia("(max-width:760px)").matches;
+  const svg=(d,w=1.8)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const I={carpeta:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',chat:'<path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4.5 3v-3H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/>',
+    flecha:'<path d="m9 6 6 6-6 6"/>',candado:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',ayuda:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/>',
+    inicio:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.8V21h14V9.8"/>',perfil:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>'};
+  const flecha=`<i class="c2-flecha">${svg(I.flecha,2)}</i>`;
+  const EQUIPO=[["ÁM","#2F4BD6"],["JC","#6D4AE0"],["AF","#12805C"],["FM","#B7791F"]];
+
+  function decorarCliente(){
+    if(!esMovil())return;
+    const shell=main.querySelector(".client-mobile-portal");if(!shell||shell.dataset.c2)return;
+    shell.dataset.c2="1";shell.classList.add("c2");
+    const header=shell.querySelector(".client-portal-header"),content=shell.querySelector(".client-portal-content");if(!header||!content)return;
+
+    // Cabecera azul con logo, perfil y saludo
+    const logo=header.querySelector("img"),usuario=header.querySelector(".client-preview-user"),saludo=content.querySelector(".client-greeting");
+    if(logo)logo.src="/splash-logo.png?v=3";
+    const arriba=document.createElement("div");arriba.className="c2-top";if(logo)arriba.append(logo);if(usuario)arriba.append(usuario);header.prepend(arriba);
+    if(saludo){saludo.insertAdjacentHTML("afterbegin",'<small class="c2-eyebrow">Área de cliente</small>');header.append(saludo)}
+
+    // Tarjeta flotante: documentos y mensajes
+    const flota=document.createElement("section");flota.className="c2-flota";
+    const docs=content.querySelector(".client-document-banner");
+    if(docs){docs.classList.add("c2-fila");docs.innerHTML=`<span class="c2-ic c2-ic-navy">${svg(I.carpeta)}</span><span class="c2-txt"><b>Mis documentos</b><small>Tu documentación siempre a mano</small></span>${flecha}`;flota.append(docs)}
+    const mensajes=document.createElement("button");mensajes.type="button";mensajes.className="c2-fila";
+    mensajes.innerHTML=`<span class="c2-ic c2-ic-azul">${svg(I.chat)}</span><span class="c2-txt"><b>Mensajes</b><small>Habla con tu asesor</small></span>${flecha}`;
+    mensajes.addEventListener("click",()=>openClientChat());
+    flota.append(document.createElement("hr"),mensajes);content.prepend(flota);
+
+    // Servicios: el contratado destacado, el resto en rejilla con candado
+    const servicios=content.querySelector(".client-services"),rejilla=servicios?.querySelector(".client-services-grid");
+    if(servicios&&rejilla){
+      const titulo=servicios.querySelector(".client-section-title");
+      const contratados=[...rejilla.querySelectorAll(".client-service-card.contracted")];
+      if(titulo){titulo.querySelector("button")?.remove();titulo.insertAdjacentHTML("beforeend",`<span class="c2-cuenta">${contratados.length} contratado${contratados.length===1?"":"s"}</span>`)}
+      contratados.forEach(card=>{
+        const icono=card.querySelector(".client-service-icon")?.innerHTML||"",nombre=card.querySelector("strong")?.textContent||"";
+        card.classList.add("c2-contratado");card.innerHTML=`<span class="c2-ic">${icono}</span><span class="c2-txt"><b>${escapeHtml(nombre)}</b><em>Contratado</em></span>${flecha}`;
+        rejilla.before(card);
+      });
+      rejilla.classList.add("c2-rejilla");
+      rejilla.querySelectorAll(".client-service-card:not(.contracted)").forEach(card=>{
+        const icono=card.querySelector(".client-service-icon")?.innerHTML||"",nombre=card.querySelector("strong")?.textContent||"";
+        card.innerHTML=`<span class="c2-candado">${svg(I.candado,2)}</span><span class="c2-ic">${icono}</span><b>${escapeHtml(nombre)}</b><small>No contratado · Más info</small>`;
+      });
+    }
+
+    // ¿Necesitas algo?
+    const ayuda=content.querySelector(".client-help-card");
+    if(ayuda){ayuda.innerHTML=`<span class="c2-ic c2-ic-verde">${svg(I.ayuda)}</span><span class="c2-txt"><b>¿Necesitas algo?</b><small>Escríbenos y te ayudamos</small><span class="c2-equipo">${EQUIPO.map(([t,c])=>`<i style="background:${c}">${t}</i>`).join("")}</span></span>${flecha}`}
+
+    // Barra inferior con iconos
+    const iconos=[I.inicio,I.carpeta,I.chat,I.perfil];
+    shell.querySelectorAll(".client-portal-nav button").forEach((b,i)=>{const s=b.querySelector("span");if(s&&iconos[i])s.innerHTML=svg(iconos[i],1.9)});
+    const perfil=shell.querySelector(".client-portal-nav button:nth-child(4)");
+    if(perfil&&!perfil.dataset.c2){perfil.dataset.c2="1";perfil.addEventListener("click",()=>openAccountPanel())}
+    // La barra se engancha al documento para quedar siempre fija abajo
+    const nav=shell.querySelector(".client-portal-nav");
+    document.querySelectorAll("body > .c2-nav").forEach(n=>n.remove());
+    if(nav){nav.classList.add("c2-nav");document.body.append(nav)}
+  }
+
+  const renderOriginal=renderClientPreview;
+  renderClientPreview=function(){const r=renderOriginal.apply(this,arguments);decorarCliente();return r};
+  const cerrarOriginal=closeClientPreview;
+  closeClientPreview=function(){document.querySelectorAll("body > .c2-nav").forEach(n=>n.remove());return cerrarOriginal.apply(this,arguments)};
+})();
