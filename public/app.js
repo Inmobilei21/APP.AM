@@ -3430,3 +3430,117 @@ function openSuggestionModal(){
 }
 document.addEventListener("click",event=>{if(event.target.closest("#suggestionLauncher"))openSuggestionModal()});
 setInterval(refreshSuggestions,15000);
+
+/* ===== Inicio móvil Molinero (solo móvil) ===== */
+(function(){
+  const esMovil=()=>matchMedia("(max-width:760px)").matches;
+  const RAPIDOS=["Clientes","Declaraciones","Renta","Calendario","Tareas","Holded","Inspecciones"];
+  const svg=(d,w=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const I={inicio:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.8V21h14V9.8"/>',clientes:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5A4.5 4.5 0 0 1 8 14h2a4.5 4.5 0 0 1 4.5 4.5V20"/><path d="M16 11a3 3 0 1 0 0-6M18 20v-1.5a4.5 4.5 0 0 0-2-3.7"/>',
+    mas:'<path d="M12 5v14M5 12h14"/>',chat:'<path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4.5 3v-3H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/>',menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
+    tarea:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="m8.5 12 2 2 5-5"/>',factura:'<path d="M6 2h9l4 4v16H6Z"/><path d="M9 12h6M9 16h4"/>',
+    cliente:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5A4.5 4.5 0 0 1 8 14h2a4.5 4.5 0 0 1 4.5 4.5V20M19 8v6M16 11h6"/>',
+    aviso:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',idea:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>'};
+  const iconoSeccion=titulo=>{const b=document.querySelector(`.sidebar nav button[data-title="${titulo}"]`);const s=b?.querySelector(".nav-icon svg,.holded-mark img");return s?s.outerHTML:svg(I.tarea)};
+  const saludo=()=>{const h=+new Intl.DateTimeFormat("es-ES",{hour:"numeric",hourCycle:"h23",timeZone:"Europe/Madrid"}).format(new Date());return h>=6&&h<14?"Buenos días":h>=14&&h<21?"Buenas tardes":"Buenas noches"};
+
+  function actualizarUsuario(){
+    const nombre=(signedInUser?.name||"").split(" ")[0];
+    document.querySelectorAll(".m2-saludo h1").forEach(h=>h.textContent=saludo()+(nombre?`, ${nombre}`:""));
+    document.querySelectorAll(".m2-avatar").forEach(a=>a.textContent=signedInUser?.name?initials(signedInUser.name):"AM");
+  }
+
+  function decorarInicio(){
+    if(!esMovil())return;
+    const layout=main.querySelector(".home-dashboard-layout");if(!layout||layout.dataset.m2)return;
+    layout.dataset.m2="1";document.body.classList.add("m2-en-inicio");
+    const metrics=layout.querySelector(".metrics"),rail=layout.querySelector(".home-activity-rail"),news=layout.querySelector(".news-portal");
+
+    const hero=document.createElement("section");hero.className="m2-hero";
+    hero.innerHTML=`<div class="m2-hero-top"><img class="m2-hero-logo" src="/splash-logo.png?v=2" alt="Molinero"><button type="button" class="m2-avatar" aria-label="Mi cuenta">AM</button></div>
+      <div class="m2-saludo"><div class="m2-fecha"></div><h1></h1></div><div class="m2-clima"></div>`;
+    const fecha=layout.querySelector("#homeCurrentDate"),clima=layout.querySelector(".home-weather-line");
+    if(fecha)hero.querySelector(".m2-fecha").append(fecha);if(clima)hero.querySelector(".m2-clima").append(clima);
+    hero.querySelector(".m2-avatar").onclick=()=>main.querySelector(".profile")?.click();
+
+    const flota=document.createElement("section");flota.className="m2-flota";
+    const acciones=document.createElement("div");acciones.className="m2-acciones";
+    const nueva=layout.querySelector("#homeNewTask"),factura=layout.querySelector("#homeBilling");
+    if(nueva){nueva.innerHTML=svg(I.mas,2.2)+"Nueva tarea";acciones.append(nueva)}
+    if(factura){factura.innerHTML=svg(I.factura,1.8)+"Facturación";acciones.append(factura)}
+    flota.append(acciones);
+    if(metrics){flota.append(metrics);const cortos={"Tareas pendientes":"Tareas","Trabajadores":"Equipo"};metrics.querySelectorAll("small").forEach(s=>{if(cortos[s.textContent])s.textContent=cortos[s.textContent]})}
+
+    const accesos=document.createElement("section");accesos.className="m2-seccion";
+    accesos.innerHTML=`<div class="m2-seccion-cab"><h2>Accesos rápidos</h2><button type="button" class="m2-ver-todo">Ver todo</button></div>
+      <div class="m2-accesos">${RAPIDOS.filter(t=>document.querySelector(`.sidebar nav button[data-title="${t}"]`)).map(t=>`<button type="button" class="m2-acceso" data-m2-ruta="${t}"><span>${iconoSeccion(t)}</span>${t}</button>`).join("")}</div>`;
+    accesos.querySelector(".m2-ver-todo").onclick=()=>abrirHoja("menu");
+    accesos.querySelectorAll("[data-m2-ruta]").forEach(b=>b.onclick=()=>mobileRoute(b.dataset.m2Ruta));
+
+    const actividad=document.createElement("section");actividad.className="m2-seccion m2-actividad";
+    actividad.innerHTML=`<div class="m2-seccion-cab"><h2>Actividad</h2></div>`;
+    if(rail){
+      const tabs=document.createElement("div");tabs.className="m2-pestanas";
+      tabs.innerHTML=`<i class="m2-indicador"></i><button type="button" class="on" data-i="0">Mensajes</button><button type="button" data-i="1">Tareas</button><button type="button" data-i="2">Agenda</button>`;
+      rail.dataset.m2Tab="0";rail.prepend(tabs);actividad.append(rail);
+      tabs.querySelectorAll("button").forEach(b=>b.onclick=()=>{tabs.querySelector(".on")?.classList.remove("on");b.classList.add("on");rail.dataset.m2Tab=b.dataset.i;tabs.querySelector(".m2-indicador").style.transform=`translateX(${b.dataset.i*100}%)`});
+    }
+    layout.prepend(hero,flota,accesos,actividad);
+    if(news)layout.append(news);
+    actualizarUsuario();
+  }
+
+  // Barra inferior, acciones rápidas y menú
+  let barra,velo;
+  function cerrarHojas(){document.querySelectorAll(".m2-hoja.on").forEach(h=>h.classList.remove("on"));velo?.classList.remove("on");barra?.querySelector(".m2-mas")?.classList.remove("abierto")}
+  function abrirHoja(tipo){
+    const hoja=document.querySelector(`.m2-hoja[data-hoja="${tipo}"]`);if(!hoja)return;
+    const yaAbierta=hoja.classList.contains("on");cerrarHojas();if(yaAbierta)return;
+    if(tipo==="menu")hoja.querySelector(".m2-rejilla").innerHTML=[...document.querySelectorAll(".sidebar nav button[data-title]")].map(b=>`<button type="button" class="m2-acceso" data-m2-ruta="${escapeHtml(b.dataset.title)}"><span>${iconoSeccion(b.dataset.title)}</span>${escapeHtml(b.dataset.title)}</button>`).join("");
+    hoja.querySelectorAll("[data-m2-ruta]").forEach(b=>b.onclick=()=>{cerrarHojas();mobileRoute(b.dataset.m2Ruta)});
+    hoja.classList.add("on");velo.classList.add("on");if(tipo==="acciones")barra.querySelector(".m2-mas").classList.add("abierto");
+  }
+  function instalarBarra(){
+    if(barra)return;
+    barra=document.createElement("nav");barra.className="m2-barra";barra.setAttribute("aria-label","Navegación");
+    barra.innerHTML=`<button type="button" class="m2-tab active" data-mobile-route="Inicio">${svg(I.inicio)}<small>Inicio</small></button>
+      <button type="button" class="m2-tab" data-mobile-route="Clientes">${svg(I.clientes)}<small>Clientes</small></button>
+      <button type="button" class="m2-mas" aria-label="Acciones rápidas">${svg(I.mas,2.2)}</button>
+      <button type="button" class="m2-tab m2-chat">${svg(I.chat)}<small>Chat</small><b class="m2-badge" hidden></b></button>
+      <button type="button" class="m2-tab m2-menu">${svg(I.menu)}<small>Menú</small></button>`;
+    velo=document.createElement("div");velo.className="m2-velo";velo.onclick=cerrarHojas;
+    const op=(accion,ico,fondo,color,titulo,texto)=>`<button type="button" class="m2-op" data-accion="${accion}"><span style="background:${fondo};color:${color}">${svg(ico,2)}</span><div><b>${titulo}</b><small>${texto}</small></div></button>`;
+    const acciones=document.createElement("section");acciones.className="m2-hoja";acciones.dataset.hoja="acciones";
+    acciones.innerHTML=`<i class="m2-asa"></i><h3>¿Qué quieres hacer?</h3>
+      ${op("tarea",I.mas,"#0A1A3F","#fff","Nueva tarea","Asigna trabajo a alguien del equipo")}
+      ${op("factura",I.factura,"#EEF1FF","#2F4BD6","Facturación","Emitir o revisar facturas")}
+      ${op("cliente",I.cliente,"#F3EEFF","#6D4AE0","Nuevo cliente","Crear su ficha y documentación")}
+      ${op("aviso",I.aviso,"#E8F6F0","#12805C","Recordatorio","Añadir una fecha a la agenda")}
+      ${op("idea",I.idea,"#FFF6E6","#B7791F","Sugerencia","Propón una mejora para el despacho")}`;
+    const menu=document.createElement("section");menu.className="m2-hoja";menu.dataset.hoja="menu";
+    menu.innerHTML=`<i class="m2-asa"></i><h3>Todas las secciones</h3><div class="m2-rejilla"></div>`;
+    document.body.append(velo,acciones,menu,barra);
+    barra.querySelectorAll("[data-mobile-route]").forEach(b=>b.onclick=()=>{cerrarHojas();mobileRoute(b.dataset.mobileRoute)});
+    barra.querySelector(".m2-mas").onclick=()=>abrirHoja("acciones");
+    barra.querySelector(".m2-menu").onclick=()=>abrirHoja("menu");
+    barra.querySelector(".m2-chat").onclick=()=>{cerrarHojas();document.querySelector("#chatLauncher")?.click()};
+    const hacer={tarea:()=>mobileRoute("Tareas","#openTaskModal"),factura:()=>openBillingModal(),cliente:()=>mobileRoute("Gestión","#openNewClient"),
+      aviso:()=>mobileRoute("Calendario","#newCalendarItem"),idea:()=>document.querySelector("#suggestionLauncher")?.click()};
+    acciones.querySelectorAll("[data-accion]").forEach(b=>b.onclick=()=>{cerrarHojas();hacer[b.dataset.accion]?.()});
+    actualizarBadge();
+  }
+  function actualizarBadge(){const b=barra?.querySelector(".m2-badge");if(!b)return;const n=typeof chatUnreadCount==="number"?chatUnreadCount:0;b.hidden=!n;b.textContent=n>9?"9+":String(n)}
+
+  // Enganches con el código existente
+  const initHomeOriginal=initHome;
+  initHome=function(){const r=initHomeOriginal.apply(this,arguments);decorarInicio();return r};
+  const syncOriginal=syncMobileNavigation;
+  syncMobileNavigation=function(title="Inicio"){if(title!=="Inicio")document.body.classList.remove("m2-en-inicio");return syncOriginal.apply(this,arguments)};
+  const perfilOriginal=updateProfileButtons;
+  updateProfileButtons=function(){const r=perfilOriginal.apply(this,arguments);actualizarUsuario();return r};
+  const badgeOriginal=updateChatUnreadBadge;
+  updateChatUnreadBadge=function(){const r=badgeOriginal.apply(this,arguments);actualizarBadge();return r};
+
+  if(esMovil()){instalarBarra();decorarInicio()}
+  matchMedia("(max-width:760px)").addEventListener?.("change",e=>{if(e.matches){instalarBarra();decorarInicio()}});
+})();
