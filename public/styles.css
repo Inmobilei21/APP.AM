@@ -3497,7 +3497,7 @@ html.splash-activo, html.splash-activo body { overflow: hidden; }
 }
 .splash-logo {
   position: relative;
-  width: min(62vw, 280px);
+  width: min(84vw, 380px);
   overflow: hidden;
 }
 .splash-logo img {
