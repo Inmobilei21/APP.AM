@@ -33,7 +33,7 @@ function loginMolinero(users=[]){
   const lista=(users.length?users:teamUsers).filter(user=>user.passwordSet!==false);
   const gate=document.createElement("div");gate.className="login2";
   gate.innerHTML=`<div class="l2-halo"></div><div class="l2-inner">
-    <div class="l2-logo"><img src="/splash-logo.png?v=2" alt="Molinero"></div>
+    <div class="l2-logo"><img src="/splash-logo.png?v=3" alt="Molinero"></div>
     <form class="l2-form" novalidate autocomplete="on">
       <div><h1 class="l2-titulo">Bienvenido</h1><p class="l2-sub">Accede con tu usuario y contraseña</p></div>
       <div class="l2-campo"><input id="l2Usuario" name="username" type="text" placeholder=" " autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"><label for="l2Usuario">Usuario</label></div>
@@ -3466,7 +3466,7 @@ setInterval(refreshSuggestions,15000);
     const metrics=layout.querySelector(".metrics"),rail=layout.querySelector(".home-activity-rail"),news=layout.querySelector(".news-portal");
 
     const hero=document.createElement("section");hero.className="m2-hero";
-    hero.innerHTML=`<div class="m2-hero-top"><img class="m2-hero-logo" src="/splash-logo.png?v=2" alt="Molinero"><button type="button" class="m2-avatar" aria-label="Mi cuenta">AM</button></div>
+    hero.innerHTML=`<div class="m2-hero-top"><img class="m2-hero-logo" src="/splash-logo.png?v=3" alt="Molinero"><button type="button" class="m2-avatar" aria-label="Mi cuenta">AM</button></div>
       <div class="m2-saludo"><div class="m2-fecha"></div><h1></h1></div><div class="m2-clima"></div>`;
     const fecha=layout.querySelector("#homeCurrentDate"),clima=layout.querySelector(".home-weather-line");
     if(fecha)hero.querySelector(".m2-fecha").append(fecha);if(clima)hero.querySelector(".m2-clima").append(clima);
