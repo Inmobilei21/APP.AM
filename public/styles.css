@@ -3516,8 +3516,8 @@ html.splash-activo, html.splash-activo body { overflow: hidden; }
   background: linear-gradient(110deg, transparent 35%, rgba(170,195,255,.9) 50%, transparent 65%) no-repeat;
   background-size: 250% 100%;
   background-position: 150% 0;
-  -webkit-mask: var(--splash-logo-url, url("/splash-logo.png?v=1")) center / 100% 100% no-repeat;
-          mask: var(--splash-logo-url, url("/splash-logo.png?v=1")) center / 100% 100% no-repeat;
+  -webkit-mask: var(--splash-logo-url, url("/splash-logo.png?v=2")) center / 100% 100% no-repeat;
+          mask: var(--splash-logo-url, url("/splash-logo.png?v=2")) center / 100% 100% no-repeat;
   animation: splash-brillo 1.8s ease-in-out 1.7s forwards;
 }
 .splash-barra {
