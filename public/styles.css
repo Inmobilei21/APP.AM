@@ -3424,3 +3424,23 @@ body:has(.suggestion-modal-shell[aria-hidden="false"]) .suggestion-modal-shell[a
 @media(max-width:600px){
   #newClientForm .client-portal-access-grid{grid-template-columns:1fr}
 }
+
+
+/* Prevent hidden client switches from inheriting visible form-control dimensions. */
+#clientModal .client-active-control{position:relative;overflow:hidden}
+#clientModal .client-active-control input[type="checkbox"]{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  min-width:1px!important;
+  min-height:1px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  opacity:0!important;
+  clip-path:inset(50%);
+  appearance:none;
+  pointer-events:none;
+}
+#clientModal .client-active-control input[type="checkbox"]:focus,
+#clientModal .client-active-control input[type="checkbox"]:focus-visible{outline:0!important;box-shadow:none!important}
