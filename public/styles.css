@@ -4105,3 +4105,6 @@ html.auth-pending #splash{visibility:visible}
     background:radial-gradient(90% 140% at 85% -10%,#13275C 0%,#0A1A3F 45%,#06112B 100%)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
   .cd2 .cd2-pie{position:static!important;height:auto!important;background:none!important;box-shadow:none!important}
 }
+@media (min-width:761px){
+  .cd2 .cd2-ancho{max-width:none!important;padding:0 clamp(32px,3.5vw,72px)!important}
+}
