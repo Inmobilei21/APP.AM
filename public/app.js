@@ -3711,3 +3711,62 @@ setInterval(refreshSuggestions,15000);
   const renderOriginal=renderClientPreview;
   renderClientPreview=function(){const r=renderOriginal.apply(this,arguments);decorarEscritorio();return r};
 })();
+
+/* ===== Inicio de empleados en escritorio ===== */
+(function(){
+  const esEscritorio=()=>matchMedia("(min-width:761px)").matches;
+  const svg=(d,w=1.8)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const I={mas:'<path d="M12 5v14M5 12h14"/>',factura:'<path d="M6 2h9l4 4v16H6Z"/><path d="M9 12h6M9 16h4"/>',flecha:'<path d="m9 6 6 6-6 6"/>',
+    izq:'<path d="m15 6-6 6 6 6"/>',der:'<path d="m9 6 6 6-6 6"/>',recargar:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'};
+  const saludo=()=>{const h=+new Intl.DateTimeFormat("es-ES",{hour:"numeric",hourCycle:"h23",timeZone:"Europe/Madrid"}).format(new Date());return h>=6&&h<14?"Buenos días":h>=14&&h<21?"Buenas tardes":"Buenas noches"};
+  function usuario(){
+    const u=signedInUser,nombre=(u?.name||"").split(" ")[0];
+    document.querySelectorAll(".e2-saludo").forEach(h=>h.textContent=saludo()+(nombre?`, ${nombre}`:""));
+    document.querySelectorAll(".e2-perfil").forEach(p=>{p.querySelector("i").textContent=u?.name?initials(u.name):"AM";p.querySelector("b").textContent=u?.name||"Mi cuenta";p.querySelector("small").textContent=u?.role==="admin"?"Administrador":"Usuario"});
+  }
+  function decorar(){
+    if(!esEscritorio())return;
+    const layout=main.querySelector(".home-dashboard-layout");if(!layout||layout.dataset.e2)return;
+    layout.dataset.e2="1";document.body.classList.add("e2-en-inicio");
+    const metrics=layout.querySelector(".metrics"),rail=layout.querySelector(".home-activity-rail"),news=layout.querySelector(".news-portal");
+
+    // Cabecera azul con logo centrado
+    const cab=document.createElement("section");cab.className="e2-cab";
+    cab.innerHTML=`<img class="e2-logo" src="/splash-logo.png?v=3" alt="Asesoría Molinero">
+      <div class="e2-barra"><small>DESPACHO MOLINERO</small><button type="button" class="e2-perfil"><i>AM</i><span><b></b><small></small></span></button></div>
+      <div class="e2-hero"><div><small class="e2-fecha">Jaén · </small><h1 class="e2-saludo"></h1><div class="e2-clima"></div></div><div class="e2-acciones"></div></div>`;
+    const fecha=layout.querySelector("#homeCurrentDate"),clima=layout.querySelector(".home-weather-line");
+    if(fecha)cab.querySelector(".e2-fecha").append(fecha);if(clima)cab.querySelector(".e2-clima").append(clima);
+    const acciones=cab.querySelector(".e2-acciones"),factura=layout.querySelector("#homeBilling"),nueva=layout.querySelector("#homeNewTask");
+    if(factura){factura.innerHTML=svg(I.factura)+"Facturación";acciones.append(factura)}
+    if(nueva){nueva.innerHTML=svg(I.mas,2.2)+"Nueva tarea";acciones.append(nueva)}
+    cab.querySelector(".e2-perfil").addEventListener("click",()=>main.querySelector(".profile")?.click());
+
+    // Contadores flotantes
+    if(metrics){metrics.classList.add("e2-metricas");metrics.querySelectorAll("article").forEach(a=>{if(!a.querySelector(".e2-fl"))a.insertAdjacentHTML("beforeend",`<span class="e2-fl">${svg(I.flecha,2)}</span>`)})}
+
+    // Actividad en tres columnas alineadas
+    const actividad=document.createElement("section");actividad.className="e2-actividad";
+    actividad.innerHTML='<h2 class="e2-titulo">Actividad</h2>';
+    if(rail)actividad.append(rail);
+
+    // Novedades: filtros y controles en la línea del título
+    if(news){
+      const cabecera=news.querySelector(".news-portal-heading"),controles=news.querySelector(".news-carousel-controls"),filtros=news.querySelector("#homeNewsFilters");
+      if(controles&&filtros)controles.prepend(filtros);
+      const prev=news.querySelector("#newsPrevious"),next=news.querySelector("#newsNext"),rec=news.querySelector("#refreshHomeNews");
+      if(prev)prev.innerHTML=svg(I.izq,2.2);if(next)next.innerHTML=svg(I.der,2.2);if(rec){rec.innerHTML=svg(I.recargar,2);rec.title="Actualizar"}
+      cabecera?.classList.add("e2-nov-cab");
+    }
+    layout.prepend(cab,...(metrics?[metrics]:[]),actividad);
+    if(news)layout.append(news);
+    usuario();
+  }
+  const initOriginal=initHome;
+  initHome=function(){const r=initOriginal.apply(this,arguments);decorar();return r};
+  const syncOriginal=syncMobileNavigation;
+  syncMobileNavigation=function(title="Inicio"){if(title!=="Inicio")document.body.classList.remove("e2-en-inicio");return syncOriginal.apply(this,arguments)};
+  const perfilOriginal=updateProfileButtons;
+  updateProfileButtons=function(){const r=perfilOriginal.apply(this,arguments);usuario();return r};
+  if(esEscritorio())decorar();
+})();
