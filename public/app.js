@@ -21,7 +21,53 @@ function updateProfileButtons(){
   if(!signedInUser)return;
   document.querySelectorAll(".profile").forEach(button=>{button.innerHTML=`<span>${initials(signedInUser.name)}</span><span class="profile-copy"><strong>${signedInUser.name}</strong><small>${signedInUser.role==="admin"?"Administrador":"Usuario"}</small></span>`;button.title=signedInUser.role==="admin"?"Administrar usuarios":"Mi cuenta";button.onclick=openAccountPanel});
 }
+/* ===== Inicio de sesión Molinero ===== */
+function normalizarUsuario(texto){return String(texto||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\s+/g," ").trim()}
+function buscarUsuario(texto,lista){
+  const q=normalizarUsuario(texto);if(!q)return null;
+  const exacto=lista.find(user=>normalizarUsuario(user.id)===q||normalizarUsuario(user.name)===q);if(exacto)return exacto;
+  const porNombre=lista.filter(user=>normalizarUsuario(user.name).split(" ")[0]===q);
+  return porNombre.length===1?porNombre[0]:null;
+}
+function loginMolinero(users=[]){
+  const lista=(users.length?users:teamUsers).filter(user=>user.passwordSet!==false);
+  const gate=document.createElement("div");gate.className="login2";
+  gate.innerHTML=`<div class="l2-halo"></div><div class="l2-inner">
+    <div class="l2-logo"><img src="/splash-logo.png?v=2" alt="Molinero"></div>
+    <form class="l2-form" novalidate autocomplete="on">
+      <div><h1 class="l2-titulo">Bienvenido</h1><p class="l2-sub">Accede con tu usuario y contraseña</p></div>
+      <div class="l2-campo"><input id="l2Usuario" name="username" type="text" placeholder=" " autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"><label for="l2Usuario">Usuario</label></div>
+      <div class="l2-campo"><input id="l2Clave" name="password" type="password" placeholder=" " autocomplete="current-password"><label for="l2Clave">Contraseña</label>
+        <button type="button" class="l2-ojo" aria-label="Mostrar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      <div><div class="l2-error" role="alert"></div><div class="l2-fila"><button type="button" class="l2-olvido">¿Olvidaste la contraseña?</button></div><p class="l2-ayuda">Pide a Manuel o Álvaro que te la restablezcan desde «Mi cuenta».</p></div>
+      <div><button class="l2-boton" type="submit"><span class="l2-txt">Entrar</span><span class="l2-spin"></span></button></div>
+      <p class="l2-pie">© ${new Date().getFullYear()} MOLINERO</p>
+    </form></div>`;
+  document.body.appendChild(gate);document.documentElement.classList.remove("auth-pending");
+  const mostrar=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>gate.classList.add("directo","activo","logo-listo")));
+  if(document.getElementById("splash")&&!window.__splashCerrado)window.__loginPendiente=()=>{if(!gate.classList.contains("activo"))mostrar()};
+  else mostrar();
+  const form=gate.querySelector("form"),boton=gate.querySelector(".l2-boton"),error=gate.querySelector(".l2-error"),clave=gate.querySelector("#l2Clave"),ojo=gate.querySelector(".l2-ojo");
+  ojo.onclick=()=>{const ver=clave.type==="password";clave.type=ver?"text":"password";ojo.classList.toggle("on",ver);ojo.setAttribute("aria-label",ver?"Ocultar contraseña":"Mostrar contraseña")};
+  gate.querySelector(".l2-olvido").onclick=()=>gate.querySelector(".l2-ayuda").classList.toggle("visible");
+  const fallo=mensaje=>{error.textContent=mensaje;error.classList.add("visible");form.classList.remove("l2-agitar");void form.offsetWidth;form.classList.add("l2-agitar")};
+  form.addEventListener("submit",async event=>{
+    event.preventDefault();error.classList.remove("visible");
+    const texto=form.username.value,password=form.password.value;
+    if(!texto.trim()||!password)return fallo("Introduce usuario y contraseña.");
+    const user=buscarUsuario(texto,lista);
+    if(!user)return fallo("Usuario o contraseña incorrectos.");
+    boton.disabled=true;boton.classList.add("cargando");
+    try{
+      const result=await apiJson("/api/auth/login",{method:"POST",body:JSON.stringify({userId:user.id,password})});
+      signedInUser=result.user;boton.classList.remove("cargando");boton.classList.add("ok");boton.querySelector(".l2-txt").textContent="✓ Acceso correcto";
+      updateProfileButtons();loadSharedTasks();refreshChatData();refreshBillingData();refreshSuggestions();
+      setTimeout(()=>{gate.classList.add("saliendo");document.querySelector("main")?.classList.add("app-entrando");setTimeout(()=>gate.remove(),950)},450);
+    }catch(reason){boton.disabled=false;boton.classList.remove("cargando");fallo(reason.message||"Usuario o contraseña incorrectos.")}
+  });
+}
 function authCard({setup=false,users=[]}={}){
+  if(!setup)return loginMolinero(users);
   const available=(users.length?users:teamUsers).filter(user=>setup?user.role==="admin":user.passwordSet!==false);
   const shell=document.createElement("div");shell.className="login-gate";
   shell.innerHTML=`<section class="login-card"><div class="login-brand"><img src="/app-icon.png" alt=""><div><small>DESPACHO MOLINERO</small><h1>${setup?"Configurar acceso":"Iniciar sesión"}</h1></div></div><p>${setup?"Asigna la primera contraseña a Manuel o Álvaro. Después podrás establecer las del resto desde Mi cuenta.":"Accede con tu usuario y contraseña personal."}</p><form><label>Usuario<select required>${available.map(user=>`<option value="${user.id}">${user.name}</option>`).join("")}</select></label>${setup?'<label>Clave de configuración<input name="setupPassword" type="password" autocomplete="current-password" required></label>':""}<label>Contraseña<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><p class="login-error" role="alert"></p><button class="primary" type="submit">${setup?"Guardar y entrar":"Entrar"}</button></form></section>`;
@@ -37,50 +83,71 @@ function openAccountPanel(){
   shell.querySelector(".view-mode-button").onclick=()=>{close();toggleClientPreview()};
   shell.querySelector(".logout-button").onclick=async()=>{await apiJson("/api/auth/logout",{method:"POST"});location.reload()};
 }
-checkAuthentication();
+checkAuthentication().finally(()=>{window.__authDecidida=true;document.dispatchEvent(new Event("auth-decidida"))});
 
 const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
 /* ===== Splash Molinero ===== */
 (function () {
-  var DURACION_MIN = 4300;
+  var DURACION_MIN = 4300, MAX_ESPERA = 9000;
   var SOLO_UNA_VEZ_POR_SESION = true;
 
   var splash = document.getElementById('splash');
   var app = document.querySelector('main');
   if (!splash) return;
 
-  if (!window.matchMedia('(max-width:760px)').matches) {
+  function quitarSplash() {
     splash.remove();
     document.documentElement.classList.remove('splash-activo');
-    return;
+    window.__splashCerrado = true;
+    if (window.__loginPendiente) window.__loginPendiente();
   }
 
+  if (!window.matchMedia('(max-width:760px)').matches) return quitarSplash();
   try {
-    if (SOLO_UNA_VEZ_POR_SESION && sessionStorage.getItem('splashVisto')) {
-      splash.remove();
-      document.documentElement.classList.remove('splash-activo');
-      return;
-    }
+    if (SOLO_UNA_VEZ_POR_SESION && sessionStorage.getItem('splashVisto')) return quitarSplash();
   } catch (e) {}
 
-  var inicio = Date.now();
+  var cargada = document.readyState === 'complete', hecho = false;
 
-  function ocultar() {
+  // Espera a que la página cargue y se sepa si hay sesión; respeta la duración mínima
+  function intentar() {
+    if (hecho || !cargada || !window.__authDecidida) return;
+    hecho = true;
     var espera = Math.max(0, DURACION_MIN - (performance.now() - (window.__splashInicio || 0)));
-    setTimeout(function () {
-      splash.classList.add('saliendo');
-      if (app) app.classList.add('app-entrando');
-      document.documentElement.classList.remove('splash-activo');
-      try { sessionStorage.setItem('splashVisto', '1'); } catch (e) {}
-      setTimeout(function () { splash.remove(); }, 1500);
-    }, espera);
+    setTimeout(salir, espera);
   }
 
-  if (document.readyState === 'complete') ocultar();
-  else window.addEventListener('load', ocultar);
+  function salir() {
+    try { sessionStorage.setItem('splashVisto', '1'); } catch (e) {}
+    var gate = document.querySelector('.login2');
+    if (gate && haciaLogin(gate)) return;
+    splash.classList.add('saliendo');
+    if (app) app.classList.add('app-entrando');
+    document.documentElement.classList.remove('splash-activo');
+    setTimeout(quitarSplash, 1500);
+  }
 
-  setTimeout(ocultar, 9000);
+  // El logo del splash sube hasta el sitio del logo del login y aparece el formulario
+  function haciaLogin(gate) {
+    try {
+      var logoS = splash.querySelector('.splash-logo'), logoG = gate.querySelector('.l2-logo');
+      var a = logoS.getBoundingClientRect(), b = logoG.getBoundingClientRect();
+      if (!a.width || !b.width) return false;
+      var dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+      var dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+      splash.classList.add('a-login');
+      logoS.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + (b.width / a.width) + ')';
+      gate.classList.add('activo');
+      setTimeout(function () { gate.classList.add('logo-listo'); quitarSplash(); }, 1250);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  window.addEventListener('load', function () { cargada = true; intentar(); });
+  document.addEventListener('auth-decidida', intentar);
+  intentar();
+  setTimeout(function () { if (!hecho) { hecho = true; salir(); } }, MAX_ESPERA);
 })();
 
 const main=document.querySelector("main");
