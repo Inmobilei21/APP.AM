@@ -3642,3 +3642,72 @@ setInterval(refreshSuggestions,15000);
   const cerrarOriginal=closeClientPreview;
   closeClientPreview=function(){document.querySelectorAll("body > .c2-nav").forEach(n=>n.remove());return cerrarOriginal.apply(this,arguments)};
 })();
+
+/* ===== Área de cliente en escritorio ===== */
+(function(){
+  const esEscritorio=()=>matchMedia("(min-width:761px)").matches;
+  const svg=(d,w=1.8)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const I={inicio:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.8V21h14V9.8"/>',carpeta:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
+    chat:'<path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4.5 3v-3H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/>',salir:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+    enviar:'<path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/>',flecha:'<path d="m9 6 6 6-6 6"/>',flechaLarga:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+    candado:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',doc:'<path d="M6 2h9l4 4v16H6Z"/><path d="M14 2v5h5"/>',
+    ayuda:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/>',chispa:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
+    tel:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/>',
+    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',mapa:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>'};
+  const EQUIPO=[["ÁM","#2F4BD6"],["JC","#6D4AE0"],["AF","#12805C"],["FM","#B7791F"]];
+  const e=escapeHtml,txt=(el,s)=>el?.querySelector(s)?.textContent.trim()||"";
+
+  function decorarEscritorio(){
+    if(!esEscritorio())return;
+    const viejo=main.querySelector(".client-desktop-shell");if(!viejo||main.querySelector(".cd2"))return;
+    // Datos de la vista actual
+    const servicios=[...viejo.querySelectorAll(".client-desktop-service")].map(a=>({titulo:txt(a,"h3"),contratado:a.classList.contains("contracted"),icono:a.querySelector(".client-service-icon")?.innerHTML||"",texto:txt(a,"p")}));
+    const docs=[...viejo.querySelectorAll(".client-desktop-document")].map(d=>({titulo:txt(d,"strong"),ruta:txt(d,"small").replace(/\s*>\s*/g," › "),fecha:txt(d,"time")}));
+    const msgs=[...viejo.querySelectorAll(".client-desktop-message")].map(m=>({de:txt(m,"strong")||"Asesoría Molinero",texto:txt(m,"p"),fecha:txt(m,"time")}));
+    const contacto=[...viejo.querySelectorAll(".client-desktop-contact p")].map(p=>[...p.querySelectorAll("span")].filter(x=>!x.classList.contains("client-ui-icon")).map(x=>x.textContent.trim()).join(" ")||p.textContent.trim());
+    const nuevos=msgs.filter(m=>/^hoy/i.test(m.fecha)).length;
+    const contratados=servicios.filter(s=>s.contratado),resto=servicios.filter(s=>!s.contratado);
+    const iniciales=initials(signedInUser?.name||"AM");
+
+    const shell=document.createElement("div");shell.className="cd2";
+    shell.innerHTML=`<header class="cd2-cab"><div class="cd2-ancho">
+      <div class="cd2-barra"><img src="/splash-logo.png?v=3" alt="Asesoría Molinero"><span class="cd2-lema">Tu tranquilidad,<br>nuestro compromiso</span>
+        <nav class="cd2-menu"><button type="button" class="on">${svg(I.inicio,1.9)}Inicio</button><button type="button" data-cd2="docs">${svg(I.carpeta,1.9)}Mis documentos</button><button type="button" data-cd2="chat">${svg(I.chat,1.9)}Mensajes</button></nav>
+        <button type="button" class="cd2-perfil client-preview-user"><i>${e(iniciales)}</i>Mi perfil</button>
+        <button type="button" class="cd2-salir" title="Cerrar sesión" aria-disabled="true">${svg(I.salir,1.9)}</button></div>
+      <div class="cd2-saludo"><div><small>Área de cliente</small><h1>Hola, ${e(clientPreviewName)}</h1><p>Aquí tienes toda tu documentación, comunicaciones y gestiones con Asesoría Molinero, de forma rápida, segura y siempre a tu alcance.</p></div>
+        <div class="cd2-sello"><b>ASESORÍA MOLINERO</b><span>Personas que te acompañan</span></div></div></div></header>
+    <div class="cd2-ancho">
+      <section class="cd2-flota">
+        <button type="button" class="cd2-acc" data-cd2="docs"><span class="cd2-ic" style="background:#0A1A3F;color:#fff">${svg(I.carpeta)}</span><span><b>Mis documentos</b><small>Tu documentación siempre a mano</small></span><i class="cd2-fl">${svg(I.flecha,2)}</i></button>
+        <button type="button" class="cd2-acc" data-cd2="chat"><span class="cd2-ic" style="background:#EEF1FF;color:#2F4BD6">${svg(I.chat)}</span><span><b>Mensajes</b><small>Habla con tu asesor</small></span>${nuevos?`<em>${nuevos} nuevo${nuevos>1?"s":""}</em>`:`<i class="cd2-fl">${svg(I.flecha,2)}</i>`}</button>
+        <button type="button" class="cd2-acc" data-cd2="chat"><span class="cd2-ic" style="background:#E8F6F0;color:#12805C">${svg(I.enviar)}</span><span><b>Nuevo mensaje</b><small>Consultas y solicitudes</small></span><i class="cd2-fl">${svg(I.flecha,2)}</i></button>
+      </section>
+      <div class="cd2-cuerpo">
+        <section><div class="cd2-bloque"><h2>Mis servicios</h2><span>${contratados.length} contratado${contratados.length===1?"":"s"} · ${resto.length} disponibles</span></div>
+          ${contratados.map(s=>`<div class="cd2-contratado"><span class="cd2-ic">${s.icono}</span><span><b>${e(s.titulo)}</b><p>${e(s.texto)}</p><em>Contratado</em></span><button type="button" class="cd2-entrar" data-cd2="fiscal">Acceder${svg(I.flechaLarga,2.2)}</button></div>`).join("")}
+          <div class="cd2-rejilla">${resto.map(s=>`<button type="button" class="cd2-serv" data-servicio="${e(s.titulo)}"><span class="cd2-candado">${svg(I.candado,2)}</span><span class="cd2-ic">${s.icono}</span><b>${e(s.titulo)}</b><small>No contratado</small><span class="cd2-mas">Más información →</span></button>`).join("")}
+            ${resto.length%3?`<div class="cd2-serv cd2-nuevo"><span class="cd2-ic">${svg(I.chispa)}</span><b>Tu crecimiento también es nuestro objetivo</b><small>Descubre todo lo que podemos hacer por ti.</small></div>`:""}</div></section>
+        <aside class="cd2-lateral"><div class="cd2-lateral-in">
+          <div class="cd2-tarjeta"><div class="cd2-tcab"><h3><i style="background:#FDF0F0;color:#D64545">${svg(I.doc,1.9)}</i>Últimos documentos<small>${docs.length}</small></h3><button type="button" data-cd2="docs">Ver todos →</button></div>
+            <div class="cd2-lista">${docs.map(d=>`<div class="cd2-fila"><span class="cd2-pdf">PDF</span><span class="cd2-txt"><b>${e(d.titulo)}</b><span>${e(d.ruta)}</span></span><time>${e(d.fecha)}</time></div>`).join("")||'<p class="cd2-vacio">Todavía no hay documentos.</p>'}</div></div>
+          <div class="cd2-tarjeta"><div class="cd2-tcab"><h3><i style="background:#EEF1FF;color:#2F4BD6">${svg(I.chat,1.9)}</i>Mensajes recientes<small>${msgs.length}</small></h3><button type="button" data-cd2="chat">Ir al chat →</button></div>
+            <div class="cd2-lista">${msgs.map(m=>`<div class="cd2-fila${/^hoy/i.test(m.fecha)?" cd2-nuevo-msg":""}"><span class="cd2-av">AM</span><span class="cd2-txt"><b>${e(m.de)}</b><p>${e(m.texto)}</p></span><time>${e(m.fecha)}</time></div>`).join("")||'<p class="cd2-vacio">No hay mensajes recientes.</p>'}</div></div>
+        </div></aside>
+      </div>
+      <section class="cd2-ayuda"><div class="cd2-ayuda-izq"><span class="cd2-ic">${svg(I.ayuda)}</span>
+          <div><b>¿Necesitas algo?</b><p>Estamos aquí para ayudarte. Envíanos un mensaje, una consulta o solicita información sobre cualquier servicio.</p><div class="cd2-equipo">${EQUIPO.map(([t,c])=>`<i style="background:${c}">${t}</i>`).join("")}</div></div>
+          <button type="button" class="cd2-btn" data-cd2="chat">${svg(I.enviar,2)}Nuevo mensaje</button></div>
+        <div class="cd2-ayuda-der"><h4>También puedes contactarnos</h4>${[I.tel,I.mail,I.mapa].map((ic,i)=>contacto[i]?`<div class="cd2-dato"><i>${svg(ic,1.9)}</i>${e(contacto[i])}</div>`:"").join("")}</div></section>
+      <footer class="cd2-pie"><img src="/app-icon-192.png?v=5" alt=""><span><b>Asesoría Molinero</b> · <em>Tu tranquilidad, nuestro compromiso</em></span><nav><a>Política de privacidad</a><a>Aviso legal</a><a>Contacto</a></nav></footer>
+    </div>`;
+    viejo.classList.add("cd2-oculto");viejo.after(shell);window.scrollTo(0,0);main.scrollTop=0;
+    const acciones={docs:()=>openClientDocuments(),chat:()=>openClientChat(),fiscal:()=>openClientFiscalArea()};
+    shell.querySelectorAll("[data-cd2]").forEach(b=>b.addEventListener("click",()=>acciones[b.dataset.cd2]?.()));
+    shell.querySelector(".cd2-contratado")?.addEventListener("click",ev=>{if(!ev.target.closest(".cd2-entrar"))openClientFiscalArea()});
+    shell.querySelectorAll("[data-servicio]").forEach(b=>b.addEventListener("click",()=>openClientUnavailable(b.dataset.servicio)));
+    shell.querySelector(".cd2-perfil").addEventListener("click",()=>openAccountPanel());
+  }
+  const renderOriginal=renderClientPreview;
+  renderClientPreview=function(){const r=renderOriginal.apply(this,arguments);decorarEscritorio();return r};
+})();
