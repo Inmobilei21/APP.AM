@@ -3444,3 +3444,16 @@ body:has(.suggestion-modal-shell[aria-hidden="false"]) .suggestion-modal-shell[a
 }
 #clientModal .client-active-control input[type="checkbox"]:focus,
 #clientModal .client-active-control input[type="checkbox"]:focus-visible{outline:0!important;box-shadow:none!important}
+
+
+/* Partner carousel: keep the client card height stable as partners are added. */
+#clientPartnerRows{position:relative;min-height:58px}
+#clientPartnerRows .client-person-row{margin-bottom:0}
+#clientPartnerRows .client-person-row.is-carousel-hidden{display:none!important}
+.client-partner-carousel-controls{display:flex;align-items:center;justify-content:center;gap:9px;margin:5px 0 4px}
+.client-partner-carousel-controls[hidden]{display:none!important}
+.client-partner-carousel-controls button{width:28px;height:28px;min-width:28px;padding:0;border:1px solid #dce2ed;border-radius:50%;background:#fff;color:var(--blue);font:700 20px/1 inherit;cursor:pointer;display:grid;place-items:center}
+.client-partner-carousel-controls button:hover:not(:disabled){background:#eef1ff;border-color:#b9c2f3}
+.client-partner-carousel-controls button:disabled{opacity:.32;cursor:default}
+.client-partner-carousel-controls span{min-width:52px;text-align:center;color:#68738a;font-size:11px;font-weight:800}
+@media(max-width:760px){#clientPartnerRows{min-height:150px}}
