@@ -3457,3 +3457,25 @@ body:has(.suggestion-modal-shell[aria-hidden="false"]) .suggestion-modal-shell[a
 .client-partner-carousel-controls button:disabled{opacity:.32;cursor:default}
 .client-partner-carousel-controls span{min-width:52px;text-align:center;color:#68738a;font-size:11px;font-weight:800}
 @media(max-width:760px){#clientPartnerRows{min-height:150px}}
+
+/* Pantalla de arranque móvil */
+.mobile-launch-splash{display:none}
+@media(max-width:760px){
+  .mobile-launch-splash{
+    display:flex;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;
+    background:#0b1735;opacity:1;visibility:visible;pointer-events:auto;
+    transition:opacity .72s cubic-bezier(.22,.8,.22,1),visibility 0s linear .72s;
+  }
+  .mobile-launch-splash img{
+    width:min(34vw,138px);height:auto;object-fit:contain;
+    opacity:0;transform:scale(.88);
+    animation:mobileSplashLogoIn .62s cubic-bezier(.16,.8,.22,1) .08s forwards;
+  }
+  .mobile-launch-splash.leaving{opacity:0;pointer-events:none}
+  .mobile-launch-splash.leaving img{transform:scale(1.035);opacity:0;transition:opacity .5s ease,transform .65s cubic-bezier(.22,.8,.22,1)}
+}
+@keyframes mobileSplashLogoIn{to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){
+  .mobile-launch-splash,.mobile-launch-splash img{animation:none!important;transition:none!important}
+  .mobile-launch-splash img{opacity:1;transform:none}
+}
