@@ -2831,9 +2831,17 @@ function serverClientDedupKey(client){
   if(cif)return "cif:"+cif;
   return "name:"+normalizeFiscalClient(clientIdentity(client)).toLocaleLowerCase("es");
 }
-function uniqueServerClientMetadata(clients=[]){
+function uniqueServerClientMetadata(clients=[],canonicalNames=[]){
+  const names=[...canonicalNames];
   const unique=new Map();
-  for(const client of clients){const key=serverClientDedupKey(client);if(key&&!unique.has(key))unique.set(key,client)}
+  for(const client of clients){
+    const key=serverClientDedupKey(client);if(!key)continue;
+    const identity=clientIdentity(client);
+    const canonical=names.find(name=>name===identity)||names.find(name=>normalizeFiscalClient(name)===normalizeFiscalClient(identity));
+    const normalized=canonical?{...client,id:canonical,name:canonical}:client;
+    const current=unique.get(key);
+    if(!current||canonical===identity)unique.set(key,normalized);
+  }
   return [...unique.values()];
 }
 async function replaceLocalClientsWithServer(clients){
@@ -2848,7 +2856,15 @@ async function replaceLocalClientsWithServer(clients){
   });
 }
 async function getServerClientMetadata(){
-  const clients=uniqueServerClientMetadata(await remoteMetadata("clients"));
+  const remoteClients=await remoteMetadata("clients");
+  const canonicalNames=[];
+  try{
+    const root=await getSavedHandle("clients-folder");
+    if(root&&await root.queryPermission({mode:"read"})==="granted"){
+      for await(const entry of root.values())if(entry.kind==="directory")canonicalNames.push(entry.name);
+    }
+  }catch{}
+  const clients=uniqueServerClientMetadata(remoteClients,canonicalNames);
   await replaceLocalClientsWithServer(clients);
   return clients;
 }
