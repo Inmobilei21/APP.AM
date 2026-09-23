@@ -41,6 +41,16 @@ checkAuthentication();
 
 const sidebar=document.querySelector("#sidebar");
 const overlay=document.querySelector("#overlay");
+const mobileLaunchSplash=document.querySelector("#mobileLaunchSplash");
+if(mobileLaunchSplash&&window.matchMedia("(max-width:760px)").matches){
+  const openedAt=performance.now();
+  const dismissMobileSplash=()=>{
+    const wait=Math.max(0,850-(performance.now()-openedAt));
+    setTimeout(()=>{mobileLaunchSplash.classList.add("leaving");setTimeout(()=>mobileLaunchSplash.remove(),760)},wait);
+  };
+  if(document.readyState==="complete")dismissMobileSplash();else window.addEventListener("load",dismissMobileSplash,{once:true});
+}else mobileLaunchSplash?.remove();
+
 const main=document.querySelector("main");
 let clientPreviewName="Inmobilei";
 function installHomeActivityLayout(){
