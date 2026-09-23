@@ -3475,7 +3475,7 @@ html.splash-activo, html.splash-activo body { overflow: hidden; }
   place-items: center;
   background:
     radial-gradient(120% 80% at 50% 40%, #13275C 0%, var(--splash-bg) 45%, var(--splash-bg-2) 100%);
-  transition: opacity .6s cubic-bezier(.4,0,.2,1), visibility .6s;
+  transition: opacity 1.1s cubic-bezier(.4,0,.2,1), filter 1.1s cubic-bezier(.4,0,.2,1), visibility 1.1s;
   -webkit-tap-highlight-color: transparent;
 }
 #splash::before {
@@ -3486,7 +3486,7 @@ html.splash-activo, html.splash-activo body { overflow: hidden; }
   background: radial-gradient(circle, rgba(59,91,219,.35) 0%, transparent 65%);
   filter: blur(20px);
   opacity: 0;
-  animation: splash-halo 1.6s ease-out .1s forwards;
+  animation: splash-halo 2.4s ease-out 0s forwards;
 }
 .splash-contenido {
   position: relative;
@@ -3505,9 +3505,9 @@ html.splash-activo, html.splash-activo body { overflow: hidden; }
   width: 100%;
   height: auto;
   opacity: 0;
-  transform: translateY(12px) scale(.94);
-  filter: blur(8px);
-  animation: splash-logo-in 1s cubic-bezier(.16,1,.3,1) .25s forwards;
+  transform: scale(.97);
+  filter: blur(14px);
+  animation: splash-logo-in 1.8s cubic-bezier(.33,0,.2,1) .2s forwards;
 }
 .splash-logo::after {
   content: "";
@@ -3518,38 +3518,41 @@ html.splash-activo, html.splash-activo body { overflow: hidden; }
   background-position: 150% 0;
   -webkit-mask: var(--splash-logo-url, url("/splash-logo.png?v=1")) center / 100% 100% no-repeat;
           mask: var(--splash-logo-url, url("/splash-logo.png?v=1")) center / 100% 100% no-repeat;
-  animation: splash-brillo 1.1s ease-in-out 1s forwards;
+  animation: splash-brillo 1.8s ease-in-out 1.7s forwards;
 }
 .splash-barra {
-  width: 96px;
+  width: 120px;
   height: 2px;
   border-radius: 2px;
   background: rgba(255,255,255,.12);
   overflow: hidden;
   opacity: 0;
-  animation: splash-fade .4s ease .8s forwards;
+  animation: splash-fade .9s ease .8s forwards;
 }
 .splash-barra span {
   display: block;
   height: 100%;
-  width: 40%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  box-shadow: 0 0 8px rgba(170,195,255,.6);
   border-radius: 2px;
-  background: linear-gradient(90deg, transparent, #fff, transparent);
-  animation: splash-carga 1.1s ease-in-out infinite;
+  background: linear-gradient(90deg, rgba(255,255,255,.15), rgba(255,255,255,.9));
+  animation: splash-carga 2.8s cubic-bezier(.45,.05,.25,1) 1s forwards;
 }
 #splash.saliendo .splash-contenido {
-  animation: splash-logo-out .55s cubic-bezier(.4,0,.2,1) forwards;
+  animation: splash-logo-out 1s cubic-bezier(.4,0,.2,1) forwards;
 }
-#splash.saliendo { opacity: 0; visibility: hidden; transition-delay: .2s; }
-.app-entrando { animation: app-in .7s cubic-bezier(.16,1,.3,1) both; }
+#splash.saliendo { opacity: 0; filter: blur(12px); visibility: hidden; transition-delay: .2s; }
+.app-entrando { animation: app-in 1.1s cubic-bezier(.22,1,.36,1) .25s both; }
 }
 @keyframes splash-logo-in { to { opacity: 1; transform: none; filter: blur(0); } }
 @keyframes splash-halo    { to { opacity: 1; } }
 @keyframes splash-brillo  { to { background-position: -50% 0; } }
 @keyframes splash-fade    { to { opacity: 1; } }
-@keyframes splash-carga   { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
-@keyframes splash-logo-out{ to { opacity: 0; transform: scale(1.08); filter: blur(6px); } }
-@keyframes app-in         { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes splash-carga   { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes splash-logo-out{ to { opacity: 0; transform: scale(1.04); filter: blur(16px); } }
+@keyframes app-in         { from { opacity: 0; transform: scale(.985); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
 @media (prefers-reduced-motion: reduce) {
   #splash *, #splash::before { animation-duration: .01ms !important; animation-delay: 0s !important; }
   .app-entrando { animation: none; }
