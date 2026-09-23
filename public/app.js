@@ -969,7 +969,7 @@ async function loadCourtesyDays(){
   courtesyObjectUrls.forEach(url=>URL.revokeObjectURL(url));courtesyObjectUrls=[];
   renderCourtesyExerciseStatus();
   try{
-    const clients=(await getAllClientMetadata()).filter(client=>clientIsActive(client)&&client.courtesyDaysRequired).sort((a,b)=>a.name.localeCompare(b.name,"es"));
+    const clients=(await getServerClientMetadata()).filter(client=>clientIsActive(client)&&client.courtesyDaysRequired).sort((a,b)=>clientIdentity(a).localeCompare(clientIdentity(b),"es"));
     let courtesyRoot=null,signatureRoot=null,courtesyHandleSaved=false;
     try{
       const savedCourtesyRoot=await getSavedHandle("courtesy-folder");
@@ -2826,6 +2826,32 @@ async function getAllSignatureMetadata(){return getMergedMetadata("signatures","
 
 async function saveClientMetadata(data){if(data.personType==='juridica'&&data.administratorPartnerId!==undefined){const administrator=data.partners?.find(p=>p.id===data.administratorPartnerId);data={...data,administrators:administrator?.name||'',representative:administrator?.name||'',representativeNif:administrator?.dni?.toUpperCase()||''}}const d=await folderDb();await new Promise((ok,no)=>{const tx=d.transaction("clientMetadata","readwrite");tx.objectStore("clientMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)});await remoteMetadata("clients","PUT",data)}
 async function getAllClientMetadata(){return getMergedMetadata("clients","clientMetadata")}
+function serverClientDedupKey(client){
+  const cif=String(client?.cif||"").replace(/[^0-9A-Za-z]/g,"").toUpperCase();
+  if(cif)return "cif:"+cif;
+  return "name:"+normalizeFiscalClient(clientIdentity(client)).toLocaleLowerCase("es");
+}
+function uniqueServerClientMetadata(clients=[]){
+  const unique=new Map();
+  for(const client of clients){const key=serverClientDedupKey(client);if(key&&!unique.has(key))unique.set(key,client)}
+  return [...unique.values()];
+}
+async function replaceLocalClientsWithServer(clients){
+  const d=await folderDb();
+  await new Promise((ok,no)=>{
+    const tx=d.transaction("clientMetadata","readwrite"),store=tx.objectStore("clientMetadata");
+    store.clear();
+    for(const client of clients)store.put(client);
+    tx.oncomplete=()=>{d.close();ok()};
+    tx.onerror=()=>{d.close();no(tx.error)};
+    tx.onabort=()=>{d.close();no(tx.error)}
+  });
+}
+async function getServerClientMetadata(){
+  const clients=uniqueServerClientMetadata(await remoteMetadata("clients"));
+  await replaceLocalClientsWithServer(clients);
+  return clients;
+}
 
 function escapeHtml(value){
   const node=document.createElement("div");
