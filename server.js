@@ -314,6 +314,12 @@ function signatureRenewalTaskId(signature) {
 function reconcileUrgentSignatureTasks() {
   const signatures = loadMetadata().signatures || [], tasks = loadCollection(tasksFile);
   let changed = false;
+  const renewalOwner = teamMember("alvaro");
+  for (const task of tasks) {
+    if (task.sourceType === "signatureRenewal" && (task.assignedId !== renewalOwner.id || task.assigned !== renewalOwner.name)) {
+      task.assignedId = renewalOwner.id;task.assigned = renewalOwner.name;task.updatedAt = new Date().toISOString();changed = true;
+    }
+  }
   for (const signature of signatures) {
     const expiry = cleanText(signature.expiry, 10), days = signatureDaysUntilExpiry(expiry);
     if (!signature.client || days === null) continue;
@@ -326,7 +332,7 @@ function reconcileUrgentSignatureTasks() {
     if (days < 0 || days > 10) continue;
     const id = signatureRenewalTaskId(signature);
     if (tasks.some(task => task.id === id)) continue;
-    const assigned = teamMember("manuel");
+    const assigned = teamMember("alvaro");
     tasks.push({
       id,
       client: cleanText(signature.client, 180),
