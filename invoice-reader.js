@@ -24,6 +24,7 @@ const SCHEMA = {
           fecha: { type: "string", description: "Fecha de expedición en formato DD/MM/AAAA. Vacío si no aparece." },
           emisor_nombre: { type: "string", description: "Razón social o nombre de quien emite la factura (el proveedor)." },
           emisor_nif: { type: "string", description: "NIF/CIF/VAT del emisor, sin espacios ni guiones." },
+          concepto: { type: "string", description: "Qué se factura, en una frase breve en español (máx. 120 caracteres): los productos o servicios principales, p. ej. \"Transporte de aceituna campaña 2026\" o \"Honorarios asesoría fiscal septiembre\"." },
           receptor_nombre: { type: "string", description: "Nombre de quien recibe la factura." },
           receptor_nif: { type: "string", description: "NIF/CIF/VAT del receptor, sin espacios ni guiones." },
           tipos_iva: {
@@ -48,7 +49,7 @@ const SCHEMA = {
           rectificativa: { type: "boolean", description: "true si es una factura rectificativa o abono." },
           observaciones: { type: "string", description: "Avisos breves en español solo si hay algo que revisar (datos ilegibles, importes que no cuadran, no es una factura…). Vacío si todo está bien." }
         },
-        required: ["numero", "fecha", "emisor_nombre", "emisor_nif", "tipos_iva", "total"]
+        required: ["numero", "fecha", "emisor_nombre", "emisor_nif", "concepto", "tipos_iva", "total"]
       }
     },
     total_documento: { type: "number", description: "Si el documento muestra un resumen con el importe total a pagar de todas las facturas juntas, ese importe. 0 si no hay resumen." }
@@ -102,6 +103,7 @@ async function readInvoice(buffer, name, contentType, client) {
     `Nombre del archivo: ${name}`,
     "Reglas:",
     "- Copia el número de factura, nombres y NIF exactamente como aparecen.",
+    "- En concepto resume en una frase lo que se factura (productos o servicios), sin importes.",
     "- Importes como números con punto decimal (1234.56), sin símbolo de moneda.",
     "- Desglosa cada tipo de IVA por separado. Los suplidos o conceptos no sujetos van con tipo 0.",
     "- La retención de IRPF resta del total; el recargo de equivalencia suma.",
