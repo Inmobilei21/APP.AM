@@ -4340,3 +4340,20 @@ body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .holded-mark 
 .chat-contacts button.client-chat-contact .chat-avatar,.conversation-bar.client-conversation .chat-avatar{background:#f7e6c5;color:#875916}
 .conversation-bar.client-conversation{background:#fff8eb;border-bottom-color:#ead6af}
 .conversation-bar.internal-conversation{background:#f8f9ff}
+/* ===== Tareas en escritorio: tarjetas superpuestas ===== */
+@media (min-width:761px){
+  body.t2-apiladas .task-column{display:flex!important;flex-direction:column!important;min-height:0!important}
+  body.t2-apiladas .task-list[data-task-list]{flex:1 1 auto;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;padding:6px 6px 18px!important;margin:0 -6px!important;scrollbar-width:thin;scrollbar-color:#c3cadb transparent}
+  body.t2-apiladas .task-list[data-task-list]::-webkit-scrollbar{width:8px}
+  body.t2-apiladas .task-list[data-task-list]::-webkit-scrollbar-thumb{background:#c3cadb;border-radius:8px;border:2px solid #eef1f8}
+  body.t2-apiladas .task-list[data-task-list]::-webkit-scrollbar-track{background:transparent}
+  body.t2-apiladas .task-list>.task-note.t2-nota{position:relative;flex:none;margin-top:var(--t2-solape,0px)!important;box-shadow:0 -6px 18px rgba(30,43,80,.08),0 7px 18px rgba(30,43,80,.06)!important;transition:margin-top .34s cubic-bezier(.22,.8,.24,1),transform .16s ease,box-shadow .2s ease,opacity .16s ease!important}
+  body.t2-apiladas .task-list>.task-note.t2-nota:first-child{box-shadow:0 7px 18px rgba(30,43,80,.06)!important}
+  body.t2-apiladas .task-list>.task-note.t2-abierta+.task-note{margin-top:0!important}
+  body.t2-apiladas .task-list>.task-note.t2-abierta{box-shadow:0 12px 28px rgba(30,43,80,.14)!important;transform:none!important}
+  body.t2-apiladas .task-list>.task-note.t2-nota:hover{transform:none!important}
+  body.t2-apiladas .task-list>.task-note.dragging+.task-note{margin-top:0!important}
+}
+@media (min-width:761px){
+  body.t2-apiladas .task-column-head{flex:none!important;height:auto!important;min-height:0!important;padding:8px 8px 14px!important}
+}

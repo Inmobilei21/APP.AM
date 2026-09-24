@@ -3996,3 +3996,53 @@ setInterval(refreshSuggestions,15000);
     button.disabled=false;button.textContent="Volver a leer facturas";
   };
 })();
+/* ===== Tareas en escritorio: tarjetas superpuestas y desplazamiento dentro de cada etapa ===== */
+(function(){
+  if(typeof renderTaskBoard!=="function")return;
+  const esEscritorio=()=>window.matchMedia("(min-width:761px)").matches;
+  let ro=null,pendiente=0;
+  function ajustarAlturas(){
+    const listas=[...document.querySelectorAll(".task-list[data-task-list]")];
+    listas.forEach(l=>{
+      if(!esEscritorio()){l.style.removeProperty("max-height");return}
+      const top=l.getBoundingClientRect().top+window.scrollY;
+      l.style.maxHeight=Math.max(360,window.innerHeight-top-34)+"px";
+    });
+  }
+  function apilar(){
+    pendiente=0;
+    document.body.classList.toggle("t2-apiladas",esEscritorio());
+    ajustarAlturas();
+    document.querySelectorAll(".task-list[data-task-list]").forEach(lista=>{
+      const tarjetas=[...lista.querySelectorAll(":scope>.task-note")];
+      tarjetas.forEach((t,i)=>{
+        t.classList.add("t2-nota");
+        if(!esEscritorio()||i===0){t.style.removeProperty("--t2-solape");return}
+        const prev=tarjetas[i-1],alto=prev.offsetHeight,plazo=prev.querySelector(".task-deadline");
+        const asomo=plazo?Math.min(alto,plazo.offsetTop+plazo.offsetHeight+14):Math.min(alto,120);
+        t.style.setProperty("--t2-solape",`${Math.min(0,asomo-alto-12)}px`);
+      });
+    });
+  }
+  const programar=()=>{if(!pendiente)pendiente=requestAnimationFrame(apilar)};
+  function vigilar(){
+    if(!("ResizeObserver" in window))return;
+    ro?.disconnect();ro=new ResizeObserver(programar);
+    document.querySelectorAll(".task-list[data-task-list]>.task-note").forEach(t=>ro.observe(t));
+  }
+  const previo=renderTaskBoard;
+  renderTaskBoard=function(){const r=previo.apply(this,arguments);apilar();vigilar();return r};
+  window.addEventListener("resize",programar);
+  // Al pasar por una tarjeta se despliega entera; las de debajo se apartan.
+  let abierta=null,temporizador=0;
+  const abrir=t=>{if(abierta===t)return;abierta?.classList.remove("t2-abierta");abierta=t;t?.classList.add("t2-abierta")};
+  document.addEventListener("mouseover",e=>{
+    if(!document.body.classList.contains("t2-apiladas"))return;
+    const t=e.target.closest?.(".task-list>.task-note");
+    clearTimeout(temporizador);
+    if(t)temporizador=setTimeout(()=>abrir(t),90);
+    else if(!e.target.closest?.(".task-list"))temporizador=setTimeout(()=>abrir(null),160);
+  });
+  document.addEventListener("focusin",e=>{const t=e.target.closest?.(".task-list>.task-note");if(t&&document.body.classList.contains("t2-apiladas"))abrir(t)});
+  document.addEventListener("dragstart",()=>abrir(null),true);
+})();
