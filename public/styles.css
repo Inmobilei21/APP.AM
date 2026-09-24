@@ -4323,3 +4323,20 @@ html.auth-pending #splash{visibility:visible}
 
 /* El símbolo de Holded también conserva el azul en la opción seleccionada. */
 body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .holded-mark img{filter:brightness(0) saturate(100%) invert(16%) sepia(84%) saturate(3500%) hue-rotate(235deg)!important}
+
+
+/* Separate internal staff chats from client conversations. */
+.chat-contact-group{padding:4px 0 8px}
+.chat-contact-group+.chat-contact-group{margin-top:8px;padding-top:14px;border-top:1px solid #e4e8f1}
+.chat-contact-group h4{margin:0 10px 5px;display:flex;align-items:center;gap:7px;color:#637089;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.chat-contact-group h4 span{width:8px;height:8px;border-radius:50%;background:var(--blue)}
+.chat-contact-group.client-chat-group h4{color:#85612c}
+.chat-contact-group.client-chat-group h4 span{background:#c48a32}
+.chat-contacts button.internal-chat-contact{background:#f7f8ff}
+.chat-contacts button.internal-chat-contact+.internal-chat-contact{margin-top:4px}
+.chat-contacts button.internal-chat-contact:hover{background:#edf0ff}
+.chat-contacts button.client-chat-contact{margin-top:4px;background:#fff8eb;border:1px solid #f0dfbd}
+.chat-contacts button.client-chat-contact:hover{background:#ffefcf;border-color:#dfbd7c}
+.chat-contacts button.client-chat-contact .chat-avatar,.conversation-bar.client-conversation .chat-avatar{background:#f7e6c5;color:#875916}
+.conversation-bar.client-conversation{background:#fff8eb;border-bottom-color:#ead6af}
+.conversation-bar.internal-conversation{background:#f8f9ff}
