@@ -4357,3 +4357,30 @@ body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .holded-mark 
 @media (min-width:761px){
   body.t2-apiladas .task-column-head{flex:none!important;height:auto!important;min-height:0!important;padding:8px 8px 14px!important}
 }
+
+/* ===== Inicio: últimos mensajes separados en chat interno y chat de clientes ===== */
+#homeMessagesPreview{display:flex!important;flex-direction:column!important;gap:12px!important;justify-content:flex-start!important;align-items:stretch!important}
+#homeMessagesPreview .home-message-group{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:14px;background:#f7f8ff;border:1px solid #e4e8fb}
+#homeMessagesPreview .home-message-group-client{background:#fff8eb;border-color:#f0dfbd}
+#homeMessagesPreview .home-message-group h4{margin:0 2px 2px;display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#4b5a86}
+#homeMessagesPreview .home-message-group h4 span{width:8px;height:8px;border-radius:50%;background:var(--blue,#2F4BD6);flex:none}
+#homeMessagesPreview .home-message-group-client h4{color:#85612c}
+#homeMessagesPreview .home-message-group-client h4 span{background:#c48a32}
+#homeMessagesPreview .home-message-row{margin:0!important;border-radius:11px!important;background:#fff!important;border:1px solid transparent!important;padding:8px 10px!important;min-height:0!important;flex:none!important}
+#homeMessagesPreview .home-message-internal:hover{border-color:#cfd6f7!important;background:#fdfdff!important}
+#homeMessagesPreview .home-message-client:hover{border-color:#dfbd7c!important;background:#fffcf5!important}
+#homeMessagesPreview .home-message-internal .home-activity-avatar{background:#e9edff!important;color:#2F4BD6!important}
+#homeMessagesPreview .home-message-client .home-activity-avatar{background:#f7e6c5!important;color:#875916!important}
+#homeMessagesPreview .home-message-unread{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ef4444;color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;margin-left:auto;flex:none}
+#homeMessagesPreview .home-message-unread+time{margin-left:8px}
+#homeMessagesPreview .home-message-group-empty{margin:2px 4px 4px;font-size:12px;color:#8a93a8}
+#homeMessagesPreview .home-message-group-client .home-message-group-empty{color:#a0875f}
+@media (min-width:761px){
+  #homeMessagesPreview{gap:8px!important}
+  #homeMessagesPreview .home-message-group{gap:4px;padding:7px 8px}
+  #homeMessagesPreview .home-message-row{padding:5px 9px!important}
+  #homeMessagesPreview .home-message-group h4{margin:1px 2px 1px}
+}
+@media (min-width:761px){
+  .e2-actividad #homeMessagesPreview{padding-top:4px!important;padding-bottom:2px!important}
+}

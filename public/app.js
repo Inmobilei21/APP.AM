@@ -1243,8 +1243,11 @@ function homeActivityDate(value,withWeekday=false){
   return new Intl.DateTimeFormat("es-ES",withWeekday?{weekday:"short",day:"2-digit",month:"short"}:{day:"2-digit",month:"short"}).format(date);}
 function renderHomeActivityRail(){  const messagesBox=document.querySelector("#homeMessagesPreview"),tasksBox=document.querySelector("#homeTasksPreview"),remindersBox=document.querySelector("#homeRemindersPreview");
   if(!messagesBox||!tasksBox||!remindersBox)return;
-  const latestMessages=recentChatItems.slice(0,3).map(item=>({worker:item.worker,...item.message,time:chatMessageTime(item.message.createdAt)}));
-  messagesBox.innerHTML=latestMessages.length?latestMessages.map(message=>`<button type="button" class="home-activity-row home-message-row" data-home-open-chat="${escapeHtml(message.worker)}"><span class="home-activity-avatar">${workerInitials(message.worker)}</span><span class="home-activity-copy"><strong>${escapeHtml(message.worker)}</strong><small>${escapeHtml(message.text)}</small></span><time>${escapeHtml(message.time||"")}</time></button>`).join(""):homeActivityEmpty("✉","Sin mensajes recientes","Las conversaciones del equipo aparecerán aquí.");
+  const isClientItem=item=>String(item.otherId||"").startsWith("client:");
+  const homeMessageRow=(item,isClient)=>{const message={worker:item.worker,...item.message,time:chatMessageTime(item.message.createdAt)};return `<button type="button" class="home-activity-row home-message-row ${isClient?"home-message-client":"home-message-internal"}" data-home-open-chat="${escapeHtml(message.worker)}"><span class="home-activity-avatar">${workerInitials(message.worker)}</span><span class="home-activity-copy"><strong>${escapeHtml(message.worker)}</strong><small>${escapeHtml(message.text)}</small></span>${item.unreadCount?`<b class="home-message-unread">${item.unreadCount}</b>`:""}<time>${escapeHtml(message.time||"")}</time></button>`};
+  const internalItems=recentChatItems.filter(item=>!isClientItem(item)).slice(0,3),clientItems=recentChatItems.filter(isClientItem).slice(0,3);
+  const homeMessageGroup=(title,kind,items,empty)=>`<section class="home-message-group home-message-group-${kind}"><h4><span></span>${title}</h4>${items.length?items.map(item=>homeMessageRow(item,kind==="client")).join(""):`<p class="home-message-group-empty">${empty}</p>`}</section>`;
+  messagesBox.innerHTML=homeMessageGroup("Chat interno del despacho","internal",internalItems,"Sin mensajes recientes del equipo.")+homeMessageGroup("Chat de clientes","client",clientItems,"Sin mensajes recientes de clientes.");
 
   const pendingTasks=personalTasks().filter(task=>task.status!=="done").sort((a,b)=>(a.finalDate||"9999-12-31").localeCompare(b.finalDate||"9999-12-31")).slice(0,4);
   tasksBox.innerHTML=pendingTasks.length?pendingTasks.map(task=>`<button type="button" class="home-activity-row home-task-row" data-home-route="Tareas"><span class="home-status-dot status-${escapeHtml(task.status||"pending")}"></span><span class="home-activity-copy"><strong>${escapeHtml(homeTaskTitle(task))}</strong><small>${escapeHtml(task.client||task.assigned||"Tarea del despacho")}</small></span><time>${escapeHtml(homeActivityDate(task.finalDate))}</time></button>`).join(""):homeActivityEmpty("✓","Todo al día","No hay tareas pendientes.");
@@ -3226,6 +3229,7 @@ function renderChatContacts(){
   content.querySelectorAll("[data-chat-worker]").forEach(button=>button.addEventListener("click",()=>renderConversation(button.dataset.chatWorker)));
 }
 async function renderConversation(name,focus=true){
+  const isClientConversation=typeof chatContactIsClient==="function"&&chatContactIsClient(name),conversationClass=isClientConversation?" client-conversation":" internal-conversation",conversationLabel=isClientConversation?"Chat de cliente":"Chat interno del despacho";
   activeChatWorker=name;
   const content=document.querySelector("#chatContent");
   content.innerHTML=`<div class="conversation-bar${conversationClass}"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>${conversationLabel}</small></div></div><div class="chat-messages"><div class="chat-empty"><span>···</span><strong>Cargando conversación</strong></div></div>`;
