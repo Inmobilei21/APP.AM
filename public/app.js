@@ -1243,17 +1243,38 @@ function homeActivityDate(value,withWeekday=false){
   return new Intl.DateTimeFormat("es-ES",withWeekday?{weekday:"short",day:"2-digit",month:"short"}:{day:"2-digit",month:"short"}).format(date);}
 function renderHomeActivityRail(){  const messagesBox=document.querySelector("#homeMessagesPreview"),tasksBox=document.querySelector("#homeTasksPreview"),remindersBox=document.querySelector("#homeRemindersPreview");
   if(!messagesBox||!tasksBox||!remindersBox)return;
+  // En escritorio hay cuatro columnas: chat interno, tareas, agenda y chat de clientes.
+  const desktop=window.matchMedia("(min-width:761px)").matches,rail=messagesBox.closest(".home-activity-rail");
+  let clientBox=document.querySelector("#homeClientMessagesPreview");
+  const messagesCard=messagesBox.closest(".home-activity-card");
+  if(desktop&&rail&&messagesCard&&!clientBox){
+    const card=messagesCard.cloneNode(true);card.classList.add("home-client-messages-card");card.removeAttribute("id");
+    card.querySelector("#homeMessagesPreview").id="homeClientMessagesPreview";
+    const eyebrow=card.querySelector(".home-activity-heading small"),title=card.querySelector(".home-activity-heading h3");
+    if(eyebrow)eyebrow.textContent="CLIENTES";if(title)title.textContent="Chat de clientes";
+    rail.append(card);clientBox=card.querySelector("#homeClientMessagesPreview");
+  }
+  const fourColumns=Boolean(desktop&&clientBox);
+  document.body.classList.toggle("home-cuatro-columnas",fourColumns);
+  if(messagesCard){const t=messagesCard.querySelector(".home-activity-heading h3"),e=messagesCard.querySelector(".home-activity-heading small");if(t)t.textContent=fourColumns?"Chat interno":"Últimos mensajes";if(e)e.textContent=fourColumns?"DESPACHO":"COMUNICACIÓN"}
   const isClientItem=item=>String(item.otherId||"").startsWith("client:");
-  const homeMessageRow=(item,isClient)=>{const message={worker:item.worker,...item.message,time:chatMessageTime(item.message.createdAt)};return `<button type="button" class="home-activity-row home-message-row ${isClient?"home-message-client":"home-message-internal"}" data-home-open-chat="${escapeHtml(message.worker)}"><span class="home-activity-avatar">${workerInitials(message.worker)}</span><span class="home-activity-copy"><strong>${escapeHtml(message.worker)}</strong><small>${escapeHtml(message.text)}</small></span>${item.unreadCount?`<b class="home-message-unread">${item.unreadCount}</b>`:""}<time>${escapeHtml(message.time||"")}</time></button>`};
-  const internalItems=recentChatItems.filter(item=>!isClientItem(item)).slice(0,3),clientItems=recentChatItems.filter(isClientItem).slice(0,3);
-  const homeMessageGroup=(title,kind,items,empty)=>`<section class="home-message-group home-message-group-${kind}"><h4><span></span>${title}</h4>${items.length?items.map(item=>homeMessageRow(item,kind==="client")).join(""):`<p class="home-message-group-empty">${empty}</p>`}</section>`;
-  messagesBox.innerHTML=homeMessageGroup("Chat interno del despacho","internal",internalItems,"Sin mensajes recientes del equipo.")+homeMessageGroup("Chat de clientes","client",clientItems,"Sin mensajes recientes de clientes.");
+  const fullDate=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("es-ES",{weekday:"short",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)};
+  const homeMessageRow=(item,isClient)=>{const message={worker:item.worker,...item.message,time:chatMessageTime(item.message.createdAt)};return `<button type="button" class="home-activity-row home-message-row ${isClient?"home-message-client":"home-message-internal"}" data-home-open-chat="${escapeHtml(message.worker)}"><span class="home-activity-avatar">${workerInitials(message.worker)}</span><span class="home-activity-copy"><strong>${escapeHtml(message.worker)}</strong><small>${escapeHtml(message.text)}</small></span>${item.unreadCount?`<b class="home-message-unread">${item.unreadCount}</b>`:""}<time>${escapeHtml(message.time||"")}</time>${fourColumns?`<span class="home-row-detail"><span>${escapeHtml(message.text)}</span><em>${escapeHtml(fullDate(message.createdAt))}${item.unreadCount?` · ${item.unreadCount} sin leer`:""} · Pulsa para abrir la conversación</em></span>`:""}</button>`};
+  const internalAll=recentChatItems.filter(item=>!isClientItem(item)),clientAll=recentChatItems.filter(isClientItem);
+  if(fourColumns){
+    messagesBox.innerHTML=internalAll.length?internalAll.slice(0,25).map(item=>homeMessageRow(item,false)).join(""):homeActivityEmpty("✉","Sin mensajes del equipo","Las conversaciones internas aparecerán aquí.");
+    clientBox.innerHTML=clientAll.length?clientAll.slice(0,25).map(item=>homeMessageRow(item,true)).join(""):homeActivityEmpty("✉","Sin mensajes de clientes","Lo que escriban los clientes aparecerá aquí.");
+  }else{
+    const homeMessageGroup=(title,kind,items,empty)=>`<section class="home-message-group home-message-group-${kind}"><h4><span></span>${title}</h4>${items.length?items.map(item=>homeMessageRow(item,kind==="client")).join(""):`<p class="home-message-group-empty">${empty}</p>`}</section>`;
+    messagesBox.innerHTML=homeMessageGroup("Chat interno del despacho","internal",internalAll.slice(0,3),"Sin mensajes recientes del equipo.")+homeMessageGroup("Chat de clientes","client",clientAll.slice(0,3),"Sin mensajes recientes de clientes.");
+  }
 
-  const pendingTasks=personalTasks().filter(task=>task.status!=="done").sort((a,b)=>(a.finalDate||"9999-12-31").localeCompare(b.finalDate||"9999-12-31")).slice(0,4);
-  tasksBox.innerHTML=pendingTasks.length?pendingTasks.map(task=>`<button type="button" class="home-activity-row home-task-row" data-home-route="Tareas"><span class="home-status-dot status-${escapeHtml(task.status||"pending")}"></span><span class="home-activity-copy"><strong>${escapeHtml(homeTaskTitle(task))}</strong><small>${escapeHtml(task.client||task.assigned||"Tarea del despacho")}</small></span><time>${escapeHtml(homeActivityDate(task.finalDate))}</time></button>`).join(""):homeActivityEmpty("✓","Todo al día","No hay tareas pendientes.");
+  const statusLabel=status=>(typeof taskStatuses!=="undefined"&&taskStatuses.find(s=>s.id===status)?.label)||"Pendiente";
+  const pendingTasks=personalTasks().filter(task=>task.status!=="done").sort((a,b)=>(a.finalDate||"9999-12-31").localeCompare(b.finalDate||"9999-12-31")).slice(0,fourColumns?40:4);
+  tasksBox.innerHTML=pendingTasks.length?pendingTasks.map(task=>{const countdown=fourColumns&&typeof taskCountdown==="function"?taskCountdown(task.finalDate):null;return `<button type="button" class="home-activity-row home-task-row" data-home-route="Tareas"><span class="home-status-dot status-${escapeHtml(task.status||"pending")}"></span><span class="home-activity-copy"><strong>${escapeHtml(homeTaskTitle(task))}</strong><small>${escapeHtml(task.client||task.assigned||"Tarea del despacho")}</small></span><time>${escapeHtml(homeActivityDate(task.finalDate))}</time>${fourColumns?`<span class="home-row-detail">${task.description?`<span>${escapeHtml(task.description)}</span>`:""}<em>${escapeHtml(statusLabel(task.status))}${countdown?.label?` · <b class="${escapeHtml(countdown.className||"")}">${escapeHtml(countdown.label)}</b>`:""}${task.assigned?` · ${escapeHtml(task.assigned)}`:""}</em></span>`:""}</button>`}).join(""):homeActivityEmpty("✓","Todo al día","No hay tareas pendientes.");
 
-  const today=localDateKey(new Date()),upcoming=getCalendarItems().filter(item=>item.date>=today).sort((a,b)=>`${a.date} ${a.time||"99:99"}`.localeCompare(`${b.date} ${b.time||"99:99"}`)).slice(0,4);
-  remindersBox.innerHTML=upcoming.length?upcoming.map(item=>`<button type="button" class="home-activity-row home-reminder-row" data-home-route="Calendario"><span class="home-date-badge"><b>${escapeHtml(homeActivityDate(item.date).split(" ")[0])}</b><small>${escapeHtml(homeActivityDate(item.date).split(" ").slice(1).join(" "))}</small></span><span class="home-activity-copy"><strong>${escapeHtml(item.title||"Recordatorio")}</strong><small>${escapeHtml(item.time?`${item.time} · ${item.assigned||"Agenda"}`:(item.assigned||"Todo el día"))}</small></span></button>`).join(""):homeActivityEmpty("⌁","Sin recordatorios próximos","Añade avisos desde el calendario.");
+  const today=localDateKey(new Date()),upcoming=getCalendarItems().filter(item=>item.date>=today).sort((a,b)=>`${a.date} ${a.time||"99:99"}`.localeCompare(`${b.date} ${b.time||"99:99"}`)).slice(0,fourColumns?40:4);
+  remindersBox.innerHTML=upcoming.length?upcoming.map(item=>`<button type="button" class="home-activity-row home-reminder-row" data-home-route="Calendario"><span class="home-date-badge"><b>${escapeHtml(homeActivityDate(item.date).split(" ")[0])}</b><small>${escapeHtml(homeActivityDate(item.date).split(" ").slice(1).join(" "))}</small></span><span class="home-activity-copy"><strong>${escapeHtml(item.title||"Recordatorio")}</strong><small>${escapeHtml(item.time?`${item.time} · ${item.assigned||"Agenda"}`:(item.assigned||"Todo el día"))}</small></span>${fourColumns?`<span class="home-row-detail">${item.notes||item.description?`<span>${escapeHtml(item.notes||item.description)}</span>`:""}<em>${escapeHtml(homeActivityDate(item.date,true))}${item.time?` · ${escapeHtml(item.time)}`:" · Todo el día"}${item.assigned?` · ${escapeHtml(item.assigned)}`:""}</em></span>`:""}</button>`).join(""):homeActivityEmpty("⌁","Sin recordatorios próximos","Añade avisos desde el calendario.");
 
   document.querySelectorAll("[data-home-summary], [data-home-route]").forEach(button=>button.addEventListener("click",()=>{
     const destination=button.dataset.homeSummary||button.dataset.homeRoute;
@@ -4049,4 +4070,41 @@ setInterval(refreshSuggestions,15000);
   });
   document.addEventListener("focusin",e=>{const t=e.target.closest?.(".task-list>.task-note");if(t&&document.body.classList.contains("t2-apiladas"))abrir(t)});
   document.addEventListener("dragstart",()=>abrir(null),true);
+})();
+/* ===== Inicio en escritorio: actividad en cuatro columnas con tarjetas superpuestas ===== */
+(function(){
+  if(typeof renderHomeActivityRail!=="function")return;
+  const LISTAS="body.home-cuatro-columnas .home-activity-rail .home-activity-list";
+  let ro=null,pendiente=0;
+  function apilar(){
+    pendiente=0;
+    document.querySelectorAll(LISTAS).forEach(lista=>{
+      const filas=[...lista.querySelectorAll(":scope>.home-activity-row")];
+      filas.forEach((f,i)=>{
+        f.classList.add("h4-nota");
+        if(i===0){f.style.removeProperty("--h4-solape");return}
+        const prev=filas[i-1],detalle=prev.querySelector(".home-row-detail");
+        const asomo=detalle?detalle.offsetTop-4:prev.offsetHeight;
+        f.style.setProperty("--h4-solape",`${Math.min(0,asomo-prev.offsetHeight-8)}px`);
+      });
+    });
+  }
+  const programar=()=>{if(!pendiente)pendiente=requestAnimationFrame(apilar)};
+  const previo=renderHomeActivityRail;
+  renderHomeActivityRail=function(){
+    const r=previo.apply(this,arguments);
+    apilar();
+    if("ResizeObserver" in window){ro?.disconnect();ro=new ResizeObserver(programar);document.querySelectorAll(`${LISTAS}>.home-activity-row`).forEach(f=>ro.observe(f))}
+    return r;
+  };
+  window.addEventListener("resize",programar);
+  let abierta=null,t=0;
+  const abrir=f=>{if(abierta===f)return;abierta?.classList.remove("h4-abierta");abierta=f;f?.classList.add("h4-abierta")};
+  document.addEventListener("mouseover",e=>{
+    if(!document.body.classList.contains("home-cuatro-columnas"))return;
+    const f=e.target.closest?.(".home-activity-list>.home-activity-row.h4-nota");
+    clearTimeout(t);
+    if(f)t=setTimeout(()=>abrir(f),90);else if(!e.target.closest?.(".home-activity-list"))t=setTimeout(()=>abrir(null),160);
+  });
+  document.addEventListener("focusin",e=>{const f=e.target.closest?.(".home-activity-list>.home-activity-row.h4-nota");if(f)abrir(f)});
 })();

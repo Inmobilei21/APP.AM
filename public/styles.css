@@ -4384,3 +4384,49 @@ body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .holded-mark 
 @media (min-width:761px){
   .e2-actividad #homeMessagesPreview{padding-top:4px!important;padding-bottom:2px!important}
 }
+
+/* ===== Inicio en escritorio: cuatro columnas de actividad con tarjetas superpuestas ===== */
+.home-row-detail{display:none}
+@media (min-width:761px){
+  body.home-cuatro-columnas.e2-en-inicio:not(.client-preview-mode) .e2-actividad .home-activity-rail{grid-template-columns:repeat(4,minmax(0,1fr))!important;height:400px!important}
+  body.home-cuatro-columnas .e2-actividad .home-activity-card{padding:6px 16px 0!important}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-list{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:8px!important;padding:12px 8px 16px 2px!important;margin:0 -8px 0 -2px!important;overflow-y:auto!important;overscroll-behavior:contain}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row{position:relative;flex:none!important;display:flex!important;flex-wrap:wrap!important;align-items:center!important;column-gap:10px!important;row-gap:0!important;width:100%!important;min-height:0!important;margin:0!important;padding:11px 12px!important;border:1px solid #E3E7F0!important;border-radius:14px!important;background:#fff!important;text-align:left;box-shadow:0 -5px 14px rgba(30,43,80,.07),0 4px 12px rgba(30,43,80,.05)!important;transition:margin-top .34s cubic-bezier(.22,.8,.24,1),box-shadow .2s ease,border-color .2s ease!important;cursor:pointer}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row::after{display:none!important}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row.h4-nota{margin-top:var(--h4-solape,0px)!important}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row.h4-nota:first-child{margin-top:0!important;box-shadow:0 4px 12px rgba(30,43,80,.05)!important}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row.h4-abierta+.home-activity-row{margin-top:0!important}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row.h4-abierta{border-color:#C9D2EC!important;box-shadow:0 10px 24px rgba(30,43,80,.13)!important}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-copy{flex:1 1 0;min-width:0}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-copy strong,body.home-cuatro-columnas .home-activity-rail .home-activity-copy small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.home-cuatro-columnas .home-activity-rail .home-activity-row time{flex:none;margin-left:auto}
+  body.home-cuatro-columnas .home-row-detail{display:flex;flex-direction:column;gap:4px;flex:0 0 100%;margin-top:10px;padding-top:9px;border-top:1px dashed #E3E7F0;font-size:12.5px;line-height:1.45;color:#3E4A66;white-space:normal;text-align:left}
+  body.home-cuatro-columnas .home-row-detail span{display:block;overflow-wrap:anywhere}
+  body.home-cuatro-columnas .home-row-detail em{font-style:normal;font-size:11.5px;color:#7A849B}
+  body.home-cuatro-columnas .home-row-detail em b{font-weight:700}
+  /* Colores: chat interno azul, chat de clientes ámbar */
+  body.home-cuatro-columnas #homeMessagesPreview .home-message-internal{border-left:3px solid #2F4BD6!important}
+  body.home-cuatro-columnas #homeMessagesPreview .home-message-internal .home-activity-avatar{background:#e9edff!important;color:#2F4BD6!important}
+  body.home-cuatro-columnas .home-client-messages-card .home-activity-icon{background:#fdf1dc!important;color:#b07a22!important}
+  body.home-cuatro-columnas .home-client-messages-card{background:linear-gradient(180deg,#fffaf0 0,#fff 120px)!important}
+  body.home-cuatro-columnas #homeClientMessagesPreview .home-message-client{border-color:#F0DFBD!important;border-left:3px solid #c48a32!important;background:#fffdf8!important}
+  body.home-cuatro-columnas #homeClientMessagesPreview .home-message-client .home-activity-avatar{background:#f7e6c5!important;color:#875916!important}
+  body.home-cuatro-columnas #homeClientMessagesPreview .home-message-client.h4-abierta{border-color:#dfbd7c!important}
+  body.home-cuatro-columnas .home-activity-rail .home-message-unread{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ef4444;color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;flex:none}
+  body.home-cuatro-columnas .e2-actividad #homeMessagesPreview{padding-top:12px!important;padding-bottom:16px!important}
+}
+@media (min-width:761px) and (max-width:1250px){
+  body.home-cuatro-columnas.e2-en-inicio:not(.client-preview-mode) .e2-actividad .home-activity-rail{grid-template-columns:repeat(2,minmax(0,1fr))!important;height:auto!important}
+  body.home-cuatro-columnas .e2-actividad .home-activity-card{height:340px!important}
+}
+@media (min-width:761px){
+  body.home-cuatro-columnas .home-activity-rail #homeMessagesPreview>.home-activity-row,
+  body.home-cuatro-columnas .home-activity-rail #homeClientMessagesPreview>.home-activity-row{padding:11px 12px!important;margin:0!important}
+  body.home-cuatro-columnas .home-activity-rail #homeMessagesPreview>.home-activity-row.h4-nota,
+  body.home-cuatro-columnas .home-activity-rail #homeClientMessagesPreview>.home-activity-row.h4-nota{margin-top:var(--h4-solape,0px)!important}
+  body.home-cuatro-columnas .home-activity-rail #homeMessagesPreview>.home-activity-row.h4-nota:first-child,
+  body.home-cuatro-columnas .home-activity-rail #homeClientMessagesPreview>.home-activity-row.h4-nota:first-child,
+  body.home-cuatro-columnas .home-activity-rail #homeMessagesPreview>.home-activity-row.h4-abierta+.home-activity-row,
+  body.home-cuatro-columnas .home-activity-rail #homeClientMessagesPreview>.home-activity-row.h4-abierta+.home-activity-row{margin-top:0!important}
+  body.home-cuatro-columnas .home-activity-rail #homeMessagesPreview,body.home-cuatro-columnas .home-activity-rail #homeClientMessagesPreview{gap:8px!important}
+}
