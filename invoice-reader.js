@@ -20,6 +20,7 @@ const SCHEMA = {
         type: "object",
         properties: {
           numero: { type: "string", description: "Número o serie+número de la factura, tal como aparece." },
+          paginas: { type: "string", description: "Páginas del documento donde aparece esta factura (p. ej. \"1-2\" o \"3\")." },
           fecha: { type: "string", description: "Fecha de expedición en formato DD/MM/AAAA. Vacío si no aparece." },
           emisor_nombre: { type: "string", description: "Razón social o nombre de quien emite la factura (el proveedor)." },
           emisor_nif: { type: "string", description: "NIF/CIF/VAT del emisor, sin espacios ni guiones." },
@@ -32,6 +33,7 @@ const SCHEMA = {
               type: "object",
               properties: {
                 tipo: { type: "number", description: "Porcentaje de IVA/IGIC (21, 10, 4, 0…)." },
+                concepto: { type: "string", description: "Qué cubre esta línea en pocas palabras (p. ej. \"Suministro de gas\", \"Suplidos\", \"Exento art. 20\", \"No sujeto\")." },
                 base: { type: "number", description: "Base imponible de ese tipo, en euros." },
                 cuota: { type: "number", description: "Cuota de IVA de ese tipo, en euros." }
               },
@@ -48,7 +50,8 @@ const SCHEMA = {
         },
         required: ["numero", "fecha", "emisor_nombre", "emisor_nif", "tipos_iva", "total"]
       }
-    }
+    },
+    total_documento: { type: "number", description: "Si el documento muestra un resumen con el importe total a pagar de todas las facturas juntas, ese importe. 0 si no hay resumen." }
   },
   required: ["facturas"]
 };
@@ -104,13 +107,18 @@ async function readInvoice(buffer, name, contentType, client) {
     "- La retención de IRPF resta del total; el recargo de equivalencia suma.",
     "- Comprueba que suma de bases + cuotas + recargo − retención = total. Si no cuadra, dilo en observaciones.",
     "- No inventes datos: si algo no aparece o no se lee, déjalo vacío (o 0) y avísalo en observaciones.",
-    "- Si el documento contiene varias facturas, devuelve una entrada por cada una."
+    "- Revisa TODAS las páginas. Los recibos de suministros (luz, gas, agua, teléfono) suelen incluir varias facturas en el mismo PDF: la del suministro y otras de servicios (mantenimiento, alquiler de equipos…), a veces de meses distintos.",
+    "- Cada número de factura distinto es una factura distinta: devuelve una entrada por cada una, con su propio número, fecha, desglose y total, aunque tengan los mismos importes.",
+    "- Un bloque de \"resumen total\" o \"total a pagar\" que suma varias facturas NO es una factura: su importe va en total_documento.",
+    "- No mezcles importes de una factura con otra. Los totales de la primera página (\"Fijo\", \"Variable\", \"Impuestos\"…) son un resumen; usa el detalle de cada factura.",
+    "- Impuestos especiales (hidrocarburos, electricidad), alquileres de equipos y cánones forman parte de la base imponible cuando el IVA se calcula sobre ellos.",
+    "- Si una factura tiene conceptos con distintos tipos de IVA (o partes exentas, no sujetas o suplidos), da una línea en tipos_iva por cada tipo, sin juntarlas."
   ].filter(Boolean).join("\n");
 
   const tool = { name: "guardar_facturas", description: "Guarda los datos extraídos de las facturas.", input_schema: SCHEMA };
   const base = {
     model: process.env.ANTHROPIC_MODEL || DEFAULT_MODEL,
-    max_tokens: 4096,
+    max_tokens: 8192,
     tools: [tool],
     messages: [{ role: "user", content: [block, { type: "text", text: instructions }] }]
   };
@@ -125,7 +133,7 @@ async function readInvoice(buffer, name, contentType, client) {
   const use = (data.content || []).find(item => item.type === "tool_use" && item.name === "guardar_facturas");
   if (!use) { const e = new Error("El lector no ha devuelto datos de factura."); e.status = 502; throw e; }
   const facturas = Array.isArray(use.input?.facturas) ? use.input.facturas : [];
-  return { facturas, modelo: data.model || base.model };
+  return { facturas, total_documento: Number(use.input?.total_documento) || 0, modelo: data.model || base.model };
 }
 
 module.exports = { readInvoice, readerStatus, MAX_FILE_BYTES };

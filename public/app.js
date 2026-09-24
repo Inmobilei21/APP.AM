@@ -3846,21 +3846,32 @@ setInterval(refreshSuggestions,15000);
     m=t.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/);if(m)return `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3].length===2?"20"+m[3]:m[3]}`;
     return t;
   }
-  function aRegistro(f,file,client,varias){
+  function aRegistros(f,file,client,varias){
     const tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
     const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
     const recargo=num(f.recargo_equivalencia),ret=Math.abs(num(f.retencion_importe)),total=num(f.total);
-    const notas=[];
-    if(f.rectificativa)notas.push("Factura rectificativa");
-    if(tipos.length>1)notas.push("Varios tipos de IVA: "+tipos.map(t=>`${num(t.tipo)}% base ${dinero(t.base)} cuota ${dinero(t.cuota)}`).join("; "));
-    if(recargo)notas.push(`Recargo de equivalencia ${dinero(recargo)}`);
-    if(ret)notas.push(`Retención IRPF ${num(f.retencion_tipo)?num(f.retencion_tipo)+"% ":""}${dinero(ret)}`);
-    if(f.moneda&&!/^eur/i.test(f.moneda))notas.push(`Moneda ${f.moneda}`);
-    if(total&&Math.abs(base+cuota+recargo-ret-total)>0.05)notas.push(`Los importes no cuadran (${dinero(base+cuota+recargo-ret)} calculado frente a ${dinero(total)} de total)`);
-    if(!f.numero||!total)notas.push("Revisar datos no detectados");
-    if(varias)notas.push(`Una de ${varias} facturas del mismo archivo`);
-    if(f.observaciones)notas.push(String(f.observaciones).trim());
-    return{client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String(f.emisor_nombre||"").trim(),supplierNif:nif(f.emisor_nif),base:tipos.length?base.toFixed(2):"",vatRate:[...new Set(tipos.map(t=>String(num(t.tipo))))].join(" / "),vat:tipos.length?cuota.toFixed(2):"",total:total?total.toFixed(2):"",file:file.name,observation:[...new Set(notas)].join(". ")};
+    const comun=[];
+    if(f.rectificativa)comun.push("Factura rectificativa");
+    if(f.moneda&&!/^eur/i.test(f.moneda))comun.push(`Moneda ${f.moneda}`);
+    if(total&&Math.abs(base+cuota+recargo-ret-total)>0.05)comun.push(`Los importes no cuadran (${dinero(base+cuota+recargo-ret)} calculado frente a ${dinero(total)} de total)`);
+    if(!f.numero||!total)comun.push("Revisar datos no detectados");
+    if(varias)comun.push(`Una de ${varias} facturas del mismo archivo${f.paginas?` (pág. ${f.paginas})`:""}`);
+    if(f.observaciones)comun.push(String(f.observaciones).trim());
+    const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String(f.emisor_nombre||"").trim(),supplierNif:nif(f.emisor_nif),file:file.name};
+    const extras=[];
+    if(recargo)extras.push(`Recargo de equivalencia ${dinero(recargo)}`);
+    if(ret)extras.push(`Retención IRPF ${num(f.retencion_tipo)?num(f.retencion_tipo)+"% ":""}${dinero(ret)}`);
+    if(tipos.length<=1){
+      const t=tipos[0];
+      return[{...cab,base:t?dinero(t.base):"",vatRate:t?String(num(t.tipo)):"",vat:t?dinero(t.cuota):"",total:total?total.toFixed(2):"",observation:[...new Set([t?.concepto&&num(t.tipo)===0?t.concepto:"",...extras,...comun].filter(Boolean))].join(". ")}];
+    }
+    // Una fila por cada tipo de IVA para poder contabilizarlas por separado.
+    return tipos.map((t,k)=>{
+      const linea=num(t.base)+num(t.cuota);
+      const notas=[`Línea ${k+1} de ${tipos.length} (IVA ${num(t.tipo)}%${t.concepto?` · ${t.concepto}`:""}) · total factura ${total?total.toFixed(2):"sin detectar"}`];
+      if(k===0)notas.push(...extras);
+      return{...cab,base:dinero(t.base),vatRate:String(num(t.tipo)),vat:dinero(t.cuota),total:linea.toFixed(2),observation:[...new Set([...notas,...comun].filter(Boolean))].join(". ")};
+    });
   }
   async function leerConIA(file,client){
     const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||"")},body:file});
@@ -3868,7 +3879,14 @@ setInterval(refreshSuggestions,15000);
     if(!r.ok)throw new Error(data.error||`Error ${r.status}`);
     const lista=Array.isArray(data.facturas)?data.facturas:[];
     if(!lista.length)throw new Error("No se ha encontrado ninguna factura en el archivo");
-    return lista.map(f=>aRegistro(f,file,client,lista.length>1?lista.length:0));
+    const filas=lista.flatMap(f=>aRegistros(f,file,client,lista.length>1?lista.length:0));
+    const avisos=[];
+    const suma=lista.reduce((t,f)=>t+num(f.total),0),totalDoc=num(data.total_documento);
+    if(totalDoc&&Math.abs(suma-totalDoc)>0.05)avisos.push(`La suma de las facturas (${suma.toFixed(2)}) no coincide con el total del documento (${totalDoc.toFixed(2)}): puede faltar alguna`);
+    const numeros=lista.map(f=>String(f.numero||"").trim()).filter(Boolean);
+    if(new Set(numeros).size<numeros.length)avisos.push("Hay números de factura repetidos en el archivo");
+    if(avisos.length)filas.forEach(r=>{r.observation=[r.observation,...avisos].filter(Boolean).join(". ")});
+    return filas;
   }
   async function leerAntiguo(file,client,aviso){
     try{const t=await invoiceFileText(file,()=>{});const r=invoiceRecordChecked(file,t,client);r.observation=[aviso,r.observation].filter(Boolean).join(". ");return r}
@@ -3893,7 +3911,7 @@ setInterval(refreshSuggestions,15000);
     finally{await closeInvoiceOcrWorker().catch(()=>{})}
     const records=resultados.flat();
     invoiceDraftRecords=records;renderInvoiceDraft(records);
-    status.textContent=fallos?`${fallos} ${fallos===1?"archivo no se ha podido":"archivos no se han podido"} leer con IA. Revisa las filas marcadas.`:`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Revisa las observaciones antes de descargar.`;
+    status.textContent=fallos?`${fallos} ${fallos===1?"archivo no se ha podido":"archivos no se han podido"} leer con IA. Revisa las filas marcadas.`:(()=>{const n=new Set(records.map(r=>r.file+"|"+r.number)).size;return `Borrador preparado con ${n} ${n===1?"factura":"facturas"}${records.length>n?` (${records.length} líneas, una por tipo de IVA)`:""}. Revisa las observaciones antes de descargar.`})();
     button.disabled=false;button.textContent="Volver a leer facturas";
   };
 })();
