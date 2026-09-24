@@ -3209,23 +3209,32 @@ function closeChatgpt(){
   panel.setAttribute("aria-hidden","true");
   document.querySelector("#chatgptLauncher")?.classList.remove("active");
 }
+function chatContactIsClient(name){
+  return recentChatItems.some(item=>item.worker===name&&String(item.otherId).startsWith("client:"));
+}
+function chatContactButton(name,isClient){
+  const unread=recentChatItems.find(item=>item.worker===name)?.unreadCount||0;
+  const kind=isClient?"Cliente":"Despacho";
+  return `<button type="button" class="${isClient?"client-chat-contact":"internal-chat-contact"}" data-chat-worker="${escapeHtml(name)}"${unread?` aria-label="${escapeHtml(name)}, ${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}"`:""}><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small class="${unread?"has-unread":""}">${unread?`${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}`:`${kind} · Abrir conversación`}</small></span>${unread?`<span class="chat-contact-unread">${unread>99?"99+":unread}</span>`:""}<b>›</b></button>`;
+}
 function renderChatContacts(){
   activeChatWorker=null;
   const content=document.querySelector("#chatContent");
-  const contacts=[...new Set([...recentChatItems.filter(item=>String(item.otherId).startsWith("client:")).map(item=>item.worker),...chatWorkers.filter(name=>name!==signedInUser?.name)])];
-  content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Los mensajes llegan a la cuenta personal de cada trabajador.</span></div><div class="chat-contacts">${contacts.map(name=>{const unread=recentChatItems.find(item=>item.worker===name)?.unreadCount||0;return `<button type="button" data-chat-worker="${escapeHtml(name)}"${unread?` aria-label="${escapeHtml(name)}, ${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}"`:""}><span class="chat-avatar">${workerInitials(name)}</span><span><strong>${escapeHtml(name)}</strong><small class="${unread?"has-unread":""}">${unread?`${unread} ${unread===1?"mensaje sin leer":"mensajes sin leer"}`:"Abrir conversación"}</small></span>${unread?`<span class="chat-contact-unread">${unread>99?"99+":unread}</span>`:""}<b>›</b></button>`}).join("")}</div>`;
+  const internalContacts=chatWorkers.filter(name=>name!==signedInUser?.name);
+  const clientContacts=[...new Set(recentChatItems.filter(item=>String(item.otherId).startsWith("client:")).map(item=>item.worker))];
+  content.innerHTML=`<div class="chat-intro"><strong>¿A quién quieres escribir?</strong><span>Conversaciones del despacho y de clientes separadas.</span></div><div class="chat-contacts"><section class="chat-contact-group internal-chat-group"><h4><span></span>Chat interno del despacho</h4>${internalContacts.map(name=>chatContactButton(name,false)).join("")}</section>${clientContacts.length?`<section class="chat-contact-group client-chat-group"><h4><span></span>Chat de clientes</h4>${clientContacts.map(name=>chatContactButton(name,true)).join("")}</section>`:""}</div>`;
   content.querySelectorAll("[data-chat-worker]").forEach(button=>button.addEventListener("click",()=>renderConversation(button.dataset.chatWorker)));
 }
 async function renderConversation(name,focus=true){
   activeChatWorker=name;
   const content=document.querySelector("#chatContent");
-  content.innerHTML=`<div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación privada</small></div></div><div class="chat-messages"><div class="chat-empty"><span>···</span><strong>Cargando conversación</strong></div></div>`;
+  content.innerHTML=`<div class="conversation-bar${conversationClass}"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>${conversationLabel}</small></div></div><div class="chat-messages"><div class="chat-empty"><span>···</span><strong>Cargando conversación</strong></div></div>`;
   document.querySelector("#chatBack").addEventListener("click",renderChatContacts);
   try{const participantId=chatParticipantId(name),messages=await apiJson(`/api/chat/messages?with=${encodeURIComponent(participantId)}`);chatCache.set(name,messages);await apiJson("/api/chat/read",{method:"POST",body:JSON.stringify({withUserId:participantId})});refreshChatData(false)}catch{}
   if(activeChatWorker!==name)return;
   const messages=getChatMessages(name);
   content.innerHTML=`
-    <div class="conversation-bar"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>Conversación privada</small></div></div>
+    <div class="conversation-bar${conversationClass}"><button id="chatBack" type="button" aria-label="Volver">←</button><span class="chat-avatar">${workerInitials(name)}</span><div><strong>${escapeHtml(name)}</strong><small>${conversationLabel}</small></div></div>
     <div class="chat-messages" id="chatMessages">${chatMessagesMarkup(messages,name)}</div>
     <form class="chat-composer" id="chatForm"><textarea id="chatMessage" rows="1" maxlength="500" placeholder="Escribe un mensaje…" required></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>
     <p class="chat-note">Conversación vinculada a ${escapeHtml(signedInUser?.name||"tu usuario")} y ${escapeHtml(name)}.</p>`;
