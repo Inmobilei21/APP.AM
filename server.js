@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const invoiceReader = require("./invoice-reader");
 
 const root = path.join(__dirname, "public");
 const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json; charset=utf-8", ".json": "application/json; charset=utf-8" };
@@ -633,6 +634,22 @@ http.createServer((req, res) => {
       saveCollection(tasksFile, saved);
       return json(res, 200, user.role === "admin" ? saved : saved.filter(task => task.assignedId === user.id));
     }).catch(() => json(res, 400, { error: "No se pudieron guardar las tareas." }));
+  }
+  if (requestPath === "/api/facturas/lector" && req.method === "GET") {
+    if (!requireUser(req, res)) return;
+    return json(res, 200, invoiceReader.readerStatus());
+  }
+  if (requestPath === "/api/facturas/leer" && req.method === "POST") {
+    if (!requireUser(req, res)) return;
+    let name = "factura";
+    try { name = decodeURIComponent(String(req.headers["x-file-name"] || "factura")).slice(0, 200); } catch {}
+    let client = "";
+    try { client = cleanText(decodeURIComponent(String(req.headers["x-client"] || "")), 160); } catch {}
+    const contentType = String(req.headers["content-type"] || "").split(";")[0].trim();
+    return readBuffer(req, invoiceReader.MAX_FILE_BYTES + 1024)
+      .then(buffer => invoiceReader.readInvoice(buffer, name, contentType, client))
+      .then(result => json(res, 200, result))
+      .catch(error => { console.error("Lector de facturas:", error.message); json(res, error.status && error.status < 600 ? (error.status >= 500 ? 502 : error.status) : 502, { error: error.message || "No se pudo leer la factura." }); });
   }
   if (req.url.split("?")[0] === "/api/verify-record-password" && req.method === "POST") {
     return readJson(req).then(({password}) => {

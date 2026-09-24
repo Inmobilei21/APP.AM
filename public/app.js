@@ -3826,3 +3826,74 @@ setInterval(refreshSuggestions,15000);
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",instalar);else instalar();
   document.addEventListener("auth-decidida",()=>{instalar();rellenarUsuario()});
 })();
+/* ===== Lector de facturas con IA ===== */
+(function(){
+  if(typeof processInvoiceFiles!=="function")return;
+  const lectorAntiguo=processInvoiceFiles;
+  const ADMITIDOS=/\.(pdf|jpe?g|png|webp|gif|xml|txt)$/i;
+  let estado=null;
+  async function lectorActivo(){
+    if(estado)return estado.activo;
+    try{const r=await fetch("/api/facturas/lector",{credentials:"same-origin"});estado=r.ok?await r.json():{activo:false}}catch(_){estado={activo:false}}
+    if(!estado.activo)setTimeout(()=>{estado=null},60000);
+    return estado.activo;
+  }
+  const num=v=>{const n=typeof v==="number"?v:Number(String(v??"").replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",","."));return Number.isFinite(n)?n:0};
+  const dinero=v=>num(v).toFixed(2);
+  const nif=v=>String(v||"").toUpperCase().replace(/[\s.\-]/g,"").replace(/^ES(?=[A-Z0-9]{9}$)/,"");
+  function fecha(v){
+    const t=String(v||"").trim();let m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return `${m[3].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[1]}`;
+    m=t.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/);if(m)return `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3].length===2?"20"+m[3]:m[3]}`;
+    return t;
+  }
+  function aRegistro(f,file,client,varias){
+    const tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
+    const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
+    const recargo=num(f.recargo_equivalencia),ret=Math.abs(num(f.retencion_importe)),total=num(f.total);
+    const notas=[];
+    if(f.rectificativa)notas.push("Factura rectificativa");
+    if(tipos.length>1)notas.push("Varios tipos de IVA: "+tipos.map(t=>`${num(t.tipo)}% base ${dinero(t.base)} cuota ${dinero(t.cuota)}`).join("; "));
+    if(recargo)notas.push(`Recargo de equivalencia ${dinero(recargo)}`);
+    if(ret)notas.push(`Retención IRPF ${num(f.retencion_tipo)?num(f.retencion_tipo)+"% ":""}${dinero(ret)}`);
+    if(f.moneda&&!/^eur/i.test(f.moneda))notas.push(`Moneda ${f.moneda}`);
+    if(total&&Math.abs(base+cuota+recargo-ret-total)>0.05)notas.push(`Los importes no cuadran (${dinero(base+cuota+recargo-ret)} calculado frente a ${dinero(total)} de total)`);
+    if(!f.numero||!total)notas.push("Revisar datos no detectados");
+    if(varias)notas.push(`Una de ${varias} facturas del mismo archivo`);
+    if(f.observaciones)notas.push(String(f.observaciones).trim());
+    return{client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String(f.emisor_nombre||"").trim(),supplierNif:nif(f.emisor_nif),base:tipos.length?base.toFixed(2):"",vatRate:[...new Set(tipos.map(t=>String(num(t.tipo))))].join(" / "),vat:tipos.length?cuota.toFixed(2):"",total:total?total.toFixed(2):"",file:file.name,observation:[...new Set(notas)].join(". ")};
+  }
+  async function leerConIA(file,client){
+    const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||"")},body:file});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data.error||`Error ${r.status}`);
+    const lista=Array.isArray(data.facturas)?data.facturas:[];
+    if(!lista.length)throw new Error("No se ha encontrado ninguna factura en el archivo");
+    return lista.map(f=>aRegistro(f,file,client,lista.length>1?lista.length:0));
+  }
+  async function leerAntiguo(file,client,aviso){
+    try{const t=await invoiceFileText(file,()=>{});const r=invoiceRecordChecked(file,t,client);r.observation=[aviso,r.observation].filter(Boolean).join(". ");return r}
+    catch(_){return{...invoiceRecordChecked(file,"",client),number:"",observation:[aviso,"No se pudo leer automáticamente"].filter(Boolean).join(". ")}}
+  }
+  processInvoiceFiles=async function(client){
+    if(!client||!invoiceProcessorFiles.length||!(await lectorActivo()))return lectorAntiguo.apply(this,arguments);
+    const status=document.querySelector("#invoiceProcessStatus"),button=document.querySelector("#processInvoices");
+    const files=[...invoiceProcessorFiles],resultados=new Array(files.length);let hechas=0,fallos=0,siguiente=0;
+    button.disabled=true;button.textContent="Leyendo…";
+    const pintar=()=>{status.textContent=`Leyendo con IA: ${hechas} de ${files.length} ${files.length===1?"factura":"facturas"}…`};pintar();
+    async function trabajador(){
+      while(siguiente<files.length){
+        const i=siguiente++,file=files[i];
+        if(!ADMITIDOS.test(file.name))resultados[i]=[await leerAntiguo(file,client,"Leído con el lector anterior (formato no admitido por la IA)")];
+        else try{resultados[i]=await leerConIA(file,client)}
+        catch(error){console.error("Lector con IA",file.name,error);fallos++;resultados[i]=[await leerAntiguo(file,client,`La IA no pudo leerla (${error.message}); leído con el lector anterior`)]}
+        hechas++;pintar();
+      }
+    }
+    try{await Promise.all(Array.from({length:Math.min(3,files.length)},trabajador))}
+    finally{await closeInvoiceOcrWorker().catch(()=>{})}
+    const records=resultados.flat();
+    invoiceDraftRecords=records;renderInvoiceDraft(records);
+    status.textContent=fallos?`${fallos} ${fallos===1?"archivo no se ha podido":"archivos no se han podido"} leer con IA. Revisa las filas marcadas.`:`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Revisa las observaciones antes de descargar.`;
+    button.disabled=false;button.textContent="Volver a leer facturas";
+  };
+})();
