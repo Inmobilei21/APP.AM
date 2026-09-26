@@ -4560,3 +4560,11 @@ body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.hom
   body.g2-interior:not(.client-preview-mode) main>:is(.folder-panel,.panel,.signatures-panel,.declarations-panel,.courtesy-panel,.annual-closing-panel,.contacts-panel,.tasks-head,.clients-head,.management-workspace-head,.inspection-panel,.calendar-shell){border:0!important;border-radius:20px!important;box-shadow:0 1px 2px rgba(10,26,63,.05),0 10px 26px -20px rgba(10,26,63,.4)!important}
   body.g2-interior:not(.client-preview-mode) main :is(.blue-button,.primary.blue-button){background:#0A1A3F!important;border-color:#0A1A3F!important;color:#fff!important}
 }
+/* Logo centrado en la cabecera de cada apartado, como en el inicio */
+.g2-logo{display:none}
+@media (min-width:761px){
+  body.g2-interior:not(.client-preview-mode):not(.e2-en-inicio) main>header.g2-cab>.g2-logo{display:block;position:absolute;z-index:1;left:50%;top:calc((100% - 60px) / 2);transform:translate(-50%,-50%);height:clamp(72px,6vw,104px);width:auto;pointer-events:none;filter:drop-shadow(0 8px 24px rgba(0,0,0,.25))}
+}
+@media (min-width:761px) and (max-width:1500px){
+  body.g2-interior:not(.client-preview-mode):not(.e2-en-inicio) main>header.g2-cab>.g2-logo{top:42px;height:48px;filter:none}
+}

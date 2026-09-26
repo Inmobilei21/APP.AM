@@ -4259,6 +4259,7 @@ setInterval(refreshSuggestions,15000);
     const header=main.querySelector(":scope>header");if(!header)return;
     header.classList.add("g2-cab");
     if(!header.querySelector(".g2-marca")){const m=document.createElement("small");m.className="g2-marca";m.textContent="DESPACHO MOLINERO";header.prepend(m)}
+    if(!header.querySelector(".g2-logo")){const l=document.createElement("img");l.className="g2-logo";l.src="/splash-logo.png?v=3";l.alt="";l.setAttribute("aria-hidden","true");header.append(l)}
     // Solo se marca una vez: quitar y volver a poner la clase reiniciaría la animación de entrada.
     const primero=[...main.children].find(e=>e!==header&&!["STYLE","SCRIPT","TEMPLATE"].includes(e.tagName)&&!e.classList.contains("modal-shell")&&getComputedStyle(e).display!=="none"&&getComputedStyle(e).position!=="fixed");
     main.querySelectorAll(":scope>.g2-primero").forEach(e=>{if(e!==primero)e.classList.remove("g2-primero")});
