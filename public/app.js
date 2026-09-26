@@ -4242,3 +4242,22 @@ setInterval(refreshSuggestions,15000);
   const previo=renderEntries;
   renderEntries=function(){const r=previo.apply(this,arguments);decorar();return r};
 })();
+/* ===== Estética del inicio en el resto de apartados ===== */
+(function(){
+  const main=document.querySelector("main");if(!main)return;
+  function decorar(){
+    const inicio=document.body.classList.contains("e2-en-inicio")||document.body.classList.contains("m2-en-inicio")||Boolean(main.querySelector(".home-dashboard-layout"));
+    document.body.classList.toggle("g2-interior",!inicio);
+    if(inicio)return;
+    const header=main.querySelector(":scope>header");if(!header)return;
+    header.classList.add("g2-cab");
+    if(!header.querySelector(".g2-marca")){const m=document.createElement("small");m.className="g2-marca";m.textContent="DESPACHO MOLINERO";header.prepend(m)}
+    main.querySelectorAll(":scope>.g2-primero").forEach(e=>e.classList.remove("g2-primero"));
+    const primero=[...main.children].find(e=>e!==header&&!["STYLE","SCRIPT","TEMPLATE"].includes(e.tagName)&&!e.classList.contains("modal-shell")&&getComputedStyle(e).display!=="none"&&getComputedStyle(e).position!=="fixed");
+    primero?.classList.add("g2-primero");
+  }
+  let pendiente=0;
+  new MutationObserver(()=>{if(!pendiente)pendiente=requestAnimationFrame(()=>{pendiente=0;decorar()})}).observe(main,{childList:true});
+  new MutationObserver(()=>{if(!pendiente)pendiente=requestAnimationFrame(()=>{pendiente=0;decorar()})}).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  decorar();
+})();
