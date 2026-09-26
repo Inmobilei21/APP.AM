@@ -4511,3 +4511,8 @@ body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.hom
   .folder-toolbar>div:first-child:has(.dp-aviso){flex-wrap:wrap;align-items:center}
   .folder-toolbar .dp-aviso{margin:6px 0 0;flex-basis:auto}
 }
+
+/* Logotipos de Word, Excel y PDF en los documentos */
+.file-type-icon.file-logo{background:transparent!important;overflow:visible}
+.file-type-icon.file-logo img{width:88%;height:88%;object-fit:contain;display:block;filter:drop-shadow(0 2px 4px rgba(24,35,64,.12));pointer-events:none;user-select:none}
+.file-type-icon.file-logo.pdf img{width:80%;height:92%}

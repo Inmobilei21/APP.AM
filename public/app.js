@@ -2776,6 +2776,9 @@ function documentTypeVisual(name){
     txt:{className:"text",label:"TXT"},rtf:{className:"text",label:"RTF"},xml:{className:"code",label:"XML"},json:{className:"code",label:"JSON"}
   };
   const type=types[extension]||{className:"other",label:(extension||"FILE").slice(0,4).toUpperCase()};
+  // Word, Excel y PDF se muestran con su logotipo
+  const logo={pdf:"pdf",doc:"word",docx:"word",docm:"word",dot:"word",dotx:"word",xls:"excel",xlsx:"excel",xlsm:"excel",xlsb:"excel",csv:"excel"}[extension];
+  if(logo)return `<span class="file-type-icon file-logo ${type.className}" aria-label="Archivo ${escapeHtml(type.label)}"><img src="/icons/${logo}.png?v=1" alt="" draggable="false"></span>`;
   return `<span class="file-type-icon ${type.className}" aria-label="Archivo ${escapeHtml(type.label)}"><span class="file-sheet" aria-hidden="true"></span><b>${escapeHtml(type.label)}</b></span>`;
 }
 
