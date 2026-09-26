@@ -360,6 +360,8 @@ const appIcon = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAIAAAB7GkOtAAAAIGN
 reconcileUrgentSignatureTasks();
 setInterval(reconcileUrgentSignatureTasks, 60 * 60 * 1000).unref();
 
+const portalDocs = require("./portal-docs")({ dataDirectory, davRequest, parseDavEntries, webdavProperties, loadMetadata });
+
 http.createServer((req, res) => {
   const requestPath = req.url.split("?")[0];
   if (requestPath === "/api/version" && req.method === "GET") {
@@ -407,6 +409,13 @@ http.createServer((req, res) => {
     const davPath = new URL(req.url, "http://localhost").searchParams.get("path") || "";
     return readBuffer(req).then(data => davRequest(davPath, { method: "PUT", headers: { "Content-Type": req.headers["content-type"] || "application/octet-stream", "Content-Length": String(data.length) }, body: data }))
       .then(() => json(res, 200, { saved: true }))
+      .catch(error => json(res, error.status || 502, { error: error.message }));
+  }
+  if (requestPath === "/api/documentos-pendientes" && req.method === "GET") {
+    if (!requireUser(req, res)) return;
+    const params = new URL(req.url, "http://localhost").searchParams;
+    return portalDocs.pending(cleanText(params.get("client"), 200), params.has("refresh"))
+      .then(result => json(res, 200, { clients: result }))
       .catch(error => json(res, error.status || 502, { error: error.message }));
   }
   if (requestPath.startsWith("/api/metadata/") && ["GET", "PUT"].includes(req.method)) {

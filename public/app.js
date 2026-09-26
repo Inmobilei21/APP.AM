@@ -288,7 +288,10 @@ async function openClientDocuments(){
   document.body.appendChild(overlay);overlay.querySelectorAll("[data-close-client-documents]").forEach(button=>button.addEventListener("click",closeClientDocuments));
   const list=overlay.querySelector(".client-documents-list"),search=overlay.querySelector("input");
   try{
-    const root=await getSavedHandle("clients-folder"),clientFolder=await root?.getDirectoryHandle(clientPreviewName),documents=clientFolder?await collectClientPortalDocuments(clientFolder):[];
+    const root=await getSavedHandle("clients-folder"),clientFolder=await root?.getDirectoryHandle(clientPreviewName),allDocuments=clientFolder?await collectClientPortalDocuments(clientFolder):[];
+    // El cliente solo ve los documentos marcados como visibles por el despacho.
+    const portalRecord=(await getAllClientMetadata().catch(()=>[])).find(item=>clientIdentity(item)===clientPreviewName),visiblePaths=new Set((portalRecord?.portalDocuments||[]).filter(item=>item.visible).map(item=>item.path));
+    const documents=allDocuments.filter(item=>!item.handle?.path||visiblePaths.has(item.handle.path));
     documents.sort((a,b)=>a.path.localeCompare(b.path,"es")||a.name.localeCompare(b.name,"es"));
     list.innerHTML=documents.length?documents.map((document,index)=>`<button type="button" class="client-document-row" data-client-document="${index}" data-search="${escapeHtml(`${document.name} ${document.path}`.toLocaleLowerCase("es"))}">${documentTypeVisual(document.name)}<span><strong>${escapeHtml(document.name)}</strong><small>${escapeHtml(document.path)}</small></span><b>Ver</b></button>`).join(""):`<div class="client-documents-empty">${clientDesktopIcon("documents")}<strong>No hay documentos disponibles</strong><small>Cuando el despacho añada documentación aparecerá aquí.</small></div>`;
     list.querySelectorAll("[data-client-document]").forEach(button=>button.addEventListener("click",async()=>{const item=documents[Number(button.dataset.clientDocument)];if(item)openDocumentPreview(await item.handle.getFile())}));
@@ -2933,8 +2936,8 @@ function currentDocumentClientName(){if(activeFolderConfig?.storageKey!=="client
 async function offerClientDocumentVisibility(files){
   const clientName=currentDocumentClientName();if(!clientName)return;
   try{const clients=await getAllClientMetadata(),client=clients.find(item=>clientIdentity(item)===clientName);if(!client?.appAccessEnabled)return;
-    const visible=confirm(files.length===1?`¿Quieres que “${files[0].name}” sea visible para el cliente en su aplicación?`:`¿Quieres que estos ${files.length} documentos sean visibles para el cliente en su aplicación?`);if(!visible)return;
-    const existing=Array.isArray(client.portalDocuments)?client.portalDocuments:[],basePath=currentDirectoryHandle?.path||currentDirectoryHandle?.name||clientName,now=new Date().toISOString(),added=files.map(file=>({name:file.name,path:remotePath(basePath,file.name),visible:true,addedAt:now}));
+    const visible=confirm(files.length===1?`¿Quieres que “${files[0].name}” sea visible para el cliente en su aplicación?`:`¿Quieres que estos ${files.length} documentos sean visibles para el cliente en su aplicación?`);
+    const existing=Array.isArray(client.portalDocuments)?client.portalDocuments:[],basePath=currentDirectoryHandle?.path||currentDirectoryHandle?.name||clientName,now=new Date().toISOString(),added=files.map(file=>({name:file.name,path:remotePath(basePath,file.name),visible,addedAt:now,decidedAt:now,decidedBy:signedInUser?.name||""}));
     const merged=[...existing.filter(item=>!added.some(document=>document.path===item.path)),...added];await saveClientMetadata({...client,portalDocuments:merged});
   }catch(error){console.warn("No se pudo guardar la visibilidad del documento",error)}
 }
@@ -4139,4 +4142,100 @@ setInterval(refreshSuggestions,15000);
     if(f)t=setTimeout(()=>abrir(f),90);else if(!e.target.closest?.(".home-activity-list"))t=setTimeout(()=>abrir(null),160);
   });
   document.addEventListener("focusin",e=>{const f=e.target.closest?.(".home-activity-list>.home-activity-row.h4-nota");if(f)abrir(f)});
+})();
+/* ===== Documentos pendientes: el despacho decide qué ve el cliente en su aplicación ===== */
+(function(){
+  if(typeof renderEntries!=="function")return;
+  const TRI='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>';
+  const TRI_LLENO='<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>';
+  const OJO='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const OCULTO='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.2 6.3C3.6 8.1 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.3-1"/></svg>';
+  const DOC='<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 2h9l4 4v16H6Z"/><path d="M14 2v5h5"/></svg>';
+  const OK='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+  let ultimo={},turno=0;
+
+  async function pedirPendientes(client,refresh=false){
+    const q=new URLSearchParams();if(client)q.set("client",client);if(refresh)q.set("refresh","1");
+    const r=await fetch(`/api/documentos-pendientes?${q}`,{credentials:"same-origin",cache:"no-store"});
+    if(!r.ok)throw new Error("No se pudieron revisar los documentos");
+    const data=(await r.json()).clients||{};Object.assign(ultimo,data);return data;
+  }
+  const lista=v=>Array.isArray(v)?v:[];
+  async function fichaCliente(name){return (await getAllClientMetadata()).find(c=>clientIdentity(c)===name)}
+  const fecha=v=>{const d=new Date(v);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(d)};
+  const enCarpetaClientes=()=>activeFolderConfig?.storageKey==="clients-folder"&&currentDirectoryHandle?.remote;
+
+  function limpiar(){document.querySelector("#docsPendientesAviso")?.remove()}
+
+  async function decorar(){
+    const yo=++turno;limpiar();
+    if(!enCarpetaClientes())return;
+    const grid=document.querySelector("#folderGrid");if(!grid)return;
+    try{
+      if(!folderHistory.length){
+        // Listado de clientes: etiqueta con los pendientes de cada uno
+        const datos=await pedirPendientes();if(yo!==turno)return;
+        grid.querySelectorAll(".folder-card").forEach(card=>{const entry=currentEntries[Number(card.dataset.index)],n=lista(datos[entry?.name]).length;card.querySelector(".dp-chip")?.remove();if(entry?.kind==="directory"&&n)card.insertAdjacentHTML("beforeend",`<span class="dp-chip" title="Documentos pendientes de revisar">${TRI_LLENO}${n} pendiente${n===1?"":"s"}</span>`)});
+        return;
+      }
+      const cliente=currentDocumentClientName(),ficha=await fichaCliente(cliente);if(yo!==turno||!ficha?.appAccessEnabled)return;
+      const datos=await pedirPendientes(cliente);if(yo!==turno)return;
+      const pendientes=lista(datos[cliente]),ruta=currentDirectoryHandle.path||"";
+      const decisiones=new Map((ficha.portalDocuments||[]).map(d=>[d.path,d.visible]));
+      // Aviso con triángulo junto al nombre de la carpeta
+      const cuenta=document.querySelector("#folderCount");
+      if(cuenta){const b=document.createElement("button");b.type="button";b.id="docsPendientesAviso";
+        if(pendientes.length){b.className="dp-aviso";b.innerHTML=`${TRI}<span>Doc. pendientes</span><b>${pendientes.length}</b>`;b.onclick=()=>abrirBanner(cliente)}
+        else{b.className="dp-aviso dp-ok";b.innerHTML=`${OK}<span>Documentos revisados</span>`;b.disabled=true;b.title="No hay documentos nuevos sin revisar"}
+        cuenta.after(b)}
+      grid.querySelectorAll(".folder-card").forEach(card=>{
+        const entry=currentEntries[Number(card.dataset.index)];if(!entry)return;
+        card.querySelectorAll(".dp-chip,.dp-ojo").forEach(x=>x.remove());
+        const p=remotePath(ruta,entry.name);
+        if(entry.kind==="directory"){const n=pendientes.filter(d=>d.path.startsWith(p+"/")).length;if(n)card.insertAdjacentHTML("beforeend",`<span class="dp-chip">${TRI_LLENO}${n} nuevo${n===1?"":"s"}</span>`);return}
+        if(pendientes.some(d=>d.path===p))card.insertAdjacentHTML("beforeend",`<span class="dp-chip">${TRI_LLENO}Nuevo</span>`);
+        const visible=decisiones.get(p)===true,ojo=document.createElement("span");
+        ojo.className=`dp-ojo${visible?" dp-si":""}`;ojo.setAttribute("role","button");ojo.tabIndex=0;ojo.title=visible?"Visible para el cliente · pulsa para ocultar":"Oculto para el cliente · pulsa para hacerlo visible";ojo.innerHTML=visible?OJO:OCULTO;
+        const cambiar=async e=>{e.preventDefault();e.stopPropagation();ojo.classList.add("dp-guardando");await guardarDecisiones(cliente,[{name:entry.name,path:p,visible:!visible}]);decorar()};
+        ojo.addEventListener("click",cambiar);ojo.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")cambiar(e)});
+        card.append(ojo);
+      });
+    }catch(error){console.warn("Documentos pendientes:",error)}
+  }
+
+  async function guardarDecisiones(cliente,items){
+    const ficha=await fichaCliente(cliente);if(!ficha)return;
+    const ahora=new Date().toISOString(),rutas=new Set(items.map(i=>i.path));
+    const nuevos=items.map(i=>({name:i.name,path:i.path,visible:Boolean(i.visible),decidedAt:ahora,decidedBy:signedInUser?.name||""}));
+    await saveClientMetadata({...ficha,portalDocuments:[...(ficha.portalDocuments||[]).filter(d=>!rutas.has(d.path)),...nuevos]});
+    await pedirPendientes(cliente,true).catch(()=>{});
+  }
+
+  function abrirBanner(cliente){
+    document.querySelector("#dpBanner")?.remove();
+    const pendientes=lista(ultimo[cliente]),decision=new Map();
+    const shell=document.createElement("div");shell.id="dpBanner";shell.className="dp-shell";
+    shell.innerHTML=`<div class="dp-velo" data-dp-cerrar></div><section class="dp-banner" role="dialog" aria-modal="true" aria-labelledby="dpTitulo">
+      <div class="dp-bcab"><span class="dp-tri">${TRI}</span><div><h3 id="dpTitulo">Documentos pendientes de revisar</h3><p>${escapeHtml(cliente)} · añadidos fuera de la app. Elige cuáles puede ver el cliente en su aplicación.</p></div><button type="button" class="dp-cerrar" data-dp-cerrar aria-label="Cerrar">×</button></div>
+      <div class="dp-todos"><span id="dpResumen"></span><button type="button" data-dp-todos="1">Todos visibles</button><button type="button" data-dp-todos="0">Todos ocultos</button></div>
+      <div class="dp-lista">${pendientes.map((d,i)=>`<div class="dp-fila" data-dp-fila="${i}"><span class="dp-ico">${DOC}</span><span class="dp-txt"><strong>${escapeHtml(d.name)}</strong><small>${escapeHtml(d.folder||"Carpeta principal")}${d.modified?` · ${escapeHtml(fecha(d.modified))}`:""}</small><a href="#" data-dp-ver="${i}">Ver</a></span><span class="dp-dec"><button type="button" class="dp-bsi" data-dp-decidir="${i}" data-v="1">${OJO}Visible</button><button type="button" class="dp-bno" data-dp-decidir="${i}" data-v="0">${OCULTO}Oculto</button></span></div>`).join("")}</div>
+      <div class="dp-bpie"><small>Lo que no decidas sigue oculto para el cliente.</small><button type="button" class="primary blue-button" id="dpGuardar" disabled>Guardar</button></div></section>`;
+    document.body.append(shell);requestAnimationFrame(()=>shell.classList.add("dp-on"));
+    const pintar=()=>{shell.querySelectorAll("[data-dp-fila]").forEach(f=>{const v=decision.get(Number(f.dataset.dpFila));f.querySelector(".dp-bsi").classList.toggle("dp-act",v===true);f.querySelector(".dp-bno").classList.toggle("dp-act",v===false)});const falta=pendientes.length-decision.size;shell.querySelector("#dpResumen").textContent=`${falta} documento${falta===1?"":"s"} sin decidir`;shell.querySelector("#dpGuardar").disabled=!decision.size};
+    const cerrar=()=>{shell.classList.remove("dp-on");setTimeout(()=>shell.remove(),250)};
+    shell.addEventListener("click",async e=>{
+      if(e.target.closest("[data-dp-cerrar]"))return cerrar();
+      const d=e.target.closest("[data-dp-decidir]");if(d){decision.set(Number(d.dataset.dpDecidir),d.dataset.v==="1");return pintar()}
+      const t=e.target.closest("[data-dp-todos]");if(t){pendientes.forEach((_,i)=>decision.set(i,t.dataset.dpTodos==="1"));return pintar()}
+      const ver=e.target.closest("[data-dp-ver]");if(ver){e.preventDefault();const doc=pendientes[Number(ver.dataset.dpVer)];try{openDocumentPreview(await new WebDavFileHandle(doc.path,doc.name).getFile())}catch{alert("No se pudo abrir el documento.")}return}
+      if(e.target.closest("#dpGuardar")){const b=e.target.closest("#dpGuardar");b.disabled=true;b.textContent="Guardando…";
+        try{await guardarDecisiones(cliente,[...decision].map(([i,v])=>({...pendientes[i],visible:v})));cerrar();decorar()}
+        catch{b.disabled=false;b.textContent="Guardar";alert("No se pudieron guardar los cambios.")}}
+    });
+    shell.addEventListener("keydown",e=>{if(e.key==="Escape")cerrar()});
+    pintar();setTimeout(()=>shell.querySelector(".dp-cerrar")?.focus(),50);
+  }
+
+  const previo=renderEntries;
+  renderEntries=function(){const r=previo.apply(this,arguments);decorar();return r};
 })();
