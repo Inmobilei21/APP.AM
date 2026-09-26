@@ -4435,3 +4435,17 @@ body.h4-quieto .home-activity-rail .home-activity-list>.home-activity-row,
 body.t2-quieto .task-list>.task-note{transition:none!important;animation:none!important}
 body.t2-quieto.t2-apiladas .task-list[data-task-list]>.task-note.t2-nota,
 body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row.h4-nota{transition:none!important;animation:none!important}
+
+/* ===== Ficha de cliente: fecha de alta y aplicación dentro de Acceso del cliente ===== */
+#newClientForm .client-start-field{display:grid;align-content:start}
+#newClientForm .client-start-field>span{display:block}
+#newClientForm .client-start-field small{margin:2px 0 0!important;color:#68738a!important;font-size:10px!important;line-height:1.2}
+#newClientForm .client-portal-access-grid .client-app-field{align-self:end}
+#newClientForm .client-portal-access-grid .client-app-field>span:first-child{font-size:12px;font-weight:700}
+#newClientForm .client-portal-access-grid .client-app-field .client-active-control{white-space:nowrap}
+@media(min-width:1100px){
+  #newClientForm .client-portal-access-grid{grid-template-columns:minmax(150px,1fr) minmax(170px,auto) minmax(95px,auto)!important}
+}
+@media(min-width:601px) and (max-width:1099px){
+  #newClientForm .client-portal-access-grid{grid-template-columns:minmax(0,1fr) auto auto!important}
+}
