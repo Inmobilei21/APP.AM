@@ -4259,12 +4259,15 @@ setInterval(refreshSuggestions,15000);
     const header=main.querySelector(":scope>header");if(!header)return;
     header.classList.add("g2-cab");
     if(!header.querySelector(".g2-marca")){const m=document.createElement("small");m.className="g2-marca";m.textContent="DESPACHO MOLINERO";header.prepend(m)}
-    main.querySelectorAll(":scope>.g2-primero").forEach(e=>e.classList.remove("g2-primero"));
+    // Solo se marca una vez: quitar y volver a poner la clase reiniciaría la animación de entrada.
     const primero=[...main.children].find(e=>e!==header&&!["STYLE","SCRIPT","TEMPLATE"].includes(e.tagName)&&!e.classList.contains("modal-shell")&&getComputedStyle(e).display!=="none"&&getComputedStyle(e).position!=="fixed");
-    primero?.classList.add("g2-primero");
+    main.querySelectorAll(":scope>.g2-primero").forEach(e=>{if(e!==primero)e.classList.remove("g2-primero")});
+    if(primero&&!primero.classList.contains("g2-primero"))primero.classList.add("g2-primero");
   }
   let pendiente=0;
   new MutationObserver(()=>{if(!pendiente)pendiente=requestAnimationFrame(()=>{pendiente=0;decorar()})}).observe(main,{childList:true});
-  new MutationObserver(()=>{if(!pendiente)pendiente=requestAnimationFrame(()=>{pendiente=0;decorar()})}).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  // Solo interesa cuando se entra o se sale del inicio, no cada vez que cambia otra clase del body.
+  let enInicio=null;
+  new MutationObserver(()=>{const ahora=document.body.classList.contains("e2-en-inicio")||document.body.classList.contains("m2-en-inicio");if(ahora===enInicio)return;enInicio=ahora;if(!pendiente)pendiente=requestAnimationFrame(()=>{pendiente=0;decorar()})}).observe(document.body,{attributes:true,attributeFilter:["class"]});
   decorar();
 })();
