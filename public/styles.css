@@ -4430,3 +4430,8 @@ body:not(.client-preview-mode) #sidebar.s2-listo nav button.active .holded-mark 
   body.home-cuatro-columnas .home-activity-rail #homeClientMessagesPreview>.home-activity-row.h4-abierta+.home-activity-row{margin-top:0!important}
   body.home-cuatro-columnas .home-activity-rail #homeMessagesPreview,body.home-cuatro-columnas .home-activity-rail #homeClientMessagesPreview{gap:8px!important}
 }
+/* Al refrescar los datos en segundo plano las tarjetas se recolocan sin animación */
+body.h4-quieto .home-activity-rail .home-activity-list>.home-activity-row,
+body.t2-quieto .task-list>.task-note{transition:none!important;animation:none!important}
+body.t2-quieto.t2-apiladas .task-list[data-task-list]>.task-note.t2-nota,
+body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.home-activity-row.h4-nota{transition:none!important;animation:none!important}

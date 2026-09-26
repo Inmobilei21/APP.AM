@@ -1276,13 +1276,13 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
   const today=localDateKey(new Date()),upcoming=getCalendarItems().filter(item=>item.date>=today).sort((a,b)=>`${a.date} ${a.time||"99:99"}`.localeCompare(`${b.date} ${b.time||"99:99"}`)).slice(0,fourColumns?40:4);
   remindersBox.innerHTML=upcoming.length?upcoming.map(item=>`<button type="button" class="home-activity-row home-reminder-row" data-home-route="Calendario"><span class="home-date-badge"><b>${escapeHtml(homeActivityDate(item.date).split(" ")[0])}</b><small>${escapeHtml(homeActivityDate(item.date).split(" ").slice(1).join(" "))}</small></span><span class="home-activity-copy"><strong>${escapeHtml(item.title||"Recordatorio")}</strong><small>${escapeHtml(item.time?`${item.time} · ${item.assigned||"Agenda"}`:(item.assigned||"Todo el día"))}</small></span>${fourColumns?`<span class="home-row-detail">${item.notes||item.description?`<span>${escapeHtml(item.notes||item.description)}</span>`:""}<em>${escapeHtml(homeActivityDate(item.date,true))}${item.time?` · ${escapeHtml(item.time)}`:" · Todo el día"}${item.assigned?` · ${escapeHtml(item.assigned)}`:""}</em></span>`:""}</button>`).join(""):homeActivityEmpty("⌁","Sin recordatorios próximos","Añade avisos desde el calendario.");
 
-  document.querySelectorAll("[data-home-summary], [data-home-route]").forEach(button=>button.addEventListener("click",()=>{
+  document.querySelectorAll("[data-home-summary], [data-home-route]").forEach(button=>{if(button.dataset.homeBound)return;button.dataset.homeBound="1";button.addEventListener("click",()=>{
     const destination=button.dataset.homeSummary||button.dataset.homeRoute;
     if(destination==="messages"){document.querySelector("#chatLauncher")?.click();return}
     const title=destination==="tasks"?"Tareas":destination==="calendar"?"Calendario":destination;
     document.querySelector(`nav button[data-title="${title}"]`)?.click();
-  }));
-  document.querySelectorAll(".metrics [data-home-route]").forEach(card=>card.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();card.click()}}));
+  })});
+  document.querySelectorAll(".metrics [data-home-route]").forEach(card=>{if(card.dataset.homeKeyBound)return;card.dataset.homeKeyBound="1";card.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();card.click()}})});
   document.querySelectorAll("[data-home-open-chat]").forEach(button=>button.addEventListener("click",()=>{document.querySelector("#chatLauncher")?.click();setTimeout(()=>renderConversation(button.dataset.homeOpenChat),0)}));
 }
 async function initHome(){
@@ -4056,7 +4056,15 @@ setInterval(refreshSuggestions,15000);
     document.querySelectorAll(".task-list[data-task-list]>.task-note").forEach(t=>ro.observe(t));
   }
   const previo=renderTaskBoard;
-  renderTaskBoard=function(){const r=previo.apply(this,arguments);apilar();vigilar();return r};
+  renderTaskBoard=function(){
+    const estado=[...document.querySelectorAll(".task-list[data-task-list]")].map(l=>({id:l.dataset.taskList,top:l.scrollTop,abierta:l.querySelector(".t2-abierta")?.dataset.taskId||null}));
+    document.body.classList.add("t2-quieto");
+    const r=previo.apply(this,arguments);apilar();vigilar();
+    estado.forEach(e=>{const l=document.querySelector(`.task-list[data-task-list="${e.id}"]`);if(!l)return;
+      if(e.abierta){const t=l.querySelector(`:scope>.task-note[data-task-id="${CSS.escape(e.abierta)}"]`);if(t){abierta=null;abrir(t)}}
+      l.scrollTop=e.top});
+    requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.remove("t2-quieto")));
+    return r};
   window.addEventListener("resize",programar);
   // Al pasar por una tarjeta se despliega entera; las de debajo se apartan.
   let abierta=null,temporizador=0;
@@ -4091,9 +4099,18 @@ setInterval(refreshSuggestions,15000);
   }
   const programar=()=>{if(!pendiente)pendiente=requestAnimationFrame(apilar)};
   const previo=renderHomeActivityRail;
+  const clave=f=>f.dataset.homeOpenChat||f.textContent.trim().slice(0,80);
   renderHomeActivityRail=function(){
+    // Se refresca cada pocos segundos: se conserva el desplazamiento y la tarjeta abierta
+    // y se recoloca sin animación para que no se mueva nada.
+    const estado=[...document.querySelectorAll(LISTAS)].map(l=>({id:l.id,top:l.scrollTop,abierta:l.querySelector(".h4-abierta")?clave(l.querySelector(".h4-abierta")):null}));
+    document.body.classList.add("h4-quieto");
     const r=previo.apply(this,arguments);
     apilar();
+    estado.forEach(e=>{const l=e.id&&document.getElementById(e.id);if(!l)return;
+      if(e.abierta){const f=[...l.querySelectorAll(":scope>.home-activity-row")].find(x=>clave(x)===e.abierta);if(f){abierta=null;abrir(f)}}
+      l.scrollTop=e.top});
+    requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.remove("h4-quieto")));
     if("ResizeObserver" in window){ro?.disconnect();ro=new ResizeObserver(programar);document.querySelectorAll(`${LISTAS}>.home-activity-row`).forEach(f=>ro.observe(f))}
     return r;
   };
