@@ -939,6 +939,30 @@ function signatureExpiryStatus(v){
 
 
 
+function contactRowsFor(clients){
+  const rows=[];
+  clients.forEach(client=>{
+    const contacts=Array.isArray(client.contacts)?client.contacts.filter(contact=>contact&&(contact.name||contact.phone||contact.email)):[];
+    if(contacts.length){
+      const clientRows=[];
+      contacts.forEach(contact=>{
+        const person=String(contact.name||"").trim(),phone=String(contact.phone||"").trim(),email=String(contact.email||"").trim();
+        const existing=clientRows.find(row=>row.person.toLocaleLowerCase("es")===person.toLocaleLowerCase("es")&&((phone&&!row.phone)||(email&&!row.email)));
+        if(existing){if(phone&&!existing.phone)existing.phone=phone;if(email&&!existing.email)existing.email=email}
+        else clientRows.push({client:client.name,cif:client.cif||"",phone,email,person});
+      });
+      rows.push(...clientRows);
+      return;
+    }
+    const phones=contactLines(client.phones),people=contactLines(client.administrators),emails=contactLines(client.emails);
+    const length=Math.max(phones.length,people.length,emails.length);
+    for(let index=0;index<length;index++){
+      const phone=phones[index]||"",email=emails[index]||"",person=people[index]||people[0]||"";
+      if(phone||email||person)rows.push({client:client.name,cif:client.cif||"",phone,email,person});
+    }
+  });
+  return rows;
+}
 function contactLines(value){return String(value||"").split(/\r?\n/).map(item=>item.trim()).filter(Boolean)}
 function normalizePhoneSearch(value){return String(value||"").replace(/\D/g,"")}
 async function renderContacts(){
@@ -959,27 +983,7 @@ async function renderContacts(){
 async function loadContacts(){
   const body=document.querySelector("#contactsRows");
   try{
-    const clients=(await getAllClientMetadata()).filter(clientIsActive),rows=[];
-    clients.forEach(client=>{
-      const contacts=Array.isArray(client.contacts)?client.contacts.filter(contact=>contact&&(contact.name||contact.phone||contact.email)):[];
-      if(contacts.length){
-        const clientRows=[];
-        contacts.forEach(contact=>{
-          const person=String(contact.name||"").trim(),phone=String(contact.phone||"").trim(),email=String(contact.email||"").trim();
-          const existing=clientRows.find(row=>row.person.toLocaleLowerCase("es")===person.toLocaleLowerCase("es")&&((phone&&!row.phone)||(email&&!row.email)));
-          if(existing){if(phone&&!existing.phone)existing.phone=phone;if(email&&!existing.email)existing.email=email}
-          else clientRows.push({client:client.name,cif:client.cif||"",phone,email,person});
-        });
-        rows.push(...clientRows);
-        return;
-      }
-      const phones=contactLines(client.phones),people=contactLines(client.administrators),emails=contactLines(client.emails);
-      const length=Math.max(phones.length,people.length,emails.length);
-      for(let index=0;index<length;index++){
-        const phone=phones[index]||"",email=emails[index]||"",person=people[index]||people[0]||"";
-        if(phone||email||person)rows.push({client:client.name,cif:client.cif||"",phone,email,person});
-      }
-    });
+    const rows=contactRowsFor((await getAllClientMetadata()).filter(clientIsActive));
     rows.sort((a,b)=>a.client.localeCompare(b.client,"es",{sensitivity:"base"})||a.person.localeCompare(b.person,"es",{sensitivity:"base"}));
     body.innerHTML=rows.length?rows.map(row=>`<tr data-contact-search="${escapeHtml((row.client+" "+row.cif+" "+row.phone+" "+row.email+" "+row.person).toLocaleLowerCase("es"))}" data-contact-phone="${escapeHtml(normalizePhoneSearch(row.phone))}"><td><strong title="${escapeHtml(row.client)}">${escapeHtml(row.client)}</strong></td><td>${escapeHtml(row.cif||"—")}</td><td>${row.phone?`<a class="contact-phone-link" href="tel:${escapeHtml(normalizePhoneSearch(row.phone))}"><span>☎</span>${escapeHtml(row.phone)}</a>`:"—"}</td><td>${row.email?`<a class="contact-email-link" href="mailto:${escapeHtml(row.email)}">${escapeHtml(row.email)}</a>`:"—"}</td><td>${escapeHtml(row.person||"—")}</td></tr>`).join(""):'<tr><td colspan="5" class="table-empty">Todavía no hay contactos guardados en las fichas de clientes.</td></tr>';
     document.querySelector("#contactsCount").textContent=String(rows.length);
@@ -1202,14 +1206,14 @@ async function homeClientCount(){
     const inactiveNames=new Set((await getAllClientMetadata()).filter(client=>!clientIsActive(client)).map(clientIdentity));
     const root=await getSavedHandle("clients-folder");
     if(root&&await root.queryPermission({mode:"read"})==="granted"){
-      let count=0;for await(const entry of root.values())if(entry.kind==="directory"&&!inactiveNames.has(entry.name))count++;
+      let count=0;for await(const entry of root.values())if(entry.kind==="directory"&&!inactiveNames.has(entry.name)&&!isSystemFolderEntry(entry.name))count++;
       return count;
     }
   }catch{}
   try{return(await getAllClientMetadata()).filter(clientIsActive).length}catch{return 0}
 }
 async function homeContactCount(){
-  try{return(await getAllClientMetadata()).filter(clientIsActive).reduce((total,client)=>total+contactLines(client.phones).length,0)}catch{return 0}
+  try{return contactRowsFor((await getAllClientMetadata()).filter(clientIsActive)).length}catch{return 0}
 }
 let homeNewsArticles=[];
 let activeHomeNewsTopic="Todas";
@@ -2782,9 +2786,11 @@ function documentTypeVisual(name){
   return `<span class="file-type-icon ${type.className}" aria-label="Archivo ${escapeHtml(type.label)}"><span class="file-sheet" aria-hidden="true"></span><b>${escapeHtml(type.label)}</b></span>`;
 }
 
+function isSystemFolderEntry(name){return /^(#recycle|#snapshot|@eadir|@tmp|\.|~\$)/i.test(String(name||""))||/^(thumbs\.db|desktop\.ini)$/i.test(String(name||""))}
 async function displayFolder(handle,config,fromBack=false){
   let entries=[];
   for await(const entry of handle.values()){
+    if(isSystemFolderEntry(entry.name))continue;
     entries.push({name:entry.name,kind:entry.kind,handle:entry});
   }
   if(config.storageKey==="clients-folder"&&folderHistory.length===0){
@@ -2809,7 +2815,8 @@ async function displayFolder(handle,config,fromBack=false){
 }
 
 function renderEntries(entries){
-  document.querySelector("#folderCount").textContent=`${entries.length} ${entries.length===1?"elemento":"elementos"}`;
+  const clientRoot=activeFolderConfig?.storageKey==="clients-folder"&&!folderHistory.length,folders=entries.filter(entry=>entry.kind==="directory").length,files=entries.length-folders;
+  document.querySelector("#folderCount").textContent=clientRoot?`${folders} ${folders===1?"cliente":"clientes"}${files?` · ${files} ${files===1?"archivo":"archivos"}`:""}`:`${entries.length} ${entries.length===1?"elemento":"elementos"}`;
   const grid=document.querySelector("#folderGrid");
   grid.innerHTML=entries.length
     ? entries.map((entry,index)=>`<button class="folder-card" data-index="${index}" data-client="${escapeHtml(entry.name.toLocaleLowerCase("es"))}">${entry.kind==="directory"?archiveFolderIcon():documentTypeVisual(entry.name)}<span><strong>${escapeHtml(entry.name)}</strong><small>${entry.kind==="directory"?"Abrir carpeta":"Abrir documento"}</small></span></button>`).join("")
