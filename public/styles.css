@@ -4799,3 +4799,42 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   .chat-mobile-bottom-nav button small{font-size:9px;font-weight:750;white-space:nowrap}
   .chat-mobile-bottom-nav [data-chat-mobile-close]{color:#102ca7;background:#edf1ff}
 }
+
+/* ===== Chat móvil con la estética de Inicio ===== */
+.ch3-logo{display:none}
+@media (max-width:760px){
+  html body .worker-chat #chatPanel{display:flex!important;flex-direction:column!important;inset:0!important;width:100%!important;height:100dvh!important;max-height:100dvh!important;border:0!important;border-radius:0!important;background:#F4F6FB!important;padding:0 0 calc(92px + env(safe-area-inset-bottom))!important;box-sizing:border-box!important}
+  html body .worker-chat #chatPanel .chat-mobile-bottom-nav{display:none!important}
+  /* Cabecera como la de Inicio */
+  html body .worker-chat #chatPanel .chat-team-header{flex:none!important;display:block!important;min-height:0!important;height:auto!important;max-height:none!important;padding:calc(22px + env(safe-area-inset-top)) 20px 70px!important;border-radius:0 0 30px 30px!important;background:radial-gradient(120% 90% at 80% 0%,#13275C 0%,#0A1A3F 50%,#06112B 100%)!important;overflow:hidden!important}
+  html body .worker-chat #chatPanel .chat-team-header::before{right:-60px!important;top:-40px!important;width:260px!important;height:260px!important}
+  html body .worker-chat #chatPanel .chat-team-header .ch3-logo{display:block;position:relative;z-index:1;height:44px;width:auto}
+  html body .worker-chat #chatPanel .chat-team-header .chat-brand{position:relative!important;left:auto!important;top:auto!important;transform:none!important;width:auto!important;height:auto!important;display:block!important;margin-top:24px!important;pointer-events:auto}
+  html body .worker-chat #chatPanel .chat-team-header .chat-brand::before,
+  html body .worker-chat #chatPanel .chat-team-header .chat-brand-logo{display:none!important}
+  html body .worker-chat #chatPanel .chat-team-header .chat-brand>div{display:block!important}
+  html body .worker-chat #chatPanel .chat-team-header .chat-kicker{display:block!important;margin:0!important;font-size:12px!important;font-weight:500!important;letter-spacing:.14em!important;color:rgba(255,255,255,.55)!important}
+  html body .worker-chat #chatPanel .chat-team-header h2{margin:6px 0 0!important;font-size:28px!important;font-weight:600!important;letter-spacing:-.02em!important;line-height:1.15!important;color:#fff!important}
+  html body .worker-chat #chatPanel .chat-team-header #closeChat{position:absolute!important;z-index:2!important;top:calc(22px + env(safe-area-inset-top))!important;right:20px!important;margin:0!important;width:42px!important;height:42px!important;border-radius:50%!important;background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.22)!important;color:#fff!important;font-size:22px!important;display:grid!important;place-items:center!important;box-shadow:none!important}
+  /* Contenido que monta sobre la cabecera */
+  html body .worker-chat #chatPanel #chatContent{flex:1 1 auto!important;min-height:0!important;margin-top:-48px!important;position:relative;z-index:2;background:transparent!important;overflow-y:auto!important;padding:0 16px 16px!important}
+  html body .worker-chat #chatPanel #chatContent.ch2 .chat-intro{display:block!important;margin:0 0 6px!important;padding:18px 16px 16px!important;background:#fff!important;border-radius:22px!important;box-shadow:0 1px 2px rgba(10,26,63,.05),0 16px 36px -22px rgba(10,26,63,.45)!important}
+  html body .worker-chat #chatPanel #chatContent.ch2 .chat-intro strong{display:block;font-size:17px!important;font-weight:650!important}
+  html body .worker-chat #chatPanel #chatContent.ch2 .chat-intro span{display:block;margin-top:3px;font-size:13px!important}
+  html body .worker-chat #chatPanel #chatContent.ch2 .chat-intro .ch2-buscar{margin:14px 0 0!important;background:#F4F6FB!important;border-color:transparent!important}
+  html body .worker-chat #chatPanel #chatContent.ch2 .chat-contacts{padding:0!important}
+  html body .worker-chat #chatPanel #chatContent.ch2 .chat-contact-group{padding-left:0!important;padding-right:0!important}
+  /* Conversación: la barra del contacto es la tarjeta flotante */
+  html body .worker-chat #chatPanel #chatContent .conversation-bar{border-radius:22px!important;border:0!important;box-shadow:0 1px 2px rgba(10,26,63,.05),0 16px 36px -22px rgba(10,26,63,.45)!important;background:#fff!important}
+  /* La barra inferior de la app sigue visible encima del chat */
+  html body:has(.chat-panel[aria-hidden="false"]) .m2-barra{transform:none!important;pointer-events:auto!important}
+  html body.chat-open .m2-barra{z-index:1300!important}
+  html body.chat-open .m2-velo{z-index:1301!important}
+  html body.chat-open .m2-hoja{z-index:1302!important}
+  html body.chat-open .m2-barra .m2-tab.active{color:#6B7488!important}
+  html body.chat-open .m2-barra .m2-tab.active small{font-weight:500}
+  html body.chat-open .m2-barra .m2-chat{color:#0A1A3F!important}
+  html body.chat-open .m2-barra .m2-chat small{font-weight:600}
+  html body.chat-open .chat-launcher,html body.chat-open .suggestion-launcher{visibility:hidden}
+  html body .worker-chat #chatPanel #chatContent .chat-composer,html body .worker-chat #chatPanel #chatContent .chat-note{background:transparent!important;border:0!important;box-shadow:none!important}
+}

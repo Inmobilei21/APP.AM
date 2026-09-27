@@ -4354,3 +4354,24 @@ setInterval(refreshSuggestions,15000);
     };
   }
 })();
+
+/* ===== Chat móvil con la estética de Inicio y la barra inferior de siempre ===== */
+(function(){
+  const panel=document.querySelector("#chatPanel");if(!panel)return;
+  const cab=panel.querySelector(".chat-team-header");
+  if(cab&&!cab.querySelector(".ch3-logo"))cab.insertAdjacentHTML("afterbegin",'<img class="ch3-logo" src="/splash-logo.png?v=3" alt="Molinero">');
+  // Desde la barra inferior o sus hojas, cualquier destino cierra antes el chat
+  document.addEventListener("click",e=>{
+    if(!panel.classList.contains("open"))return;
+    const b=e.target.closest(".m2-barra [data-mobile-route], .m2-hoja [data-m2-ruta], .m2-hoja [data-accion]");
+    if(b)closeWorkerChat();
+  },true);
+  // El buscador pasa dentro de la tarjeta de bienvenida
+  const previo=renderChatContacts;
+  renderChatContacts=function(){
+    const r=previo.apply(this,arguments);
+    const c=document.querySelector("#chatContent"),intro=c?.querySelector(".chat-intro"),bus=c?.querySelector(".ch2-buscar");
+    if(intro&&bus&&bus.parentNode!==intro)intro.appendChild(bus);
+    return r;
+  };
+})();
