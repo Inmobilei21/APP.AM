@@ -4589,3 +4589,27 @@ body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.hom
   body.g2-interior main>header.g2-cab>.g2-logo{height:30px}
   body.g2-interior main>header.g2-cab h1{margin-top:8px!important;font-size:clamp(26px,8vw,32px)!important}
 }
+
+
+/* Ajuste del aviso de tareas en los accesos rápidos móviles */
+@media (max-width:760px){
+  body.m2-en-inicio .m2-acceso > span{
+    position:relative;
+    overflow:visible;
+  }
+  body.m2-en-inicio .m2-acceso .m2-alerta-tareas{
+    top:4px;
+    right:4px;
+    bottom:auto;
+    box-sizing:border-box;
+    min-width:20px;
+    width:auto;
+    height:20px;
+    padding:0 5px;
+    border:2px solid #fff;
+    border-radius:999px;
+    z-index:2;
+    line-height:16px;
+    box-shadow:0 2px 7px rgba(214,69,69,.28);
+  }
+}
