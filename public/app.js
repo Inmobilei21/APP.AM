@@ -4283,3 +4283,48 @@ setInterval(refreshSuggestions,15000);
     if(nav&&nav.scrollHeight>nav.clientHeight+1)nav.scrollTop+=e.deltaMode===1?e.deltaY*16:e.deltaY;
   },{passive:false});
 })();
+/* ===== Chat de trabajadores: buscador, último mensaje y avatares de color ===== */
+(function(){
+  if(typeof renderChatContacts!=="function")return;
+  const COLORES=["#2F4BD6","#6D4AE0","#12805C","#B7791F","#0E7490","#C2410C","#BE185D"];
+  const color=nombre=>{let h=0;for(const ch of String(nombre))h=(h*31+ch.charCodeAt(0))>>>0;return COLORES[h%COLORES.length]};
+  const LUPA='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+  let busqueda="";
+  function filtrar(content){
+    const q=busqueda.trim().toLocaleLowerCase("es");
+    content.querySelectorAll("[data-chat-worker]").forEach(b=>{b.hidden=Boolean(q)&&!b.dataset.chatWorker.toLocaleLowerCase("es").includes(q)});
+    content.querySelectorAll(".chat-contact-group").forEach(g=>{g.hidden=![...g.querySelectorAll("[data-chat-worker]")].some(b=>!b.hidden)});
+    const vacio=content.querySelector(".ch2-vacio");const hay=[...content.querySelectorAll("[data-chat-worker]")].some(b=>!b.hidden);
+    if(vacio)vacio.hidden=hay;
+  }
+  const previoContactos=renderChatContacts;
+  renderChatContacts=function(){
+    const r=previoContactos.apply(this,arguments);
+    const content=document.querySelector("#chatContent");if(!content)return r;
+    content.classList.add("ch2");
+    const intro=content.querySelector(".chat-intro");
+    if(intro&&!content.querySelector(".ch2-buscar")){
+      intro.insertAdjacentHTML("afterend",`<label class="ch2-buscar">${LUPA}<input type="search" placeholder="Buscar compañero o cliente…" aria-label="Buscar conversación" value="${escapeHtml(busqueda)}"></label>`);
+      const input=content.querySelector(".ch2-buscar input");input.addEventListener("input",()=>{busqueda=input.value;filtrar(content)});
+      content.querySelector(".chat-contacts")?.insertAdjacentHTML("beforeend",'<p class="ch2-vacio" hidden>No hay conversaciones con ese nombre.</p>');
+    }
+    content.querySelectorAll("[data-chat-worker]").forEach(b=>{
+      const nombre=b.dataset.chatWorker,item=recentChatItems.find(i=>i.worker===nombre),av=b.querySelector(".chat-avatar");
+      if(av&&!b.classList.contains("client-chat-contact")){av.style.background=color(nombre);av.style.color="#fff"}
+      if(item?.message){
+        const small=b.querySelector("small");
+        if(small&&!item.unreadCount){const mio=item.message.senderId===signedInUser?.id;small.textContent=(mio?"Tú: ":"")+item.message.text;small.classList.add("ch2-ultimo")}
+        if(!b.querySelector(".ch2-hora")){const t=document.createElement("time");t.className="ch2-hora";t.textContent=chatMessageTime(item.message.createdAt);b.querySelector("span:nth-of-type(2)")?.append(t)}
+      }
+    });
+    filtrar(content);
+    return r;
+  };
+  if(typeof renderConversation==="function"){
+    const previoConv=renderConversation;
+    renderConversation=async function(nombre){
+      const pintar=()=>{const bar=document.querySelector("#chatContent .conversation-bar");const av=bar?.querySelector(".chat-avatar");if(av&&!bar.classList.contains("client-conversation")){av.style.background=color(nombre);av.style.color="#fff"}document.querySelector("#chatContent")?.classList.add("ch2")};
+      const p=previoConv.apply(this,arguments);pintar();await p;pintar();return p;
+    };
+  }
+})();
