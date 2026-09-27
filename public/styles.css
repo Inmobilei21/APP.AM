@@ -4613,3 +4613,4 @@ body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.hom
     box-shadow:0 2px 7px rgba(214,69,69,.28);
   }
 }
+#sidebar,#sidebar nav{overscroll-behavior:contain}

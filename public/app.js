@@ -4272,3 +4272,13 @@ setInterval(refreshSuggestions,15000);
   new MutationObserver(()=>{const ahora=document.body.classList.contains("e2-en-inicio")||document.body.classList.contains("m2-en-inicio");if(ahora===enInicio)return;enInicio=ahora;if(!pendiente)pendiente=requestAnimationFrame(()=>{pendiente=0;decorar()})}).observe(document.body,{attributes:true,attributeFilter:["class"]});
   decorar();
 })();
+/* ===== Rueda del ratón sobre el menú lateral: no desplaza la página de fondo ===== */
+(function(){
+  const barra=document.getElementById("sidebar");if(!barra)return;
+  barra.addEventListener("wheel",e=>{
+    if(e.ctrlKey)return;// zoom del navegador
+    e.preventDefault();
+    const nav=barra.querySelector("nav");
+    if(nav&&nav.scrollHeight>nav.clientHeight+1)nav.scrollTop+=e.deltaMode===1?e.deltaY*16:e.deltaY;
+  },{passive:false});
+})();
