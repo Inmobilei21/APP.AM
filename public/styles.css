@@ -4780,3 +4780,9 @@ html body .metrics .metric-icon.violet{--ip:#9278F2}
 html body .metrics .metric-icon.amber,html body .home-tasks-card .home-activity-icon,html body .home-client-messages-card .home-activity-icon{--ip:#F5A524}
 html body .metrics .metric-icon.green,html body .home-reminders-card .home-activity-icon{--ip:#2DB585}
 html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .home-activity-icon{background:radial-gradient(120% 120% at 20% 0%,#1d3576 0%,#0A1A3F 55%,#06112B 100%)!important;color:#fff!important}
+
+/* Chat móvil: conserva accesible la navegación inferior y deja espacio para ella. */
+@media(max-width:760px){
+  .mobile-bottom-nav{z-index:1301}
+  .chat-panel,.chat-panel.perplexity-mode{inset:0 0 calc(88px + env(safe-area-inset-bottom));height:auto;max-height:none}
+}
