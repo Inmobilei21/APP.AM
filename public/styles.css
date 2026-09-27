@@ -4766,3 +4766,17 @@ a.cd2-dato:hover{color:#2F4BD6}
 #chatContent.ch2 .chat-composer button{width:44px!important;height:44px!important;min-width:44px;border-radius:50%!important;background:#0A1A3F!important;color:#fff!important;border:0!important}
 #chatContent.ch2 .chat-composer button:hover{background:#13275C!important}
 #chatContent.ch2 .chat-note{background:#fff;margin:0!important;padding:0 12px 10px!important;font-size:10.5px!important;color:#9AA2B6!important}
+
+/* ===== Iconos de Inicio: azul marino de marca con punto de color ===== */
+html body .metrics .metric-icon,
+html body .home-activity-card .home-activity-icon{position:relative!important;overflow:visible!important;background:radial-gradient(120% 120% at 20% 0%,#1d3576 0%,#0A1A3F 55%,#06112B 100%)!important;color:#fff!important;border:0!important;box-shadow:0 10px 20px -10px rgba(6,17,43,.7),inset 0 1px 0 rgba(255,255,255,.15)!important}
+html body .metrics .metric-icon svg,
+html body .home-activity-card .home-activity-icon svg{stroke:#fff!important;color:#fff!important;fill:none!important}
+html body .metrics .metric-icon::after,
+html body .home-activity-card .home-activity-icon::after{content:""!important;position:absolute!important;right:-3px;top:-3px;width:12px;height:12px;border-radius:50%;border:3px solid #fff;background:var(--ip,#5B74F0);box-sizing:content-box;display:block!important}
+html body .home-activity-card .home-activity-icon::after{width:8px;height:8px;border-width:2.5px}
+html body .metrics .metric-icon.blue,html body .home-messages-card .home-activity-icon{--ip:#5B74F0}
+html body .metrics .metric-icon.violet{--ip:#9278F2}
+html body .metrics .metric-icon.amber,html body .home-tasks-card .home-activity-icon,html body .home-client-messages-card .home-activity-icon{--ip:#F5A524}
+html body .metrics .metric-icon.green,html body .home-reminders-card .home-activity-icon{--ip:#2DB585}
+html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .home-activity-icon{background:radial-gradient(120% 120% at 20% 0%,#1d3576 0%,#0A1A3F 55%,#06112B 100%)!important;color:#fff!important}
