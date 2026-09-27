@@ -356,14 +356,14 @@ function openMenu(){sidebar.classList.add("open");overlay.classList.add("show");
 function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show");document.body.classList.remove("menu-open")}
 let mobileSwipeStart=null;
 document.addEventListener("touchstart",event=>{
-  if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open")||document.querySelector(".chat-panel.open")){mobileSwipeStart=null;return}
-  if(event.target.closest("input,select,textarea,button,a,.tax-table-wrap,.folder-grid"))return;
+  if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open")||document.querySelector(".chat-panel.open:not(#chatPanel)")){mobileSwipeStart=null;return}
+  if(event.target.closest("input,select,textarea,button,a,.tax-table-wrap,.folder-grid")&&!(event.target.closest("#chatPanel")&&event.touches[0].clientX<40))return;
   const touch=event.touches[0];
   mobileSwipeStart={x:touch.clientX,y:touch.clientY,time:Date.now()};
 },{passive:true});
 document.addEventListener("touchend",event=>{
   if(!mobileSwipeStart)return;
-  if(document.querySelector(".chat-panel.open")){mobileSwipeStart=null;return}
+  if(document.querySelector(".chat-panel.open:not(#chatPanel)")){mobileSwipeStart=null;return}
   const touch=event.changedTouches[0],dx=touch.clientX-mobileSwipeStart.x,dy=Math.abs(touch.clientY-mobileSwipeStart.y),elapsed=Date.now()-mobileSwipeStart.time;
   mobileSwipeStart=null;
   if(dx>=75&&dx>dy*1.3&&elapsed<900)openMenu();
@@ -4363,7 +4363,7 @@ setInterval(refreshSuggestions,15000);
   // Desde la barra inferior o sus hojas, cualquier destino cierra antes el chat
   document.addEventListener("click",e=>{
     if(!panel.classList.contains("open"))return;
-    const b=e.target.closest(".m2-barra [data-mobile-route], .m2-hoja [data-m2-ruta], .m2-hoja [data-accion]");
+    const b=e.target.closest(".m2-barra [data-mobile-route], .m2-hoja [data-m2-ruta], .m2-hoja [data-accion], #sidebar nav button[data-title], #sidebar .s2-yo");
     if(b)closeWorkerChat();
   },true);
   // El buscador pasa dentro de la tarjeta de bienvenida

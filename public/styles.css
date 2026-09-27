@@ -4838,3 +4838,8 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   html body.chat-open .chat-launcher,html body.chat-open .suggestion-launcher{visibility:hidden}
   html body .worker-chat #chatPanel #chatContent .chat-composer,html body .worker-chat #chatPanel #chatContent .chat-note{background:transparent!important;border:0!important;box-shadow:none!important}
 }
+/* Menú lateral por encima del chat móvil */
+@media (max-width:760px){
+  html body.chat-open.menu-open aside#sidebar.sidebar{z-index:1400!important}
+  html body.chat-open.menu-open .overlay{z-index:1399!important}
+}
