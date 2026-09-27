@@ -4691,3 +4691,28 @@ html:has(.client-unavailable-overlay),body:has(.client-unavailable-overlay){over
 }
 a.cd2-dato{color:inherit;text-decoration:none}
 a.cd2-dato:hover{color:#2F4BD6}
+
+/* ===== Botones flotantes de Sugerencias y Chat (escritorio) ===== */
+.worker-chat .wc-ico{display:none}
+.worker-chat .suggestion-launcher .wc-txt{font-weight:inherit}
+@media (min-width:761px){
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat{right:28px!important;bottom:26px!important}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .suggestion-launcher,
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-launcher{display:inline-flex!important;align-items:center!important;gap:10px!important;height:50px!important;min-width:0!important;width:auto!important;padding:0 18px 0 7px!important;border-radius:999px!important;font:inherit!important;font-size:14px!important;font-weight:650!important;letter-spacing:.005em;cursor:pointer;transition:transform .2s cubic-bezier(.22,.8,.24,1),box-shadow .2s ease,background .2s ease,border-color .2s ease!important}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .suggestion-launcher>span,
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-launcher-icon{display:none!important}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .wc-ico{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;flex:none;transition:transform .25s ease}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .suggestion-launcher{right:calc(100% + 10px)!important;background:rgba(255,255,255,.92)!important;color:#0A1A3F!important;border:1px solid #E3E7F0!important;box-shadow:0 1px 2px rgba(10,26,63,.06),0 14px 32px -16px rgba(10,26,63,.45)!important;backdrop-filter:blur(10px)}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .suggestion-launcher .wc-ico{background:#FFF4DC;color:#B7791F}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-launcher{background:linear-gradient(135deg,#1A3170 0%,#0A1A3F 60%,#06112B 100%)!important;color:#fff!important;border:0!important;box-shadow:0 16px 34px -14px rgba(6,17,43,.75)!important}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-launcher .wc-ico{background:rgba(255,255,255,.14);color:#fff}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-launcher-label{display:inline!important;font-size:14px!important;font-weight:650!important}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat :is(.suggestion-launcher,.chat-launcher):hover{transform:translateY(-2px)}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .suggestion-launcher:hover{border-color:#D3D9E8!important;background:#fff!important}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .suggestion-launcher:hover .wc-ico{transform:rotate(-12deg)}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-launcher:hover .wc-ico{transform:scale(1.08)}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat :is(.suggestion-launcher,.chat-launcher):active{transform:translateY(0) scale(.98)}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat :is(.suggestion-launcher,.chat-launcher):focus-visible{outline:3px solid rgba(47,75,214,.35);outline-offset:3px}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-launcher.active{background:#13275C!important}
+  body:not(.client-preview-mode):not(.wc-sin) .worker-chat .chat-unread-badge{right:-4px!important;top:-6px!important;min-width:22px;height:22px;border:2px solid #fff;background:#EF4444;font-size:11px;font-weight:700;box-shadow:0 4px 10px rgba(239,68,68,.35)}
+}
