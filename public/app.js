@@ -1269,16 +1269,17 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
   const desktop=window.matchMedia("(min-width:761px)").matches,rail=messagesBox.closest(".home-activity-rail");
   let clientBox=document.querySelector("#homeClientMessagesPreview");
   const messagesCard=messagesBox.closest(".home-activity-card");
-  if(desktop&&rail&&messagesCard&&!clientBox){
-    const card=messagesCard.cloneNode(true);card.classList.add("home-client-messages-card");card.removeAttribute("id");
+  if(rail&&messagesCard&&!clientBox){
+    const card=messagesCard.cloneNode(true);card.classList.remove("home-messages-card");card.classList.add("home-client-messages-card");card.removeAttribute("id");
     card.querySelector("#homeMessagesPreview").id="homeClientMessagesPreview";
-    const eyebrow=card.querySelector(".home-activity-heading small"),title=card.querySelector(".home-activity-heading h3");
-    if(eyebrow)eyebrow.textContent="CLIENTES";if(title)title.textContent="Chat de clientes";
+    const eyebrow=card.querySelector(".home-activity-heading small"),title=card.querySelector(".home-activity-heading h3"),summary=card.querySelector("[data-home-summary]");
+    if(eyebrow)eyebrow.textContent="COMUNICACIÓN CON CLIENTES";if(title)title.textContent="Chat de clientes";
+    if(summary){summary.dataset.homeSummary="client-messages";summary.textContent="Ver chat"}
     rail.append(card);clientBox=card.querySelector("#homeClientMessagesPreview");
   }
   const fourColumns=Boolean(desktop&&clientBox);
   document.body.classList.toggle("home-cuatro-columnas",fourColumns);
-  if(messagesCard){const t=messagesCard.querySelector(".home-activity-heading h3"),e=messagesCard.querySelector(".home-activity-heading small");if(t)t.textContent=fourColumns?"Chat interno":"Últimos mensajes";if(e)e.textContent=fourColumns?"DESPACHO":"COMUNICACIÓN"}
+  if(messagesCard){const t=messagesCard.querySelector(".home-activity-heading h3"),e=messagesCard.querySelector(".home-activity-heading small");if(t)t.textContent="Chat interno del despacho";if(e)e.textContent="DESPACHO"}
   const isClientItem=item=>String(item.otherId||"").startsWith("client:");
   const fullDate=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("es-ES",{weekday:"short",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(d)};
   const homeMessageRow=(item,isClient)=>{const message={worker:item.worker,...item.message,time:chatMessageTime(item.message.createdAt)};return `<button type="button" class="home-activity-row home-message-row ${isClient?"home-message-client":"home-message-internal"}" data-home-open-chat="${escapeHtml(message.worker)}"><span class="home-activity-avatar">${workerInitials(message.worker)}</span><span class="home-activity-copy"><strong>${escapeHtml(message.worker)}</strong><small>${escapeHtml(message.text)}</small></span>${item.unreadCount?`<b class="home-message-unread">${item.unreadCount}</b>`:""}<time>${escapeHtml(message.time||"")}</time>${fourColumns?`<span class="home-row-detail"><span>${escapeHtml(message.text)}</span><em>${escapeHtml(fullDate(message.createdAt))}${item.unreadCount?` · ${item.unreadCount} sin leer`:""} · Pulsa para abrir la conversación</em></span>`:""}</button>`};
@@ -1287,8 +1288,8 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
     messagesBox.innerHTML=internalAll.length?internalAll.slice(0,25).map(item=>homeMessageRow(item,false)).join(""):homeActivityEmpty("✉","Sin mensajes del equipo","Las conversaciones internas aparecerán aquí.");
     clientBox.innerHTML=clientAll.length?clientAll.slice(0,25).map(item=>homeMessageRow(item,true)).join(""):homeActivityEmpty("✉","Sin mensajes de clientes","Lo que escriban los clientes aparecerá aquí.");
   }else{
-    const homeMessageGroup=(title,kind,items,empty)=>`<section class="home-message-group home-message-group-${kind}"><h4><span></span>${title}</h4>${items.length?items.map(item=>homeMessageRow(item,kind==="client")).join(""):`<p class="home-message-group-empty">${empty}</p>`}</section>`;
-    messagesBox.innerHTML=homeMessageGroup("Chat interno del despacho","internal",internalAll.slice(0,3),"Sin mensajes recientes del equipo.")+homeMessageGroup("Chat de clientes","client",clientAll.slice(0,3),"Sin mensajes recientes de clientes.");
+    messagesBox.innerHTML=internalAll.length?internalAll.slice(0,3).map(item=>homeMessageRow(item,false)).join(""):homeActivityEmpty("✉","Sin mensajes recientes del equipo","Las conversaciones internas aparecerán aquí.");
+    clientBox.innerHTML=clientAll.length?clientAll.slice(0,3).map(item=>homeMessageRow(item,true)).join(""):homeActivityEmpty("✉","Sin mensajes recientes de clientes","Las conversaciones de clientes aparecerán aquí.");
   }
 
   const statusLabel=status=>(typeof taskStatuses!=="undefined"&&taskStatuses.find(s=>s.id===status)?.label)||"Pendiente";
@@ -1300,7 +1301,7 @@ function renderHomeActivityRail(){  const messagesBox=document.querySelector("#h
 
   document.querySelectorAll("[data-home-summary], [data-home-route]").forEach(button=>{if(button.dataset.homeBound)return;button.dataset.homeBound="1";button.addEventListener("click",()=>{
     const destination=button.dataset.homeSummary||button.dataset.homeRoute;
-    if(destination==="messages"){document.querySelector("#chatLauncher")?.click();return}
+    if(destination==="messages"||destination==="client-messages"){document.querySelector("#chatLauncher")?.click();return}
     const title=destination==="tasks"?"Tareas":destination==="calendar"?"Calendario":destination;
     document.querySelector(`nav button[data-title="${title}"]`)?.click();
   })});
@@ -3624,9 +3625,12 @@ setInterval(refreshSuggestions,15000);
     actividad.innerHTML=`<div class="m2-seccion-cab"><h2>Actividad</h2></div>`;
     if(rail){
       const tabs=document.createElement("div");tabs.className="m2-pestanas";
-      tabs.innerHTML=`<i class="m2-indicador"></i><button type="button" class="on" data-i="0">Mensajes</button><button type="button" data-i="1">Tareas</button><button type="button" data-i="2">Agenda</button>`;
-      rail.dataset.m2Tab="0";rail.prepend(tabs);actividad.append(rail);
-      tabs.querySelectorAll("button").forEach(b=>b.onclick=()=>{tabs.querySelector(".on")?.classList.remove("on");b.classList.add("on");rail.dataset.m2Tab=b.dataset.i;tabs.querySelector(".m2-indicador").style.transform=`translateX(${b.dataset.i*100}%)`});
+      tabs.innerHTML=`<i class="m2-indicador"></i><button type="button" class="on" data-i="0">Mensajes</button><button type="button" data-i="1">Clientes</button><button type="button" data-i="2">Tareas</button><button type="button" data-i="3">Agenda</button>`;
+      rail.prepend(tabs);actividad.append(rail);
+      const cards=[...rail.querySelectorAll(":scope > .home-activity-card")];
+      const selectTab=index=>{rail.dataset.m2Tab=String(index);cards.forEach((card,i)=>{card.hidden=i!==Number(index)});tabs.querySelector(".m2-indicador").style.transform=`translateX(${index*100}%)`};
+      selectTab(0);
+      tabs.querySelectorAll("button").forEach(b=>b.onclick=()=>{tabs.querySelector(".on")?.classList.remove("on");b.classList.add("on");selectTab(b.dataset.i)});
     }
     layout.prepend(hero,flota,accesos,actividad);
     if(news)layout.append(news);

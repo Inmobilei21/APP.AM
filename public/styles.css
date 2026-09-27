@@ -3739,13 +3739,13 @@ html.auth-pending #splash{visibility:visible}
   /* Actividad con pestañas */
   .m2-actividad .home-activity-rail{display:block!important;position:static!important;width:auto!important;margin:0!important;padding:0 0 6px!important;background:#fff!important;border-radius:22px!important;
     box-shadow:0 1px 2px rgba(10,26,63,.05),0 10px 30px -20px rgba(10,26,63,.3)!important;overflow:hidden}
-  .m2-pestanas{display:grid;position:relative;grid-template-columns:repeat(3,1fr);margin:6px;padding:4px;background:#F3F5FA;border-radius:14px}
+  .m2-pestanas{display:grid;position:relative;grid-template-columns:repeat(4,minmax(0,1fr));margin:6px;padding:4px;background:#F3F5FA;border-radius:14px}
   .m2-pestanas button{position:relative;z-index:1;height:36px;padding:0;border:0;background:none;box-shadow:none;font-size:13px;font-weight:500;color:#6B7488;transition:color .3s}
   .m2-pestanas button.on{color:#0E1A33;font-weight:600}
-  .m2-indicador{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(10,26,63,.12);
+  .m2-indicador{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/4);border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(10,26,63,.12);
     transition:transform .45s cubic-bezier(.22,1,.36,1)}
-  .home-activity-rail[data-m2-tab] .home-activity-card{display:none!important;margin:0!important;padding:4px 16px 4px!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;min-height:0!important}
-  .home-activity-rail[data-m2-tab="0"] .home-messages-card,.home-activity-rail[data-m2-tab="1"] .home-tasks-card,.home-activity-rail[data-m2-tab="2"] .home-reminders-card{display:block!important;animation:m2-entra .45s cubic-bezier(.22,1,.36,1)}
+  .home-activity-rail[data-m2-tab] .home-activity-card,.home-activity-rail[data-m2-tab] .home-activity-card[hidden]{display:none!important;margin:0!important;padding:4px 16px 4px!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;min-height:0!important}
+  .home-activity-rail[data-m2-tab="0"] .home-messages-card,.home-activity-rail[data-m2-tab="1"] .home-client-messages-card,.home-activity-rail[data-m2-tab="2"] .home-tasks-card,.home-activity-rail[data-m2-tab="3"] .home-reminders-card{display:block!important;animation:m2-entra .45s cubic-bezier(.22,1,.36,1)}
   .home-activity-rail[data-m2-tab] .home-activity-heading{display:flex!important;justify-content:flex-end;margin:0!important;padding:6px 0 0!important;border:0!important;min-height:0!important}
   .home-activity-rail[data-m2-tab] .home-activity-heading>:not(button):not(a){display:none!important}
   .home-activity-rail[data-m2-tab] .home-activity-heading button,.home-activity-rail[data-m2-tab] .home-activity-heading a{font-size:12.5px!important;font-weight:600!important;color:#2F4BD6!important;background:none!important;border:0!important;box-shadow:none!important;padding:4px 0!important}
