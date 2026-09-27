@@ -986,7 +986,7 @@ async function loadContacts(){
   try{
     const rows=contactRowsFor((await getAllClientMetadata()).filter(clientIsActive));
     rows.sort((a,b)=>a.client.localeCompare(b.client,"es",{sensitivity:"base"})||a.person.localeCompare(b.person,"es",{sensitivity:"base"}));
-    body.innerHTML=rows.length?rows.map(row=>`<tr data-contact-search="${escapeHtml((row.client+" "+row.cif+" "+row.phone+" "+row.email+" "+row.person).toLocaleLowerCase("es"))}" data-contact-phone="${escapeHtml(normalizePhoneSearch(row.phone))}"><td><strong title="${escapeHtml(row.client)}">${escapeHtml(row.client)}</strong></td><td>${escapeHtml(row.cif||"—")}</td><td>${row.phone?`<a class="contact-phone-link" href="tel:${escapeHtml(normalizePhoneSearch(row.phone))}"><span>☎</span>${escapeHtml(row.phone)}</a>`:"—"}</td><td>${row.email?`<a class="contact-email-link" href="mailto:${escapeHtml(row.email)}">${escapeHtml(row.email)}</a>`:"—"}</td><td>${escapeHtml(row.person||"—")}</td></tr>`).join(""):'<tr><td colspan="5" class="table-empty">Todavía no hay contactos guardados en las fichas de clientes.</td></tr>';
+    body.innerHTML=rows.length?rows.map(row=>`<tr data-contact-search="${escapeHtml((row.client+" "+row.cif+" "+row.phone+" "+row.email+" "+row.person).toLocaleLowerCase("es"))}" data-contact-phone="${escapeHtml(normalizePhoneSearch(row.phone))}"><td><strong title="${escapeHtml(row.client)}">${escapeHtml(row.client)}</strong></td><td>${escapeHtml(row.cif||"—")}</td><td>${row.phone?`<a class="contact-phone-link" href="tel:${escapeHtml(normalizePhoneSearch(row.phone))}">${escapeHtml(row.phone)}</a>`:"—"}</td><td>${row.email?`<a class="contact-email-link" href="mailto:${escapeHtml(row.email)}">${escapeHtml(row.email)}</a>`:"—"}</td><td>${escapeHtml(row.person||"—")}</td></tr>`).join(""):'<tr><td colspan="5" class="table-empty">Todavía no hay contactos guardados en las fichas de clientes.</td></tr>';
     document.querySelector("#contactsCount").textContent=String(rows.length);
   }catch{body.innerHTML='<tr><td colspan="5" class="table-empty">No se pudieron cargar los contactos.</td></tr>'}
 }
@@ -3230,6 +3230,12 @@ function closeWorkerChat(){
   panel.setAttribute("aria-hidden","true");
   document.querySelector("#chatLauncher").classList.remove("active");
 }
+document.addEventListener("keydown",event=>{
+  if(event.key!=="Escape")return;
+  if(document.querySelector("#chatPanel.open"))closeWorkerChat();
+  if(document.querySelector("#perplexityPanel.open"))closePerplexity();
+  if(document.querySelector("#chatgptPanel.open"))closeChatgpt();
+});
 function togglePerplexity(){
   closeWorkerChat();
   closeChatgpt();
