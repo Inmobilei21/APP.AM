@@ -3218,6 +3218,7 @@ function createWorkerChat(){
 
 function toggleWorkerChat(){
   closePerplexity();
+  if(window.matchMedia("(max-width:760px)").matches)installMobileChrome();
   closeChatgpt();
   const panel=document.querySelector("#chatPanel");
   const opening=!panel.classList.contains("open");
