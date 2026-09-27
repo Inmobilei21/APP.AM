@@ -4568,3 +4568,24 @@ body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.hom
 @media (min-width:761px) and (max-width:1500px){
   body.g2-interior:not(.client-preview-mode):not(.e2-en-inicio) main>header.g2-cab>.g2-logo{top:42px;height:48px;filter:none}
 }
+
+/* ===== Cabeceras móviles de los apartados: más altas, con logo y título completo ===== */
+@media (max-width:760px){
+  body.g2-interior:not(.client-preview-mode) main>header.g2-cab{display:grid!important;grid-template-columns:42px minmax(0,1fr) 42px!important;grid-template-rows:auto auto;align-items:center;row-gap:18px;column-gap:12px;height:auto!important;min-height:0!important;padding:calc(14px + env(safe-area-inset-top)) 18px 26px!important;margin-bottom:20px!important}
+  body.g2-interior:not(.client-preview-mode) main>header.g2-cab::after{display:none!important}
+  body.g2-interior main>header.g2-cab>*{position:relative;z-index:1}
+  body.g2-interior main>header.g2-cab>.g2-marca{display:none!important}
+  body.g2-interior main>header.g2-cab>.menu{grid-row:1;grid-column:1;margin:0}
+  body.g2-interior main>header.g2-cab>.g2-logo{display:block!important;grid-row:1;grid-column:2;justify-self:center;height:28px;width:auto;max-width:100%;object-fit:contain;pointer-events:none}
+  body.g2-interior main>header.g2-cab>.profile{grid-row:1;grid-column:3;justify-self:end;margin:0!important}
+  body.g2-interior main>header.g2-cab>div:not(.g2-marca){grid-row:2;grid-column:1/-1!important;text-align:left!important;width:100%;min-width:0}
+  body.g2-interior main>header.g2-cab .eyebrow{display:block;margin:0!important;font-size:10px!important;font-weight:600!important;letter-spacing:.16em!important;color:rgba(255,255,255,.6)!important;text-align:left!important}
+  body.g2-interior main>header.g2-cab h1{max-width:none!important;margin:6px 0 0!important;font-size:clamp(24px,7.4vw,30px)!important;font-weight:650!important;line-height:1.1!important;letter-spacing:-.02em;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;text-align:left!important;color:#fff!important;overflow-wrap:anywhere}
+  body.g2-interior main>header.g2-cab>button:not(.profile):not(.menu){grid-row:1;grid-column:3;justify-self:end;height:42px;min-width:42px;padding:0 12px!important;border-radius:13px!important;background:rgba(255,255,255,.14)!important;border:1px solid rgba(255,255,255,.22)!important;color:#fff!important;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:none!important}
+  body.g2-interior main>header.g2-cab:has(>button:not(.profile):not(.menu)){grid-template-columns:42px minmax(0,1fr) auto!important}
+}
+@media (max-width:760px){
+  body.g2-interior:not(.client-preview-mode) main>header.g2-cab{row-gap:26px!important;column-gap:12px!important;padding:calc(18px + env(safe-area-inset-top)) 20px 34px!important;margin-bottom:22px!important}
+  body.g2-interior main>header.g2-cab>.g2-logo{height:30px}
+  body.g2-interior main>header.g2-cab h1{margin-top:8px!important;font-size:clamp(26px,8vw,32px)!important}
+}
