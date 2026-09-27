@@ -4614,3 +4614,6 @@ body.h4-quieto.home-cuatro-columnas .home-activity-rail .home-activity-list>.hom
   }
 }
 #sidebar,#sidebar nav{overscroll-behavior:contain}
+/* Área de cliente: logotipos reales en los últimos documentos */
+.cd2 .cd2-pdf.cd2-logo{background:transparent!important}
+.cd2 .cd2-pdf.cd2-logo img{width:30px;height:34px;object-fit:contain;display:block;filter:drop-shadow(0 2px 4px rgba(24,35,64,.12));pointer-events:none}
