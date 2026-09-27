@@ -4787,3 +4787,15 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   .mobile-bottom-nav{z-index:1301}
   .chat-panel,.chat-panel.perplexity-mode{inset:0 0 calc(88px + env(safe-area-inset-bottom));height:auto;max-height:none}
 }
+
+/* Barra persistente dentro del chat móvil */
+.chat-mobile-bottom-nav{display:none}
+@media(max-width:760px){
+  body.chat-open .mobile-bottom-nav{display:none}
+  .chat-panel,.chat-panel.perplexity-mode{inset:0;width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0}
+  .chat-mobile-bottom-nav{display:grid;position:relative;z-index:2;flex:0 0 calc(72px + env(safe-area-inset-bottom));grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;padding:7px 6px calc(7px + env(safe-area-inset-bottom));border-top:1px solid #e8ebf1;background:rgba(255,255,255,.98);box-shadow:0 -7px 22px rgba(15,29,75,.08)}
+  .chat-mobile-bottom-nav button{min-width:0;height:54px;border:0;border-radius:14px;background:transparent;color:#727d95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:inherit}
+  .chat-mobile-bottom-nav button span{font-size:21px;line-height:1;color:#102ca7}
+  .chat-mobile-bottom-nav button small{font-size:9px;font-weight:750;white-space:nowrap}
+  .chat-mobile-bottom-nav [data-chat-mobile-close]{color:#102ca7;background:#edf1ff}
+}
