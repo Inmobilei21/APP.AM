@@ -4689,3 +4689,5 @@ html:has(.client-unavailable-overlay),body:has(.client-unavailable-overlay){over
   .cd2 .cd2-sello.cd2-sello-logo{display:block!important;align-self:flex-end;padding-bottom:4px}
   .cd2 .cd2-sello.cd2-sello-logo img{display:block;height:clamp(64px,5.2vw,92px);width:auto;filter:drop-shadow(0 8px 24px rgba(0,0,0,.25))}
 }
+a.cd2-dato{color:inherit;text-decoration:none}
+a.cd2-dato:hover{color:#2F4BD6}
