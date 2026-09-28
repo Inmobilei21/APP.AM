@@ -4843,3 +4843,11 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   html body.chat-open.menu-open aside#sidebar.sidebar{z-index:1400!important}
   html body.chat-open.menu-open .overlay{z-index:1399!important}
 }
+
+/* ===== Pestaña activa de la barra lateral plegada: mismo tono que el lienzo y sin pisar el apartado de abajo ===== */
+@media (min-width:761px){
+  html body .sidebar,html body .sidebar nav,html body .sidebar nav button{--sidebar-active-surface:#F3F5FA!important}
+  html body:not(.client-preview-mode) .sidebar nav button.active{background:#F3F5FA!important;color:#0A1A3F!important}
+  html body:not(.client-preview-mode) .sidebar nav button.active svg{color:#0A1A3F!important;stroke:#0A1A3F!important}
+  html body:not(.client-preview-mode) .sidebar nav button.active{margin-top:14px!important;margin-bottom:14px!important}
+}
