@@ -1,0 +1,59 @@
+/* Área de cliente con la imagen de ProPymes Asesores.
+   Se aplica solo cuando el cliente que se muestra tiene "Despacho: ProPymes Asesores" en su ficha
+   (clase .pp-propymes en <body>, ver despacho-cliente.js). La gestión del despacho no cambia.
+   Colores ProPymes: marino #07213d · arena #d2b48c · crema #f4ede5. */
+
+html body.pp-propymes:not(#dc):not(#dc) .cd2-cab,
+html body.pp-propymes:not(#dc):not(#dc) .client-portal-header,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header,
+html body.pp-propymes:not(#dc):not(#dc) .client-chat-view>header,
+html body.pp-propymes:not(#dc):not(#dc) .client-documents-view>header{
+  background:radial-gradient(90% 140% at 85% -10%,rgba(255,255,255,.35) 0%,rgba(255,255,255,0) 55%),linear-gradient(135deg,#e4cfae 0%,#d2b48c 55%,#c4a06e 100%)!important;
+  color:#07213d!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-cab *,
+html body.pp-propymes:not(#dc):not(#dc) .client-portal-header *,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header *,
+html body.pp-propymes:not(#dc):not(#dc) .client-chat-view>header *,
+html body.pp-propymes:not(#dc):not(#dc) .client-documents-view>header *{color:#07213d!important;text-shadow:none!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-cab::before,html body.pp-propymes:not(#dc):not(#dc) .cd2-cab::after,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header::before,html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header::after{border-color:rgba(7,33,61,.12)!important;opacity:.6}
+/* logos */
+html body.pp-propymes:not(#dc):not(#dc) .cd2-sello img,
+html body.pp-propymes:not(#dc):not(#dc) .client-portal-header>img{content:url("/propymes/logo-arena-vertical.png?v=1");filter:none!important}
+/* esquina superior izquierda: logo horizontal oficial */
+html body.pp-propymes:not(#dc):not(#dc) .cd2-barra>img,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-brand img{content:url("/propymes/logo-arena-horizontal.png?v=1");filter:none!important;height:40px!important;width:auto!important;max-width:none!important;object-fit:contain}
+/* textos secundarios */
+html body.pp-propymes:not(#dc):not(#dc) .cd2-saludo small,html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header small{color:#6b4f2a!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-saludo p,html body.pp-propymes:not(#dc):not(#dc) .client-portal-header p{color:rgba(7,33,61,.78)!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-lema,html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-brand>span{border-color:rgba(7,33,61,.25)!important}
+/* menú, perfil y botones de la cabecera */
+html body.pp-propymes:not(#dc):not(#dc) .cd2-menu,
+html body.pp-propymes:not(#dc):not(#dc) .cd2-perfil,
+html body.pp-propymes:not(#dc):not(#dc) .cd2-salir,
+html body.pp-propymes:not(#dc):not(#dc) .client-portal-header .profile,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header button,
+html body.pp-propymes:not(#dc):not(#dc) .client-chat-view>header button,
+html body.pp-propymes:not(#dc):not(#dc) .client-documents-view>header button{background:rgba(255,255,255,.32)!important;border-color:rgba(7,33,61,.16)!important;box-shadow:none!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-menu button.on{background:#07213d!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-menu button.on,html body.pp-propymes:not(#dc):not(#dc) .cd2-menu button.on *{color:#fff!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-perfil i,
+html body.pp-propymes:not(#dc):not(#dc) .client-portal-header .profile>span:first-child,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header .profile>span:first-child{background:#07213d!important;color:#fff!important}
+html body.pp-propymes:not(#dc):not(#dc) .cd2-cab::before,
+html body.pp-propymes:not(#dc):not(#dc) .client-portal-header::before,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header::before{background:radial-gradient(circle,rgba(255,255,255,.28),transparent 65%)!important}
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header *{opacity:1!important}
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header::before,html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header::after,
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header *::before,html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-header *::after{color:#6b4f2a!important}
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-back{background:rgba(255,255,255,.32)!important;border-color:rgba(7,33,61,.16)!important}
+html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-back,html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-back *{color:#07213d!important}
+
+/* Ficha de cliente: campo Despacho en la fila de identificación */
+#newClientForm .client-office-field{display:grid;align-content:start}
+#newClientForm .client-office-field>span{display:block}
+@media(min-width:1101px){
+  #newClientForm .client-identity-grid{grid-template-columns:minmax(240px,1.7fr) minmax(150px,.8fr) minmax(150px,.72fr) minmax(160px,.8fr) minmax(160px,.8fr) minmax(170px,.85fr)!important}
+}
+html body.pp-propymes:not(#dc):not(#dc) .client-portal-header img{content:url("/propymes/logo-arena-vertical.png?v=1");filter:none!important;opacity:1!important}
+@media(min-width:761px){html body.pp-propymes:not(#dc):not(#dc) .cd2 .cd2-sello.cd2-sello-logo img{height:clamp(86px,7vw,124px)!important}}
