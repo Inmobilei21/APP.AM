@@ -57,3 +57,11 @@ html body.pp-propymes:not(#dc):not(#dc) .client-fiscal-back,html body.pp-propyme
 }
 html body.pp-propymes:not(#dc):not(#dc) .client-portal-header img{content:url("/propymes/logo-arena-vertical.png?v=1");filter:none!important;opacity:1!important}
 @media(min-width:761px){html body.pp-propymes:not(#dc):not(#dc) .cd2 .cd2-sello.cd2-sello-logo img{height:clamp(86px,7vw,124px)!important}}
+
+/* Con una ventana abierta (ficha de cliente, Mi cuenta…) la pestaña activa de la barra lateral no se
+   prolonga hacia el lienzo: queda como un botón redondeado dentro de la barra, sin "trozo" suelto. */
+@media(min-width:761px){
+  html body:has(.modal-shell.open,.account-shell):not(.client-preview-mode):not(#x) #sidebar:not(:hover) nav button.active{width:auto!important;margin-left:0!important;margin-right:0!important;padding-right:0!important;border-radius:16px!important;align-self:center!important}
+  html body:has(.modal-shell.open,.account-shell):not(.client-preview-mode):not(#x) #sidebar:not(:hover) nav button.active::before,
+  html body:has(.modal-shell.open,.account-shell):not(.client-preview-mode):not(#x) #sidebar:not(:hover) nav button.active::after{display:none!important}
+}
