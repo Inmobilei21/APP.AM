@@ -4572,3 +4572,18 @@ setInterval(refreshSuggestions,15000);
     return r;
   };
 })();
+
+/* ===== Seguridad del desplazamiento en móvil: si un bloqueo de fondo se queda "enganchado" sin ningún panel abierto, se libera ===== */
+(function(){
+  const revisar=()=>{
+    const b=document.body,h=document.documentElement;
+    if(b.classList.contains("m2-panel-open")&&!document.querySelector(".m2-hoja.on")){
+      const y=Number(b.dataset.m2Scroll)||0;b.classList.remove("m2-panel-open");b.style.top="";delete b.dataset.m2Scroll;window.scrollTo(0,y);
+    }
+    if(h.classList.contains("pv-abierto")&&!document.querySelector(".pv-capa"))h.classList.remove("pv-abierto");
+    if(b.classList.contains("menu-open")&&!document.querySelector("#sidebar.open"))b.classList.remove("menu-open");
+  };
+  document.addEventListener("touchstart",revisar,{passive:true,capture:true});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)revisar()});
+  window.addEventListener("pageshow",revisar);
+})();
