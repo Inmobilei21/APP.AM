@@ -5103,3 +5103,26 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   }
   .m2-hoja .m2-asa:active{cursor:grabbing}
 }
+
+
+/* ===== Mi cuenta móvil: misma tarjeta flotante que Nuevo cliente ===== */
+@media (max-width:760px){
+  .account-shell{
+    box-sizing:border-box;
+    padding:
+      calc(env(safe-area-inset-top) + 12px)
+      10px
+      calc(env(safe-area-inset-bottom) + 12px);
+  }
+  .account-shell .account-card{
+    box-sizing:border-box;
+    width:100%;
+    height:100%;
+    max-height:100%;
+    overflow-x:hidden;
+    overflow-y:auto;
+    border-radius:28px;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+}
