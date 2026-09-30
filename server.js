@@ -5,7 +5,7 @@ const crypto = require("crypto");
 const invoiceReader = require("./invoice-reader");
 
 const root = path.join(__dirname, "public");
-const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json; charset=utf-8", ".json": "application/json; charset=utf-8" };
+const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webmanifest": "application/manifest+json; charset=utf-8", ".json": "application/json; charset=utf-8" };
 const newsTopicsQuery = '(fiscal OR tributario OR impuestos OR AEAT OR IVA OR IRPF OR "Impuesto sobre Sociedades" OR ICAC OR "Seguridad Social") ("entrada en vigor" OR reforma OR modifica OR aprueba OR "nueva normativa" OR "nuevo procedimiento" OR "nuevas obligaciones" OR "nuevos plazos") when:60d';
 const newsSourceGroups = [
   ["eleconomista.es", "expansion.com", "cincodias.elpais.com", "autonomosyemprendedor.es"],
