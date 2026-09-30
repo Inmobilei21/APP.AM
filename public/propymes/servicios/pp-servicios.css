@@ -64,3 +64,31 @@ html body:not(#s):not(#s):not(#s) .pp-srv-form input[aria-invalid]{border-color:
   html body:not(#s):not(#s):not(#s) .pp-srv .client-unavailable-card>header{padding:18px 64px 20px 22px!important}
   html body:not(#s):not(#s):not(#s) .pp-srv .client-unavailable-card>header .pp-srv-logo{height:28px;margin-bottom:12px}
 }
+
+/* ===================== área de cliente ProPymes (pp-portal.js) ===================== */
+/* Mensajes: asesores no disponibles en sombra y con candado */
+html body:not(#s):not(#s):not(#s) .client-chat-advisors button.pp-bloqueado{opacity:.45;filter:grayscale(1);cursor:not-allowed!important;box-shadow:none!important;transform:none!important}
+html body:not(#s):not(#s):not(#s) .client-chat-advisors button.pp-bloqueado:hover{background:inherit!important}
+.client-chat-advisors .pp-candado{display:grid;place-items:center;width:30px;height:30px;margin-left:auto;border-radius:50%;background:#f4ede5;color:#75695c}
+.client-chat-advisors .pp-candado svg{width:15px;height:15px}
+
+/* Tarjeta Avisos */
+.pp-avisos-acc [hidden]{display:none!important}
+html body:not(#s):not(#s):not(#s) .pp-avisos-acc .pp-avisos-ic{background:#f4ede5!important;color:#a8875a!important}
+html body:not(#s):not(#s):not(#s) .pp-avisos-acc.pp-avisos-hay .pp-avisos-ic{background:#fdf1dc!important;color:#c07a12!important}
+.pp-avisos-acc .pp-avisos-ic svg{width:22px;height:22px}
+html body:not(#s):not(#s):not(#s) .pp-avisos-acc .pp-avisos-marca{display:inline-flex;align-items:center;gap:5px;margin-left:auto;padding:4px 10px 4px 8px;border-radius:999px;background:#fdf1dc!important;color:#b86e0a!important;font-style:normal;font-size:13px;font-weight:800;line-height:1}
+.pp-avisos-acc .pp-avisos-marca svg{width:16px;height:16px}
+.pp-avisos-acc .pp-avisos-flecha{display:contents}
+html body:not(#s):not(#s):not(#s) .pp-avisos-acc.pp-avisos-hay small{color:#b86e0a!important;font-weight:600}
+
+/* Ventana de avisos */
+.pp-avisos-lista{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:10px;width:100%;text-align:left}
+.pp-avisos-lista li{display:flex;gap:12px;padding:14px;border-radius:14px;background:#fffaf0;border:1px solid #f1dfbd}
+.pp-avisos-lista .pp-aviso-ic{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:#fdf1dc;color:#c07a12}
+.pp-avisos-lista .pp-aviso-ic svg{width:20px;height:20px}
+.pp-avisos-lista b{display:block;color:#07213d;font-size:15px}
+.pp-avisos-lista p{margin:3px 0 0!important;color:#5f5549;font-size:13.5px;line-height:1.45}
+.pp-avisos-lista time{display:block;margin-top:6px;color:#a8875a;font-size:12px;font-weight:600}
+.pp-avisos-overlay .pp-srv-done .pp-avisos-vacio svg{width:30px;height:30px}
+.pp-avisos-overlay .pp-srv-body>.client-unavailable-primary{width:100%!important}
