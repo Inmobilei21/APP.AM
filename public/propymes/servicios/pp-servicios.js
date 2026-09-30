@@ -24,6 +24,9 @@
   function download(service) {
     const name = clientServicePdfNames[service];
     if (!name) return downloadClientServicePdf(service);
+    // En el móvil: vista previa de la presentación con botones Descargar y Compartir
+    if (window.abrirPresentacionServicio && window.esMovilPresentacion?.())
+      return window.abrirPresentacionServicio(service, { pdfUrl: `${BASE}pdf/${name}`, imgBase: `${BASE}img/` });
     const link = document.createElement("a");
     link.href = `${BASE}pdf/${name}`; link.download = name;
     document.body.appendChild(link); link.click(); link.remove();
