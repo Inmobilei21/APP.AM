@@ -5126,3 +5126,115 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
     overscroll-behavior:contain;
   }
 }
+
+
+/* ===== Mi cuenta móvil: sección completa como Clientes ===== */
+.account-mobile-header{display:none}
+@media (max-width:760px){
+  .account-shell{
+    display:block;
+    padding:0;
+    overflow-x:hidden;
+    overflow-y:auto;
+    background:#F3F5FA;
+    backdrop-filter:none;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  .account-shell .account-backdrop{display:none}
+  .account-mobile-header{
+    display:block;
+    position:relative;
+    overflow:hidden;
+    min-height:280px;
+    padding:calc(24px + env(safe-area-inset-top)) 22px 70px;
+    color:#fff;
+    background:radial-gradient(120% 90% at 80% 0%,#1A347B 0%,#0A1A3F 52%,#06112B 100%);
+    border-radius:0 0 30px 30px;
+  }
+  .account-mobile-header::before{
+    content:"";
+    position:absolute;
+    right:-65px;
+    top:-45px;
+    width:260px;
+    height:260px;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(59,91,219,.42),transparent 66%);
+    filter:blur(10px);
+    pointer-events:none;
+  }
+  .account-mobile-top{
+    position:relative;
+    z-index:1;
+    display:grid;
+    grid-template-columns:52px minmax(0,1fr) 52px;
+    align-items:center;
+    gap:14px;
+  }
+  .account-mobile-menu,.account-mobile-avatar{
+    width:52px;
+    height:52px;
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:17px;
+    background:rgba(255,255,255,.10);
+    color:#fff;
+    display:grid;
+    place-items:center;
+    box-shadow:none;
+  }
+  .account-mobile-menu{padding:0;font:700 23px/1 inherit;cursor:pointer}
+  .account-mobile-avatar{
+    justify-self:end;
+    border-radius:50%;
+    background:#fff;
+    color:#20339e;
+    font-size:14px;
+    font-weight:850;
+    letter-spacing:.02em;
+    box-shadow:0 0 0 7px rgba(255,255,255,.10);
+  }
+  .account-mobile-top img{
+    justify-self:center;
+    display:block;
+    width:min(180px,100%);
+    max-height:62px;
+    object-fit:contain;
+  }
+  .account-mobile-title{position:relative;z-index:1;margin-top:58px}
+  .account-mobile-title small{
+    display:block;
+    color:rgba(255,255,255,.62);
+    font-size:11px;
+    font-weight:750;
+    letter-spacing:.18em;
+  }
+  .account-mobile-title h1{
+    margin:12px 0 0;
+    color:#fff;
+    font-size:40px;
+    line-height:1.05;
+    letter-spacing:-.035em;
+  }
+  .account-shell .account-card{
+    width:calc(100% - 28px);
+    height:auto;
+    max-height:none;
+    margin:20px 14px calc(104px + env(safe-area-inset-bottom));
+    padding:22px 18px 26px;
+    overflow:visible;
+    border:1px solid rgba(220,225,237,.86);
+    border-radius:24px;
+    box-shadow:0 16px 38px -26px rgba(10,26,63,.35);
+  }
+  .account-shell .account-card>.account-close,
+  .account-shell .account-card>.eyebrow,
+  .account-shell .account-card>h2,
+  .account-shell .account-card>h2+ p{display:none}
+  .account-shell .view-mode-button{margin-top:0}
+  html body:has(.account-shell) .m2-barra{
+    z-index:3100!important;
+    transform:none!important;
+    pointer-events:auto!important;
+  }
+}
