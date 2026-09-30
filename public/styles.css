@@ -4851,3 +4851,147 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   html body:not(.client-preview-mode) .sidebar nav button.active svg{color:#0A1A3F!important;stroke:#0A1A3F!important}
   html body:not(.client-preview-mode) .sidebar nav button.active{margin-top:14px!important;margin-bottom:14px!important}
 }
+
+
+/* ===== Ficha del cliente móvil: vista de datos compacta ===== */
+@media (max-width:760px){
+  /* Alcance deliberadamente limitado al modal de la ficha del cliente. */
+  #clientModal .client-modal{
+    width:calc(100vw - 16px);
+    max-height:calc(100dvh - 16px);
+    padding:18px 16px 22px;
+    border-radius:24px;
+  }
+  #clientModal .modal-heading{
+    position:relative;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:start!important;
+    gap:12px!important;
+    padding:2px 0 16px;
+    margin-bottom:14px;
+  }
+  #clientModal .modal-heading>div:first-child{min-width:0;padding-right:4px}
+  #clientModal .modal-heading .eyebrow{font-size:11px;letter-spacing:.16em}
+  #clientModal .modal-heading h2{
+    margin-top:5px;
+    font-size:clamp(24px,7vw,31px);
+    line-height:1.08;
+    letter-spacing:-.035em;
+    overflow-wrap:anywhere;
+  }
+  #clientModal .client-modal-heading-actions{
+    position:static;
+    width:auto;
+    margin:0;
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:center;
+    justify-content:flex-end;
+    gap:7px;
+  }
+  #clientModal #clientModalDismiss{display:none!important}
+  #clientModal .client-modal-heading-actions .client-view-edit:not([hidden]),
+  #clientModal .client-modal-heading-actions #saveClientButton:not([hidden]){
+    width:auto;
+    min-width:0;
+    min-height:40px;
+    padding:8px 13px;
+    border-radius:12px;
+  }
+  #clientModal .client-modal-heading-actions .modal-close{
+    order:3;
+    width:40px;
+    height:40px;
+    flex:0 0 40px;
+    margin:0;
+    border-radius:12px;
+    font-size:24px;
+  }
+
+  /* En consulta, los controles se leen como datos y no como un formulario largo. */
+  #clientModal #newClientForm.client-view-mode .client-identity-grid{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:10px;
+    padding:12px;
+    margin:0 0 14px;
+    border:1px solid #e2e6ef;
+    border-radius:18px;
+    background:#f8f9fc;
+  }
+  #clientModal #newClientForm.client-view-mode .client-identity-grid::before{
+    content:"Datos principales";
+    grid-column:1/-1;
+    color:#2438c5;
+    font-size:11px;
+    font-weight:850;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+  }
+  #clientModal #newClientForm.client-view-mode .client-identity-grid>label{
+    min-width:0;
+    margin:0;
+    padding:11px 12px;
+    border:1px solid #e5e8f0;
+    border-radius:13px;
+    background:#fff;
+    color:#788399;
+    font-size:10px;
+    font-weight:800;
+    line-height:1.2;
+  }
+  #clientModal #newClientForm.client-view-mode .client-identity-grid>.client-name-field,
+  #clientModal #newClientForm.client-view-mode .client-identity-grid>.client-active-field{
+    grid-column:1/-1;
+  }
+  #clientModal #newClientForm.client-view-mode .client-identity-grid input:not([type=checkbox]),
+  #clientModal #newClientForm.client-view-mode .client-identity-grid select{
+    width:100%;
+    height:auto!important;
+    min-height:24px!important;
+    margin:5px 0 0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    color:#111b34!important;
+    -webkit-text-fill-color:#111b34!important;
+    font-size:15px!important;
+    font-weight:780!important;
+    line-height:1.35!important;
+    appearance:none;
+  }
+  #clientModal #newClientForm.client-view-mode .client-identity-grid small{
+    margin:3px 0 0!important;
+    font-size:9px!important;
+    line-height:1.25;
+  }
+  #clientModal #newClientForm.client-view-mode .client-active-control{
+    width:max-content;
+    max-width:100%;
+    height:auto;
+    min-height:28px;
+    margin-top:5px;
+    padding:0;
+    border:0;
+    background:transparent;
+  }
+  #clientModal #newClientForm.client-view-mode .client-active-control small{
+    color:#34405a!important;
+    font-size:12px!important;
+    font-weight:750;
+  }
+  #clientModal #newClientForm.client-view-mode .client-active-control i{transform:scale(.88);transform-origin:left center}
+  #clientModal #newClientForm.client-view-mode .internal-client-data{margin-top:0}
+
+  /* En edición se conserva el formulario, pero con una cabecera limpia. */
+  #clientModal #newClientForm:not(.client-view-mode) .client-identity-grid{margin-top:0}
+}
+@media (max-width:390px){
+  #clientModal .modal-heading{grid-template-columns:1fr}
+  #clientModal .client-modal-heading-actions{position:absolute;right:0;top:0}
+  #clientModal .modal-heading>div:first-child{padding-right:96px}
+  #clientModal #newClientForm.client-view-mode .client-identity-grid{grid-template-columns:1fr}
+  #clientModal #newClientForm.client-view-mode .client-identity-grid>label{grid-column:1!important}
+}
