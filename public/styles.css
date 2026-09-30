@@ -5126,3 +5126,78 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
     overscroll-behavior:contain;
   }
 }
+
+/* ===== Mi cuenta móvil: cabecera azul como Clientes ===== */
+.account-hero>p{color:#68738a;line-height:1.5}
+@media(max-width:760px){
+  .account-shell .account-card{
+    padding:0;
+    overflow-x:hidden;
+    overflow-y:auto;
+    background:#fff;
+  }
+  .account-hero{
+    position:relative;
+    min-height:190px;
+    box-sizing:border-box;
+    padding:32px 74px 34px 24px;
+    color:#fff;
+    background:linear-gradient(120deg,#091b58 0%,#1535b4 64%,#3158e8 100%);
+    border-radius:0 0 28px 28px;
+    overflow:hidden;
+  }
+  .account-hero::after{
+    content:"";
+    position:absolute;
+    width:190px;
+    height:170px;
+    right:18px;
+    top:-34px;
+    background:url('/app-icon.png') center/contain no-repeat;
+    filter:brightness(0) invert(1) blur(.7px);
+    opacity:.10;
+    transform:rotate(-5deg);
+    pointer-events:none;
+  }
+  .account-hero .eyebrow{
+    position:relative;
+    z-index:1;
+    margin:0 0 12px;
+    color:#c5d0ff;
+    font-size:12px;
+    font-weight:850;
+    letter-spacing:.18em;
+  }
+  .account-card .account-hero h2{
+    position:relative;
+    z-index:1;
+    max-width:100%;
+    margin:0;
+    color:#fff;
+    font-size:32px;
+    line-height:1.08;
+    overflow-wrap:anywhere;
+  }
+  .account-hero>p:last-child{
+    position:relative;
+    z-index:1;
+    margin:12px 0 0;
+    color:#d8e0ff;
+    font-size:14px;
+  }
+  .account-hero .account-close{
+    z-index:2;
+    top:22px;
+    right:20px;
+    width:48px;
+    height:48px;
+    background:rgba(255,255,255,.94);
+    color:#1535b4;
+    font-size:29px;
+    box-shadow:0 8px 22px rgba(3,12,46,.18);
+  }
+  .account-content{
+    padding:22px 19px calc(24px + env(safe-area-inset-bottom));
+  }
+  .account-content .view-mode-button{margin-top:0}
+}
