@@ -211,6 +211,14 @@ function currentUser(req) {
   if (session.expires < Date.now()) { sessions.delete(token);saveSessions();return null; }
   return loadUsers().find(user => user.id === session.userId) || null;
 }
+// La sesión caduca por inactividad, no por tiempo de uso: cada vez que se abre la aplicación
+// se renuevan otros 30 días (como mucho una vez al día para no escribir en cada petición).
+function renewSession(req) {
+  const token = cookieValue(req, "app_am_session"), session = sessions.get(token);
+  if (!session || session.expires < Date.now()) return {};
+  if (session.expires - Date.now() < sessionDuration - 24 * 60 * 60 * 1000) { session.expires = Date.now() + sessionDuration;saveSessions(); }
+  return { "Set-Cookie": `app_am_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${sessionDuration / 1000}` };
+}
 function publicUser(user) { return { id: user.id, name: user.name, role: user.role, passwordSet: Boolean(user.passwordHash) }; }
 function json(res, status, body, headers = {}) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers });
@@ -450,7 +458,7 @@ http.createServer((req, res) => {
   }
   if (requestPath === "/api/auth/status" && req.method === "GET") {
     const user = currentUser(req), users = loadUsers();
-    return json(res, 200, { user: user ? publicUser(user) : null, needsSetup: !users.some(item => item.passwordHash), users: users.map(publicUser) });
+    return json(res, 200, { user: user ? publicUser(user) : null, needsSetup: !users.some(item => item.passwordHash), users: users.map(publicUser) }, user ? renewSession(req) : {});
   }
   if (requestPath === "/api/auth/setup" && req.method === "POST") {
     return readJson(req).then(({ userId, password, setupPassword }) => {

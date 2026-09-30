@@ -12,8 +12,21 @@ async function checkForApplicationUpdate(){
   try{
     const {version}=await apiJson(`/api/version?time=${Date.now()}`,{cache:"no-store"});
     if(loadedApplicationVersion===null){loadedApplicationVersion=version;return}
-    if(version&&version!==loadedApplicationVersion)location.reload();
+    if(!version||version===loadedApplicationVersion)return;
+    // Sin sesión se actualiza directamente; con la sesión iniciada nunca se recarga sola
+    // (se perdería lo que se esté haciendo): se avisa y se actualiza cuando la persona quiera.
+    if(!signedInUser){location.reload();return}
+    showApplicationUpdateNotice();
   }catch{}
+}
+function showApplicationUpdateNotice(){
+  if(document.querySelector(".app-update-notice"))return;
+  const notice=document.createElement("div");notice.className="app-update-notice";notice.setAttribute("role","status");
+  notice.style.cssText="position:fixed;z-index:5000;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);padding:10px 10px 10px 18px;border-radius:999px;background:#0A1A3F;color:#fff;font:600 14px/1.3 system-ui,-apple-system,Segoe UI,sans-serif;box-shadow:0 16px 36px -14px rgba(10,26,63,.6)";
+  notice.innerHTML='<span>Hay una versión nueva de la aplicación</span><button type="button" data-update style="border:0;border-radius:999px;padding:8px 14px;background:#fff;color:#0A1A3F;font:inherit;cursor:pointer">Actualizar</button><button type="button" data-later aria-label="Más tarde" style="border:0;background:none;color:rgba(255,255,255,.7);font:400 20px/1 Arial,sans-serif;padding:4px 6px;cursor:pointer">×</button>';
+  notice.querySelector("[data-update]").onclick=()=>location.reload();
+  notice.querySelector("[data-later]").onclick=()=>notice.remove();
+  document.body.appendChild(notice);
 }
 checkForApplicationUpdate();
 setInterval(checkForApplicationUpdate,20000);
