@@ -4492,3 +4492,83 @@ setInterval(refreshSuggestions,15000);
     abrir(servicio);
   };
 })();
+
+/* ===== Vista previa de documentos en móvil: PDF con todas las páginas ajustadas al ancho y botón Compartir ===== */
+(function(){
+  if(typeof openDocumentPreview!=="function")return;
+  const original=openDocumentPreview;
+  const movil=()=>matchMedia("(max-width:760px), (pointer:coarse)").matches;
+  let pdfjsListo=null;
+  const cargarPdfjs=()=>pdfjsListo||(pdfjsListo=import("/vendor/pdfjs/pdf.min.mjs").then(m=>{m.GlobalWorkerOptions.workerSrc="/vendor/pdfjs/pdf.worker.min.mjs";return m}).catch(e=>{pdfjsListo=null;throw e}));
+  const COMPARTIR='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+  const BAJAR='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5"/><path d="M5 20h14"/></svg>';
+
+  async function pintarPdf(file,shell){
+    const frame=shell.querySelector("#documentPreviewFrame");if(!frame)return;
+    const caja=document.createElement("div");caja.className="dv-paginas";caja.innerHTML='<p class="dv-aviso"><span class="dv-spin"></span>Cargando documento…</p>';
+    frame.replaceWith(caja);
+    try{
+      const pdfjs=await cargarPdfjs();
+      const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;
+      if(!shell.isConnected)return;
+      caja.innerHTML="";
+      const contador=document.createElement("div");contador.className="dv-contador";contador.textContent=`1 / ${pdf.numPages}`;
+      caja.parentElement.appendChild(contador);
+      const ancho=Math.max(caja.clientWidth-24,200),dpr=Math.min(window.devicePixelRatio||1,2.5);
+      const primera=await pdf.getPage(1),vp1=primera.getViewport({scale:1});
+      const hojas=[];
+      for(let n=1;n<=pdf.numPages;n++){
+        const hoja=document.createElement("div");hoja.className="dv-hoja";hoja.dataset.n=n;
+        hoja.style.aspectRatio=`${vp1.width} / ${vp1.height}`;caja.appendChild(hoja);hojas.push(hoja);
+      }
+      const pintadas=new Set();
+      const pintar=async n=>{
+        if(pintadas.has(n))return;pintadas.add(n);
+        const pagina=n===1?primera:await pdf.getPage(n),base=pagina.getViewport({scale:1});
+        const vp=pagina.getViewport({scale:ancho/base.width*dpr});
+        const lienzo=document.createElement("canvas");lienzo.width=Math.floor(vp.width);lienzo.height=Math.floor(vp.height);
+        const hoja=hojas[n-1];hoja.style.aspectRatio=`${base.width} / ${base.height}`;
+        await pagina.render({canvasContext:lienzo.getContext("2d"),viewport:vp}).promise;
+        hoja.appendChild(lienzo);hoja.classList.add("lista");
+      };
+      const obs=new IntersectionObserver(entradas=>entradas.forEach(e=>{if(e.isIntersecting)pintar(Number(e.target.dataset.n)).catch(()=>{})}),{root:caja,rootMargin:"600px 0px"});
+      hojas.forEach(h=>obs.observe(h));
+      caja.addEventListener("scroll",()=>{
+        const medio=caja.scrollTop+caja.clientHeight/2;let actual=1;
+        for(const h of hojas){if(h.offsetTop<=medio)actual=Number(h.dataset.n);else break}
+        contador.textContent=`${actual} / ${pdf.numPages}`;
+      },{passive:true});
+    }catch(error){
+      console.error("Vista previa PDF",error);
+      if(shell.isConnected)caja.replaceWith(frame);
+    }
+  }
+
+  function compartir(file,shell){
+    const pie=shell.querySelector(".document-preview-card>footer");if(!pie||pie.querySelector(".dv-compartir"))return;
+    const bajar=pie.querySelector("#downloadPreviewDocument");if(bajar)bajar.innerHTML=`${BAJAR}<span>Descargar</span>`;
+    const boton=document.createElement("button");boton.type="button";boton.className="dv-compartir";boton.innerHTML=`${COMPARTIR}<span>Compartir</span>`;
+    pie.appendChild(boton);
+    boton.addEventListener("click",async()=>{
+      const datos={files:[file],title:file.name};
+      try{
+        if(navigator.canShare&&navigator.canShare({files:[file]}))await navigator.share(datos);
+        else bajar?.click();
+      }catch(err){if(err&&err.name!=="AbortError")bajar?.click()}
+    });
+  }
+
+  openDocumentPreview=function(file){
+    const r=original.apply(this,arguments);
+    try{
+      const shell=document.getElementById("documentPreview");
+      if(shell&&movil()){
+        shell.classList.add("dv-movil");
+        compartir(file,shell);
+        const ext=(String(file?.name||"").split(".").pop()||"").toLowerCase();
+        if(file&&(file.type==="application/pdf"||ext==="pdf"))pintarPdf(file,shell);
+      }
+    }catch(e){console.error(e)}
+    return r;
+  };
+})();
