@@ -372,6 +372,17 @@ function bindHeader(){const header=main.querySelector(":scope>header");if(header
 
 function syncMobileNavigation(title="Inicio"){
   document.querySelectorAll("[data-mobile-route]").forEach(button=>button.classList.toggle("active",button.dataset.mobileRoute===title));
+  const bar=document.querySelector(".m2-barra");
+  if(!bar)return;
+  bar.querySelectorAll(".m2-tab").forEach(button=>button.classList.remove("active"));
+  const active=title==="Inicio"
+    ?bar.querySelector('[data-mobile-route="Inicio"]')
+    :title==="Clientes"
+      ?bar.querySelector('[data-mobile-route="Clientes"]')
+      :title==="Chat"
+        ?bar.querySelector(".m2-chat")
+        :bar.querySelector(".m2-menu");
+  active?.classList.add("active");
 }
 function mobileRoute(title,after){
   document.querySelector(`nav button[data-title="${title}"]`)?.click();
@@ -3238,6 +3249,7 @@ function toggleWorkerChat(){
   document.body.classList.toggle("chat-open",opening);
   panel.setAttribute("aria-hidden",String(!opening));
   document.querySelector("#chatLauncher").classList.toggle("active",opening);
+  syncMobileNavigation(opening?"Chat":document.querySelector(".sidebar nav button.active")?.dataset.title||"Inicio");
 }
 function closeWorkerChat(){
   const panel=document.querySelector("#chatPanel");
@@ -3245,6 +3257,7 @@ function closeWorkerChat(){
   document.body.classList.remove("chat-open");
   panel.setAttribute("aria-hidden","true");
   document.querySelector("#chatLauncher").classList.remove("active");
+  syncMobileNavigation(document.querySelector(".sidebar nav button.active")?.dataset.title||"Inicio");
 }
 document.addEventListener("keydown",event=>{
   if(event.key!=="Escape")return;
