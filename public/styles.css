@@ -5201,3 +5201,26 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   }
   .account-content .view-mode-button{margin-top:0}
 }
+
+/* ===== Vista previa de presentaciones (móvil) ===== */
+html.pv-abierto,html.pv-abierto body{overflow:hidden!important}
+.pv-capa{position:fixed;inset:0;z-index:9500;display:flex;align-items:flex-end;background:rgba(6,17,43,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);opacity:0;transition:opacity .25s}
+.pv-capa.on{opacity:1}
+.pv-hoja{display:flex;flex-direction:column;width:100%;height:calc(100dvh - 24px - env(safe-area-inset-top));background:#F4F6FB;border-radius:26px 26px 0 0;overflow:hidden;transform:translateY(40px);transition:transform .35s cubic-bezier(.22,1,.36,1)}
+.pv-capa.on .pv-hoja{transform:none}
+.pv-cab{flex:none;display:flex;align-items:center;gap:12px;padding:18px 18px 18px 22px;color:#fff;background:radial-gradient(120% 160% at 85% -30%,#13275C 0%,#0A1A3F 50%,#06112B 100%)}
+.pv-cab .pv-tit{flex:1;min-width:0;display:block!important}
+.pv-cab .pv-eti{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.pv-cab .pv-nom{display:block;margin-top:3px;font-size:20px;font-weight:650;line-height:1.2}
+.pv-cerrar{flex:none;width:40px;height:40px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;box-shadow:none}
+.pv-paginas{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 14px 20px;display:flex;flex-direction:column;gap:14px}
+.pv-paginas img{display:block;width:100%;height:auto;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(10,26,63,.06),0 12px 28px -18px rgba(10,26,63,.45)}
+.pv-pie{flex:none;display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#fff;box-shadow:0 -8px 24px -16px rgba(10,26,63,.35)}
+.pv-pie button{height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font:600 15px/1 inherit;box-shadow:none;cursor:pointer}
+.pv-descargar{background:#EEF1F8;color:#0A1A3F;border:0}
+.pv-compartir{background:linear-gradient(135deg,#13275C,#0A1A3F);color:#fff;border:0}
+
+/* ===== Acceso: el fondo de la app no asoma al abrir el teclado ===== */
+html:has(.login2:not(.saliendo)),html:has(.login2:not(.saliendo)) body{background:#06112B!important}
+html:has(.login2:not(.saliendo)) body{overflow:hidden!important}
+html:has(.login2:not(.saliendo)) body>:not(.login2):not(#splash):not(script){visibility:hidden!important}
