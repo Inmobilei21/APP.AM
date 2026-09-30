@@ -5075,3 +5075,31 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
     transform:none;
   }
 }
+
+
+/* ===== Menú móvil: fondo fijo y panel arrastrable ===== */
+@media (max-width:760px){
+  html:has(body.m2-panel-open){overflow:hidden!important;overscroll-behavior:none}
+  body.m2-panel-open{
+    position:fixed!important;
+    left:0;
+    right:0;
+    width:100%;
+    overflow:hidden!important;
+    overscroll-behavior:none;
+  }
+  body.m2-panel-open .m2-hoja{
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+  .m2-hoja .m2-asa{
+    width:48px;
+    height:6px;
+    margin-bottom:18px;
+    cursor:grab;
+    touch-action:none;
+  }
+  .m2-hoja .m2-asa:active{cursor:grabbing}
+}
