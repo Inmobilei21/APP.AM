@@ -4995,3 +4995,18 @@ html body.home-cuatro-columnas .home-activity-card.home-client-messages-card .ho
   #clientModal #newClientForm.client-view-mode .client-identity-grid{grid-template-columns:1fr}
   #clientModal #newClientForm.client-view-mode .client-identity-grid>label{grid-column:1!important}
 }
+
+
+/* ===== Ficha móvil: separación de la zona segura superior ===== */
+@media (max-width:760px){
+  #clientModal .client-modal{
+    padding-top:max(40px,calc(env(safe-area-inset-top) + 14px));
+  }
+  #clientModal .modal-heading{
+    padding-top:4px;
+    padding-bottom:20px;
+    margin-bottom:16px;
+  }
+  #clientModal .modal-heading .eyebrow{margin-bottom:8px}
+  #clientModal .modal-heading h2{margin-top:0}
+}
