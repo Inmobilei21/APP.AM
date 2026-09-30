@@ -3706,7 +3706,7 @@ setInterval(refreshSuggestions,15000);
     barra.querySelectorAll("[data-mobile-route]").forEach(b=>b.onclick=()=>{cerrarHojas();mobileRoute(b.dataset.mobileRoute)});
     barra.querySelector(".m2-mas").onclick=()=>abrirHoja("acciones");
     barra.querySelector(".m2-menu").onclick=()=>abrirHoja("menu");
-    barra.querySelector(".m2-chat").onclick=()=>{cerrarHojas();document.querySelector("#chatLauncher")?.click()};
+    barra.querySelector(".m2-chat").onclick=()=>{cerrarHojas();if(document.querySelector("#chatPanel")?.classList.contains("open"))return;document.querySelector("#chatLauncher")?.click()};
     const hacer={tarea:()=>mobileRoute("Tareas","#openTaskModal"),factura:()=>openBillingModal(),cliente:()=>mobileRoute("Gestión","#openNewClient"),
       aviso:()=>mobileRoute("Calendario","#newCalendarItem"),idea:()=>document.querySelector("#suggestionLauncher")?.click()};
     acciones.querySelectorAll("[data-accion]").forEach(b=>b.onclick=()=>{cerrarHojas();hacer[b.dataset.accion]?.()});
