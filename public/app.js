@@ -4450,20 +4450,23 @@ setInterval(refreshSuggestions,15000);
     compartir:'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
     bajar:'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5"/><path d="M5 20h14"/></svg>'
   };
-  function archivo(nombre){
+  async function archivo(nombre,pdfUrl){
+    if(pdfUrl){try{const r=await fetch(pdfUrl);if(r.ok)return new File([await r.blob()],nombre,{type:"application/pdf"})}catch(_){}return null}
     const codificado=clientServicePdfFiles[nombre];if(!codificado)return null;
     const bin=atob(codificado),bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
     return new File([bytes],nombre,{type:"application/pdf"});
   }
   function cerrar(capa){capa.classList.remove("on");document.documentElement.classList.remove("pv-abierto");setTimeout(()=>capa.remove(),250)}
-  function abrir(servicio){
-    const nombre=clientServicePdfNames[servicio];if(!nombre||!clientServicePdfFiles[nombre])return;
+  function abrir(servicio,opciones={}){
+    const nombre=clientServicePdfNames[servicio],pdfUrl=opciones.pdfUrl||"",imgBase=opciones.imgBase||"/servicios/";
+    if(!nombre||(!pdfUrl&&!clientServicePdfFiles[nombre]))return;
+    const bajar=()=>{if(!pdfUrl)return descargarOriginal(servicio);const a=document.createElement("a");a.href=pdfUrl;a.download=nombre;document.body.appendChild(a);a.click();a.remove()};
     const base=nombre.replace(/\.pdf$/,"");
     const capa=document.createElement("div");capa.className="pv-capa";
     capa.innerHTML=`<section class="pv-hoja" role="dialog" aria-modal="true" aria-label="Presentación de ${escapeHtml(servicio)}">
       <div class="pv-cab"><span class="pv-tit"><span class="pv-eti">Presentación del servicio</span><span class="pv-nom">${escapeHtml(servicio)}</span></span><button type="button" class="pv-cerrar" aria-label="Cerrar">${ICO.cerrar}</button></div>
-      <div class="pv-paginas">${[1,2].map(n=>`<img src="/servicios/${base}-${n}.jpg" alt="Página ${n} de la presentación" loading="lazy" onerror="this.remove()">`).join("")}</div>
+      <div class="pv-paginas">${[1,2].map(n=>`<img src="${imgBase}${base}-${n}.jpg" alt="Página ${n} de la presentación" loading="lazy" onerror="this.remove()">`).join("")}</div>
       <footer class="pv-pie"><button type="button" class="pv-descargar">${ICO.bajar}Descargar</button><button type="button" class="pv-compartir">${ICO.compartir}Compartir</button></footer>
     </section>`;
     document.body.appendChild(capa);document.documentElement.classList.add("pv-abierto");
@@ -4471,16 +4474,19 @@ setInterval(refreshSuggestions,15000);
     capa.querySelector(".pv-cerrar").onclick=()=>cerrar(capa);
     capa.addEventListener("click",e=>{if(e.target===capa)cerrar(capa)});
     const esc=e=>{if(e.key==="Escape"){cerrar(capa);document.removeEventListener("keydown",esc)}};document.addEventListener("keydown",esc);
-    capa.querySelector(".pv-descargar").onclick=()=>descargarOriginal(servicio);
+    capa.querySelector(".pv-descargar").onclick=bajar;
+    let fich=null;archivo(nombre,pdfUrl).then(f=>fich=f);
     capa.querySelector(".pv-compartir").onclick=async()=>{
-      const f=archivo(nombre);
+      const f=fich;
       const datos={files:[f],title:`${servicio} · Asesoría Molinero`,text:`Te comparto la presentación de ${servicio} de Asesoría Molinero.`};
       try{
         if(f&&navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share(datos);
-        else descargarOriginal(servicio);
-      }catch(err){if(err&&err.name!=="AbortError")descargarOriginal(servicio)}
+        else bajar();
+      }catch(err){if(err&&err.name!=="AbortError")bajar()}
     };
   }
+  window.abrirPresentacionServicio=abrir;
+  window.esMovilPresentacion=esMovil;
   downloadClientServicePdf=function(servicio){
     if(!esMovil())return descargarOriginal.apply(this,arguments);
     abrir(servicio);
