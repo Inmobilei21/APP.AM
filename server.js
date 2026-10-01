@@ -6,13 +6,14 @@ const invoiceReader = require("./invoice-reader");
 
 const root = path.join(__dirname, "public");
 const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webmanifest": "application/manifest+json; charset=utf-8", ".json": "application/json; charset=utf-8" };
-const newsTopicsQuery = '(fiscal OR tributario OR impuestos OR AEAT OR IVA OR IRPF OR "Impuesto sobre Sociedades" OR ICAC OR "Seguridad Social") ("entrada en vigor" OR reforma OR modifica OR aprueba OR "nueva normativa" OR "nuevo procedimiento" OR "nuevas obligaciones" OR "nuevos plazos") when:60d';
+const newsTopicsQuery = '(fiscal OR tributario OR impuestos OR AEAT OR "Agencia Tributaria" OR Hacienda OR IVA OR IRPF OR "Impuesto sobre Sociedades" OR ICAC OR "Seguridad Social" OR Sucesiones OR Donaciones OR Patrimonio OR "Transmisiones Patrimoniales" OR autonómico OR BOE) ("entrada en vigor" OR reforma OR modifica OR aprueba OR "nueva normativa" OR "nuevo procedimiento" OR "nuevas obligaciones" OR "nuevos plazos") when:60d';
 const newsSourceGroups = [
   ["eleconomista.es", "expansion.com", "cincodias.elpais.com", "autonomosyemprendedor.es"],
   ["iberley.es", "noticias.juridicas.com", "legaltoday.com", "confilegal.com"],
   ["economistjurist.es", "elderecho.com", "diariojuridico.com", "fiscal-impuestos.com"],
   ["economistas.es", "aedaf.es", "agenciatributaria.gob.es", "boe.es"],
-  ["juntadeandalucia.es", "andaluciatrade.es"]
+  ["juntadeandalucia.es", "andaluciatrade.es", "hacienda.gob.es", "seg-social.es"],
+  ["europapress.es", "rtve.es", "elmundo.es", "abc.es"]
 ];
 let newsCache = { expires: 0, articles: [] };
 
@@ -25,6 +26,7 @@ function xmlTag(item, tag) {
 }
 function newsTopic(title) {
   if(/ICAC|cuentas? anuales?|contabilidad|contable/i.test(title)) return "Contabilidad e ICAC";
+  if(/sucesiones|donaciones|patrimonio|transmisiones patrimoniales|\bITP\b|\bAJD\b|actos jur[ií]dicos|auton[oó]mic|Junta de|Generalitat|Xunta|Comunidad de Madrid|Andaluc[ií]a|Catalu|Valencian|Arag[oó]n|Castilla|Extremadura|Galicia|Murcia|Canarias|Baleares|Asturias|Cantabria|La Rioja|Navarra|Pa[ií]s Vasco|Diputaci[oó]n Foral|tributos cedidos/i.test(title)) return "Autonómicos";
   if(/IRPF|renta/i.test(title)) return "IRPF";
   if(/IVA/i.test(title)) return "IVA";
   if(/AEAT|Hacienda|Agencia Tributaria/i.test(title)) return "AEAT";
@@ -98,8 +100,9 @@ function isRegulatoryNews(article){
   const subject=/\b(fiscal|tributari\w*|impuest\w*|iva|irpf|aeat|hacienda|icac|verifactu|cotizaci\w*|seguridad social|factura\w*|contab\w*|cuentas anuales|recaudaci\w*|declaraci\w*)\b/.test(title);
   const change=/\b(reforma\w*|modific\w*|aprueb\w*|aprobad\w*|decreto\w*|ley|reglament\w*|normativ\w*|novedad\w*|prorrog\w*|ampli\w*|cambi\w*|obligacion\w*|resolucion\w*|instruccion\w*)\b|entra\w* en vigor|nuevo\w* (plazo\w*|procedimiento\w*|modelo\w*|criterio\w*|requisito\w*|sistema\w*)/.test(title);
   const noise=/\b(opinion|entrevista|patrocinad\w*|cotiza en bolsa|beneficios record)\b/.test(title);
+  const extranjero=/\b(mexic\w*|cdmx|colombi\w*|bogota|medellin|dian|argentin\w*|buenos aires|afip|arca|chile\w*|santiago de chile|peru\w*|lima|sunat|ecuador\w*|venezol\w*|venezuela|uruguay\w*|paraguay\w*|bolivia\w*|guatemal\w*|costa rica|panama\w*|honduras|salvador\w*|nicaragu\w*|dominican\w*|puerto rico|cuba\w*|latinoameric\w*|iberoameric\w*|estados unidos|eeuu|ee\.uu|irs|reino unido|portugal|francia|italia|alemania|pesos?|sat|cfdi|isr|uvt|soles)\b/.test(title+" "+String(article.source||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase())||/\.(mx|co|ar|cl|pe|ec|ve|uy|py|bo|gt|cr|pa|hn|sv|ni|do|us)(\/|$)|\/(america|latam|mexico|colombia|argentina)\//i.test(String(article.link||""));
   const date=Date.parse(article.date);
-  return subject&&change&&!noise&&Number.isFinite(date)&&date<=Date.now()+86400000&&date>=Date.now()-60*86400000;
+  return subject&&change&&!noise&&!extranjero&&Number.isFinite(date)&&date<=Date.now()+86400000&&date>=Date.now()-60*86400000;
 }
 
 async function getNews(force = false) {
@@ -112,8 +115,12 @@ async function getNews(force = false) {
     const key = article.title.toLocaleLowerCase("es").replace(/\s+/g, " ").trim();
     if (seen.has(key)) return false;
     seen.add(key);return true;
+  }).slice(0, 26);
+  const enriched = (await Promise.all(articles.map(async article => ({ ...article, ...await articleMetadata(article.link) })))).filter(article => {
+    // Fuera las ediciones de otros países (dominios .mx, .co, .ar…) una vez conocido el enlace real
+    let host = "";try { host = new URL(article.link).hostname; } catch {}
+    return !/\.(mx|co|ar|cl|pe|ec|ve|uy|py|bo|gt|cr|pa|hn|sv|ni|do|us)$/i.test(host) && !/\/(america|latam|mexico|colombia|argentina)\//i.test(article.link);
   }).slice(0, 18);
-  const enriched = await Promise.all(articles.map(async article => ({ ...article, ...await articleMetadata(article.link) })));
   newsCache = { expires: Date.now() + 30 * 60 * 1000, articles: enriched };
   return enriched;
 }
