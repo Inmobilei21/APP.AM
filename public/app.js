@@ -5015,3 +5015,20 @@ homeActivityEmpty=function(icon,title,text){
   window.visualViewport?.addEventListener("resize",()=>{if(document.documentElement.classList.contains("cc-bloqueo")&&!document.body.classList.contains("cc-escribiendo"))window.scrollTo(0,0)});
   new MutationObserver(revisar).observe(document.body,{childList:true});revisar();
 })();
+
+/* ===== Red de seguridad: al volver atrás desde una conversación, la barra inferior siempre reaparece ===== */
+(function(){
+  const limpiar=()=>{
+    const b=document.body;b.classList.remove("cc-conv","cc-escribiendo","ch3-escribiendo");
+    const o=document.querySelector(".client-chat-overlay");if(o)["top","height","bottom","padding-bottom","box-sizing"].forEach(k=>o.style.removeProperty(k));
+    const p=document.querySelector("#chatPanel");if(p)["top","height","max-height","padding-bottom"].forEach(k=>p.style.removeProperty(k));
+    if(document.activeElement?.matches?.("textarea,input"))document.activeElement.blur();
+  };
+  document.addEventListener("click",e=>{if(e.target.closest?.("[data-client-chat-back],#chatBack,[data-close-client-chat],#closeChat"))limpiar()},true);
+  // Si ya no hay recuadro de escribir a la vista, no puede quedar activo el modo conversación/escritura
+  new MutationObserver(()=>{
+    const b=document.body;
+    if((b.classList.contains("cc-conv")||b.classList.contains("cc-escribiendo"))&&!document.querySelector(".client-chat-overlay .client-chat-composer"))limpiar();
+    if(b.classList.contains("ch3-escribiendo")&&!document.querySelector("#chatPanel.open #chatMessage"))limpiar();
+  }).observe(document.body,{childList:true,subtree:true});
+})();
