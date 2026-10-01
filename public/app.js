@@ -4720,12 +4720,12 @@ setInterval(refreshSuggestions,15000);
   const vv=window.visualViewport;
   function ajustar(){
     if(!document.body.classList.contains("ch3-escribiendo")||!vv)return;
-    panel.style.setProperty("top",`${vv.offsetTop}px`,"important");panel.style.setProperty("height",`${vv.height}px`,"important");panel.style.setProperty("max-height",`${vv.height}px`,"important");
+    panel.style.setProperty("top",`${vv.offsetTop}px`,"important");panel.style.setProperty("height",`${vv.height+420}px`,"important");panel.style.setProperty("max-height",`${vv.height+420}px`,"important");panel.style.setProperty("padding-bottom","420px","important");
     const box=document.querySelector("#chatMessages");if(box&&box.scrollHeight-box.scrollTop-box.clientHeight<160)box.scrollTop=box.scrollHeight;
   }
   function escribiendo(on){
     document.body.classList.toggle("ch3-escribiendo",Boolean(on));
-    if(!on){["top","height","max-height"].forEach(k=>panel.style.removeProperty(k))}else{ajustar();setTimeout(ajustar,250);setTimeout(ajustar,600)}
+    if(!on){["top","height","max-height","padding-bottom"].forEach(k=>panel.style.removeProperty(k))}else{ajustar();setTimeout(ajustar,250);setTimeout(ajustar,600)}
   }
   document.addEventListener("focusin",e=>{if(movil()&&e.target.id==="chatMessage")escribiendo(true)});
   document.addEventListener("focusout",e=>{if(e.target.id==="chatMessage")setTimeout(()=>{if(document.activeElement?.id!=="chatMessage")escribiendo(false)},120)});
@@ -4883,17 +4883,18 @@ homeActivityEmpty=function(icon,title,text){
   const vv=window.visualViewport;
   const movil=()=>matchMedia("(max-width:760px)").matches;
   const capa=()=>document.querySelector(".client-chat-overlay");
+  const EXTRA=420;// se prolonga por debajo del teclado (barra de iOS translúcida) para que no asome el fondo
   const esCampo=el=>Boolean(el?.closest?.(".client-chat-overlay .client-chat-composer textarea"));
   function ajustar(){
     if(!document.body.classList.contains("cc-escribiendo")||!vv)return;
     const o=capa();if(!o)return;
-    o.style.setProperty("top",`${vv.offsetTop}px`,"important");o.style.setProperty("height",`${vv.height}px`,"important");o.style.setProperty("bottom","auto","important");
+    o.style.setProperty("top",`${vv.offsetTop}px`,"important");o.style.setProperty("height",`${vv.height+EXTRA}px`,"important");o.style.setProperty("padding-bottom",`${EXTRA}px`,"important");o.style.setProperty("box-sizing","border-box","important");o.style.setProperty("bottom","auto","important");
     const box=o.querySelector(".client-chat-messages");if(box)box.scrollTop=box.scrollHeight;
   }
   function escribiendo(on){
     document.body.classList.toggle("cc-escribiendo",Boolean(on));
     const o=capa();
-    if(!on){if(o)["top","height","bottom"].forEach(k=>o.style.removeProperty(k))}
+    if(!on){if(o)["top","height","bottom","padding-bottom","box-sizing"].forEach(k=>o.style.removeProperty(k))}
     else{ajustar();setTimeout(ajustar,250);setTimeout(ajustar,600)}
   }
   document.addEventListener("focusin",e=>{if(movil()&&esCampo(e.target))escribiendo(true)});

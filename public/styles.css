@@ -5486,3 +5486,7 @@ html.sg-abierto,html.sg-abierto body{overflow:hidden!important}
   html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .pp-m-title{font-size:22px!important;margin-top:6px!important}
   html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-composer textarea{font-size:16px!important}
 }
+/* Al escribir, el chat se prolonga bajo la barra translúcida del teclado con su propio fondo */
+@media (max-width:760px){
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay{background:#fff!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+}
