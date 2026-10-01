@@ -4983,8 +4983,13 @@ homeActivityEmpty=function(icon,title,text){
     return r;
   };
   const lista=renderClientAdvisorList;
-  renderClientAdvisorList=function(){document.body.classList.remove("cc-conv");return lista.apply(this,arguments)};
-  new MutationObserver(()=>{if(document.body.classList.contains("cc-conv")&&!capa())document.body.classList.remove("cc-conv")}).observe(document.body,{childList:true});
+  renderClientAdvisorList=function(){
+    document.body.classList.remove("cc-conv","cc-escribiendo");
+    const o=capa();if(o)["top","height","bottom","padding-bottom","box-sizing"].forEach(k=>o.style.removeProperty(k));
+    document.activeElement?.blur?.();
+    return lista.apply(this,arguments);
+  };
+  new MutationObserver(()=>{const o=capa();if(!o)document.body.classList.remove("cc-conv","cc-escribiendo");else if(!o.querySelector(".client-chat-composer"))document.body.classList.remove("cc-conv","cc-escribiendo")}).observe(document.body,{childList:true,subtree:true});
 })();
 
 /* ===== Chat del área de cliente: el fondo no se desplaza ni "arrastra" el chat hacia arriba en el móvil ===== */
