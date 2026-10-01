@@ -2316,7 +2316,7 @@ function applyDeclarationFilters(prefix,bodyId){
 }
 
 let declarationViewMode="current";
-function declarationViewSelector(){return `<label class="quarter-selector declaration-view-selector"><span>Periodo</span><select id="declarationView"><option value="current">Periodo actual</option><option value="history">Histórico</option></select></label>`}
+function declarationViewSelector(){return `<label class="quarter-selector declaration-view-selector"><span>Periodo</span><select id="declarationView"><option value="current">Actual</option><option value="history">Histórico</option></select></label>`}
 function bindDeclarationViewSelector(){const select=document.querySelector("#declarationView");if(!select)return;select.value=declarationViewMode;select.addEventListener("change",event=>{declarationViewMode=event.target.value;if(declarationViewMode==="history")renderDeclarationHistory();else renderDeclarations()})}
 function renderDeclarations(){
   declarationViewMode="current";
@@ -2347,10 +2347,10 @@ function renderDeclarations(){
 }
 function renderTaxDeadlines(model,period,state){
   if(!state.deadline){document.querySelector("#taxDeadlines").innerHTML='<div class="deadline-unavailable"><strong>El modelo 130/131 no tiene periodicidad mensual.</strong><span>Selecciona la modalidad trimestral para consultar y editar este modelo.</span></div>';return}
-  const d=state.deadline,domicile=d.domicileEnd?`Del ${formatTaxDate(d.start)} al ${formatTaxDate(d.domicileEnd)}`:"No aplicable a este modelo";
+  const d=state.deadline,corta=v=>new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(new Date(v+"T12:00:00")),domicile=d.domicileEnd?`Hasta ${corta(d.domicileEnd)}`:"No aplica";
   document.querySelector("#taxDeadlines").innerHTML=`
-    <div class="deadline-card"><span class="deadline-icon">⌂</span><div><small>PLAZO DE DOMICILIACIÓN</small><strong>${domicile}</strong></div></div>
-    <div class="deadline-card"><span class="deadline-icon">✓</span><div><small>PLAZO DE PRESENTACIÓN</small><strong>Del ${formatTaxDate(d.start)} al ${formatTaxDate(d.presentationEnd)}</strong></div></div>
+    <div class="deadline-card"><span class="deadline-icon">⌂</span><div><small>DOMICILIACIÓN</small><strong>${domicile}</strong></div></div>
+    <div class="deadline-card"><span class="deadline-icon">✓</span><div><small>PRESENTACIÓN</small><strong>Hasta ${corta(d.presentationEnd)}</strong></div></div>
     <span class="tax-status ${state.type}">${state.label}</span>
     ${d.provisional?'<p class="deadline-note">Periodo de diciembre/4.º trimestre: fechas calculadas con las reglas generales de la AEAT. Pendiente de confirmación en el calendario oficial de 2027.</p>':""}`;
 }

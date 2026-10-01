@@ -5273,3 +5273,22 @@ html:has(.login2:not(.saliendo)) body>:not(.login2):not(#splash):not(script){vis
     touch-action:pan-y;
   }
 }
+
+/* ===== Declaraciones: plazos cortos en una línea y filtros más compactos ===== */
+html body .tax-deadlines{grid-template-columns:1fr 1fr auto!important;align-items:center!important}
+html body .tax-deadlines .deadline-note,html body .tax-deadlines .deadline-unavailable{grid-column:1/-1}
+html body .tax-deadlines .deadline-card strong{white-space:nowrap}
+@media (max-width:760px){
+  html body .tax-deadlines{grid-template-columns:1fr 1fr!important;gap:8px!important;padding:10px!important}
+  html body .tax-deadlines .tax-status{grid-column:1/-1;justify-self:start}
+  html body .tax-deadlines .deadline-card{min-width:0;padding:10px 11px!important;gap:0!important}
+  html body .tax-deadlines .deadline-icon{display:none!important}
+  html body .tax-deadlines .deadline-card small{font-size:9.5px!important}
+  html body .tax-deadlines .deadline-card strong{font-size:13.5px!important;line-height:1.2;letter-spacing:-.01em}
+  /* Periodo y Periodicidad en la misma línea; Periodo fiscal debajo */
+  html body .declarations-heading{display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px!important;align-items:end!important}
+  html body .declarations-heading .control-period-selectors,html body .declarations-heading .history-selectors{display:contents!important}
+  html body .declarations-heading .quarter-selector{min-width:0!important;width:auto!important}
+  html body .declarations-heading .quarter-selector select{width:100%!important;min-width:0!important}
+  html body .declarations-heading .control-period-selectors .quarter-selector:last-child{grid-column:1/-1}
+}
