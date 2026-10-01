@@ -4785,3 +4785,95 @@ homeActivityEmpty=function(icon,title,text){
   const svg=ICO[icon]?`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICO[icon]}</svg>`:icon;
   return `<div class="home-activity-empty hae"><span class="hae-ic ${tono}" aria-hidden="true">${svg}</span><strong>${title}</strong><small>${text}</small></div>`;
 };
+
+/* ===== Firmas digitales: vincular o editar una firma desde la propia lista (cliente, contraseña, caducidad y representante) ===== */
+(function(){
+  if(typeof loadSignatures!=="function")return;
+  const LAPIZ='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>';
+  const norm=t=>String(t||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+  const PALABRAS_VACIAS=new Set(["sl","sa","slu","sll","scoop","coop","cb","sc","de","del","la","las","los","el","y","e","en","firma","certificado","digital","p12","pfx","representante","persona","fisica","juridica","usuario","fnmt"]);
+  const fichas=texto=>norm(texto).replace(/\.[a-z0-9]+$/,"").split(/[^a-zñ]+/).filter(p=>p.length>2&&!PALABRAS_VACIAS.has(p));
+  function sugerencias(archivo,clientes){
+    const claves=new Set(fichas(archivo));if(!claves.size)return[];
+    return clientes.map(c=>{const t=fichas(c.name);const n=t.filter(p=>claves.has(p)).length;return{c,n,r:n/Math.max(t.length,1)}}).filter(x=>x.n>0).sort((a,b)=>b.n-a.n||b.r-a.r).slice(0,5).map(x=>x.c);
+  }
+
+  const original=loadSignatures;
+  loadSignatures=async function(){
+    const r=await original.apply(this,arguments);
+    const tabla=document.querySelector(".signature-table");if(!tabla)return r;
+    const cab=tabla.querySelector("thead tr");if(cab&&!cab.querySelector(".sg-th"))cab.insertAdjacentHTML("beforeend",'<th class="sg-th">Editar</th>');
+    const filas=[...document.querySelectorAll("#signatureRows tr[data-search]")];
+    filas.forEach((tr,i)=>{if(tr.querySelector("[data-sg-editar]"))return;const sin=!window.signatureFiles?.[i]?.client||window.signatureFiles[i].client==="Sin asignar";tr.insertAdjacentHTML("beforeend",`<td class="sg-td"><button type="button" class="sg-editar${sin?" sg-sin":""}" data-sg-editar="${i}" title="${sin?"Asignar a un cliente":"Editar firma"}" aria-label="${sin?"Asignar a un cliente":"Editar firma"}">${LAPIZ}<span>${sin?"Asignar cliente":"Editar firma"}</span></button></td>`)});
+    document.querySelectorAll("#signatureRows [data-sg-editar]").forEach(b=>b.onclick=e=>{e.stopPropagation();abrir(Number(b.dataset.sgEditar))});
+    return r;
+  };
+
+  async function abrir(i){
+    const fila=window.signatureFiles?.[i];if(!fila)return;
+    const clientes=(await getAllClientMetadata()).filter(c=>c?.name&&clientIsActive(c)).sort((a,b)=>a.name.localeCompare(b.name,"es"));
+    const asignado=fila.client&&fila.client!=="Sin asignar"?fila.client:"";
+    let elegido=clientes.find(c=>c.name===asignado)||null;
+    const capa=document.createElement("div");capa.className="sg-capa";
+    capa.innerHTML=`<section class="sg-hoja" role="dialog" aria-modal="true" aria-label="Firma digital">
+      <div class="sg-cab"><span class="sg-tit"><span class="sg-eti">Firma digital</span><span class="sg-nom">${escapeHtml(fila.document)}</span></span><button type="button" class="sg-x" aria-label="Cerrar">×</button></div>
+      <div class="sg-cuerpo">
+        <div class="sg-campo"><span>Cliente</span>
+          <div class="sg-elegido" hidden></div>
+          <input type="search" class="sg-buscar" placeholder="Buscar por nombre o CIF…" autocomplete="off" aria-label="Buscar cliente">
+          <div class="sg-lista" role="listbox"></div>
+        </div>
+        <div class="sg-fila2">
+          <label class="sg-campo"><span>Contraseña</span><div class="sg-pass"><input type="password" class="sg-clave" value="${escapeHtml(fila.password||"")}" autocomplete="off"><button type="button" class="sg-ojo" aria-label="Mostrar contraseña">👁</button></div></label>
+          <label class="sg-campo"><span>Caducidad</span><input type="date" class="sg-cad" value="${escapeHtml(fila.expiry||"")}"></label>
+        </div>
+        <div class="sg-fila2">
+          <label class="sg-campo"><span>Representante</span><input type="text" class="sg-rep" maxlength="120"></label>
+          <label class="sg-campo"><span>NIF representante</span><input type="text" class="sg-nif" maxlength="20"></label>
+        </div>
+        <p class="sg-nota" hidden></p>
+        <p class="sg-error" role="alert" hidden></p>
+      </div>
+      <footer class="sg-pie"><button type="button" class="sg-cancelar">Cancelar</button><button type="button" class="sg-guardar">Guardar</button></footer>
+    </section>`;
+    document.body.appendChild(capa);document.documentElement.classList.add("sg-abierto");requestAnimationFrame(()=>capa.classList.add("on"));
+    const $=s=>capa.querySelector(s),buscar=$(".sg-buscar"),lista=$(".sg-lista"),chip=$(".sg-elegido"),rep=$(".sg-rep"),nif=$(".sg-nif"),nota=$(".sg-nota"),error=$(".sg-error");
+    const cerrar=()=>{capa.classList.remove("on");document.documentElement.classList.remove("sg-abierto");setTimeout(()=>capa.remove(),200)};
+    $(".sg-x").onclick=cerrar;$(".sg-cancelar").onclick=cerrar;capa.addEventListener("click",e=>{if(e.target===capa)cerrar()});
+    $(".sg-ojo").onclick=()=>{const c=$(".sg-clave");c.type=c.type==="password"?"text":"password"};
+    const desdeAdmin=c=>c?.personType==="juridica"&&c?.administratorPartnerId!==undefined&&c?.administratorPartnerId!==null&&c?.administratorPartnerId!=="";
+    function pintarElegido(){
+      chip.hidden=!elegido;buscar.hidden=Boolean(elegido);lista.innerHTML="";
+      if(elegido){
+        chip.innerHTML=`<span><strong>${escapeHtml(elegido.name)}</strong><small>${escapeHtml(elegido.cif||"")}</small></span><button type="button" aria-label="Cambiar cliente">Cambiar</button>`;
+        chip.querySelector("button").onclick=()=>{elegido=null;pintarElegido();buscar.focus();pintarLista()};
+        rep.value=elegido.representative||"";nif.value=elegido.representativeNif||"";
+        const auto=desdeAdmin(elegido);rep.readOnly=auto;nif.readOnly=auto;nota.hidden=!auto;nota.textContent=auto?"El representante se toma del administrador indicado en la ficha del cliente.":"";
+      }else pintarLista();
+    }
+    function pintarLista(){
+      const q=norm(buscar.value.trim());
+      let items=q?clientes.filter(c=>norm(c.name+" "+(c.cif||"")).includes(q)).slice(0,30):sugerencias(fila.document,clientes);
+      const titulo=q?"":(items.length?'<p class="sg-sug">Sugerencias según el nombre del archivo</p>':'<p class="sg-sug">Escribe para buscar el cliente</p>');
+      lista.innerHTML=titulo+items.map((c,k)=>`<button type="button" role="option" data-k="${k}"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.cif||"")}</small></button>`).join("")+(q&&!items.length?'<p class="sg-sug">No hay clientes con ese nombre</p>':"");
+      lista.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{elegido=items[Number(b.dataset.k)];pintarElegido()});
+    }
+    buscar.addEventListener("input",pintarLista);
+    pintarElegido();
+    $(".sg-guardar").onclick=async()=>{
+      error.hidden=true;
+      if(!elegido){error.textContent="Elige el cliente al que pertenece la firma.";error.hidden=false;return}
+      const boton=$(".sg-guardar");boton.disabled=true;boton.textContent="Guardando…";
+      try{
+        const id=fila.document,todas=await getAllSignatureMetadata(),previa=todas.find(x=>x.id===id)||{};
+        // La firma anterior del cliente deja de estar vinculada (se sustituye por esta)
+        for(const item of todas)if(item.client===elegido.name&&item.id!==id)await saveSignatureMetadata({...item,client:""});
+        await saveSignatureMetadata({...previa,id,client:elegido.name,document:previa.document||id,password:$(".sg-clave").value,expiry:$(".sg-cad").value});
+        const nuevoRep=rep.value.trim(),nuevoNif=nif.value.trim().toUpperCase();
+        if(!desdeAdmin(elegido)&&(nuevoRep!==(elegido.representative||"")||nuevoNif!==(elegido.representativeNif||"")))await saveClientMetadata({...elegido,representative:nuevoRep,representativeNif:nuevoNif});
+        cerrar();await loadSignatures();
+      }catch(err){boton.disabled=false;boton.textContent="Guardar";error.textContent=err?.userMessage||err?.message||"No se pudo guardar.";error.hidden=false}
+    };
+    setTimeout(()=>{if(!elegido)buscar.focus()},120);
+  }
+})();
