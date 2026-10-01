@@ -4995,6 +4995,16 @@ homeActivityEmpty=function(icon,title,text){
     if(o.dataset.ccTactil)return;o.dataset.ccTactil="1";
     o.addEventListener("touchmove",e=>{if(e.touches.length>1)return;if(!puedeMoverse(e.target))e.preventDefault()},{passive:false});
   };
-  const revisar=()=>{const o=document.querySelector(".client-chat-overlay");document.documentElement.classList.toggle("cc-bloqueo",Boolean(o));if(o)preparar(o)};
+  // La página de detrás se fija (position:fixed) mientras el chat está abierto y se recupera su posición al cerrarlo
+  let guardado=null;
+  const revisar=()=>{
+    const o=document.querySelector(".client-chat-overlay"),b=document.body;
+    if(o&&guardado===null){guardado=window.scrollY;b.style.top=`-${guardado}px`;document.documentElement.classList.add("cc-bloqueo")}
+    else if(!o&&guardado!==null){document.documentElement.classList.remove("cc-bloqueo");b.style.top="";const y=guardado;guardado=null;window.scrollTo(0,y)}
+    if(o)preparar(o);
+  };
+  // Al cerrar el teclado, el iPhone a veces deja la vista desplazada: se recoloca
+  document.addEventListener("focusout",e=>{if(e.target.closest?.(".client-chat-overlay"))setTimeout(()=>{if(!document.activeElement?.closest?.(".client-chat-overlay textarea"))window.scrollTo(0,0)},300)});
+  window.visualViewport?.addEventListener("resize",()=>{if(document.documentElement.classList.contains("cc-bloqueo")&&!document.body.classList.contains("cc-escribiendo"))window.scrollTo(0,0)});
   new MutationObserver(revisar).observe(document.body,{childList:true});revisar();
 })();
