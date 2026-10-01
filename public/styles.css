@@ -5394,3 +5394,9 @@ html body .courtesy-panel .cx-c{display:none}
 html body .contacts-panel .contacts-heading>div:first-child:has(h2){display:none!important}
 html body .contacts-panel .contacts-heading{justify-content:flex-start!important}
 html body .contacts-panel .contacts-heading .phone-search{flex:1 1 auto;max-width:none!important;width:100%!important}
+
+/* Trabajadores y Trabajos: el título ya está en la cabecera */
+html body main>.clients-head:has(>div:only-child>h2){display:none!important}
+html body .work-catalog-head>div:first-child:has(>h2){display:none!important}
+html body .work-catalog-head .work-head-actions{width:100%}
+html body .work-catalog-head .work-head-actions .management-library-search{flex:1 1 auto;max-width:none!important}
