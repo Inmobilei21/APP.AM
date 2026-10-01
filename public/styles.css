@@ -5490,3 +5490,11 @@ html.sg-abierto,html.sg-abierto body{overflow:hidden!important}
 @media (max-width:760px){
   html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay{background:#fff!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 }
+/* Al escribir en un chat del móvil, nada de la página queda detrás (ni bajo la barra translúcida del teclado) */
+@media (max-width:760px){
+  html:has(body.cc-escribiendo),html body.cc-escribiendo:not(#pp):not(#pp){background:#fff!important}
+  html body.cc-escribiendo:not(#pp):not(#pp)>:not(.client-chat-overlay):not(script){visibility:hidden!important}
+  html:has(body.ch3-escribiendo),html body.ch3-escribiendo:not(#pp):not(#pp){background:#F4F6FB!important}
+  html body.ch3-escribiendo:not(#pp):not(#pp)>:not(.worker-chat):not(script){visibility:hidden!important}
+  html body.ch3-escribiendo:not(#pp):not(#pp) .worker-chat>:not(#chatPanel){visibility:hidden!important}
+}
