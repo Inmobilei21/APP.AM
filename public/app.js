@@ -432,7 +432,7 @@ function installMobileChrome(){
   chrome.querySelector('[data-mobile-action="calendar"]').addEventListener("click",()=>{closeActions();mobileRoute("Calendario","#newCalendarItem")});
 }
 function installMobileTableAccordions(){
-  const selector=".tax-table,.courtesy-table,.contacts-table";
+  const selector=".tax-table,.courtesy-table,.contacts-table,.signature-table";
   const decorate=table=>{
     table.classList.add("mobile-collapsible-table");
     const headers=[...table.querySelectorAll("thead th")].map(cell=>cell.textContent.trim());
