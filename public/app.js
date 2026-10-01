@@ -382,7 +382,7 @@ document.addEventListener("touchend",event=>{
   if(document.querySelector(".chat-panel.open:not(#chatPanel)")){mobileSwipeStart=null;return}
   const touch=event.changedTouches[0],dx=touch.clientX-mobileSwipeStart.x,dy=Math.abs(touch.clientY-mobileSwipeStart.y),elapsed=Date.now()-mobileSwipeStart.time;
   mobileSwipeStart=null;
-  if(dx>=75&&dx>dy*1.3&&elapsed<900)openMenu();
+  if(dx>=75&&dx>dy*1.3&&elapsed<900&&!document.body.classList.contains("client-preview-mode")&&!document.querySelector(".client-chat-overlay"))openMenu();
 },{passive:true});
 function bindHeader(){const header=main.querySelector(":scope>header");if(header&&!header.querySelector("#menu"))header.insertAdjacentHTML("afterbegin",'<button class="menu" id="menu" aria-label="Abrir menú">☰</button>');header?.querySelector("#menu")?.addEventListener("click",openMenu);updateProfileButtons()}
 
@@ -5032,4 +5032,11 @@ homeActivityEmpty=function(icon,title,text){
     if((b.classList.contains("cc-conv")||b.classList.contains("cc-escribiendo"))&&!document.querySelector(".client-chat-overlay .client-chat-composer"))limpiar();
     if(b.classList.contains("ch3-escribiendo")&&!document.querySelector("#chatPanel.open #chatMessage"))limpiar();
   }).observe(document.body,{childList:true,subtree:true});
+})();
+
+/* Área de cliente: el gesto de deslizar no abre el menú del despacho (allí no se ve y ocultaba la barra inferior) */
+(function(){
+  const revisar=()=>{if(document.body.classList.contains("client-preview-mode")&&document.body.classList.contains("menu-open")&&typeof closeMenu==="function")closeMenu()};
+  new MutationObserver(revisar).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  document.addEventListener("touchend",()=>setTimeout(revisar,50),{passive:true,capture:true});
 })();
