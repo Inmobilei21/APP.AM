@@ -4877,3 +4877,30 @@ homeActivityEmpty=function(icon,title,text){
     setTimeout(()=>{if(!elegido)buscar.focus()},120);
   }
 })();
+
+/* ===== Chat del área de cliente (móvil): al escribir, sin barra inferior, recuadro pegado al teclado y cabecera siempre visible ===== */
+(function(){
+  const vv=window.visualViewport;
+  const movil=()=>matchMedia("(max-width:760px)").matches;
+  const capa=()=>document.querySelector(".client-chat-overlay");
+  const esCampo=el=>Boolean(el?.closest?.(".client-chat-overlay .client-chat-composer textarea"));
+  function ajustar(){
+    if(!document.body.classList.contains("cc-escribiendo")||!vv)return;
+    const o=capa();if(!o)return;
+    o.style.setProperty("top",`${vv.offsetTop}px`,"important");o.style.setProperty("height",`${vv.height}px`,"important");o.style.setProperty("bottom","auto","important");
+    const box=o.querySelector(".client-chat-messages");if(box)box.scrollTop=box.scrollHeight;
+  }
+  function escribiendo(on){
+    document.body.classList.toggle("cc-escribiendo",Boolean(on));
+    const o=capa();
+    if(!on){if(o)["top","height","bottom"].forEach(k=>o.style.removeProperty(k))}
+    else{ajustar();setTimeout(ajustar,250);setTimeout(ajustar,600)}
+  }
+  document.addEventListener("focusin",e=>{if(movil()&&esCampo(e.target))escribiendo(true)});
+  document.addEventListener("focusout",e=>{if(esCampo(e.target))setTimeout(()=>{if(!esCampo(document.activeElement))escribiendo(false)},120)});
+  vv?.addEventListener("resize",ajustar);vv?.addEventListener("scroll",ajustar);
+  // Enviar sin que se cierre el teclado
+  document.addEventListener("pointerdown",e=>{if(e.target.closest?.(".client-chat-composer button[type=submit]")&&esCampo(document.activeElement))e.preventDefault()},true);
+  // Al cerrar el chat se quita el modo escritura
+  new MutationObserver(()=>{if(document.body.classList.contains("cc-escribiendo")&&!capa())escribiendo(false)}).observe(document.body,{childList:true});
+})();

@@ -5471,3 +5471,18 @@ html.sg-abierto,html.sg-abierto body{overflow:hidden!important}
   .sg-hoja{width:100%;max-height:calc(100dvh - 30px - env(safe-area-inset-top));border-radius:24px 24px 0 0}
   .sg-fila2{grid-template-columns:1fr}
 }
+
+/* ===== Chat del área de cliente (móvil) al escribir ===== */
+@media (max-width:760px){
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-portal-nav,html body.cc-escribiendo:not(#pp):not(#pp) .c2-nav{display:none!important}
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay{bottom:auto!important;padding:0!important;overflow:hidden!important}
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .client-chat-view{height:100%!important;max-height:100%!important;padding-bottom:0!important}
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .client-chat-content{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important;display:flex!important;flex-direction:column!important}
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .client-chat-messages{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important}
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .client-chat-composer{flex:none!important;padding-bottom:8px!important}
+  /* Cabecera más compacta mientras se escribe, pero siempre visible */
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .pp-m-head{padding-top:calc(10px + env(safe-area-inset-top))!important;padding-bottom:12px!important}
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .pp-m-eyebrow{display:none!important}
+  html body.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .pp-m-title{font-size:22px!important;margin-top:6px!important}
+  html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-composer textarea{font-size:16px!important}
+}
