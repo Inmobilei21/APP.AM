@@ -5534,3 +5534,8 @@ html body:not(#pp):not(#pp) .client-chat-composer.cc-composer button[type="submi
 html.cc-bloqueo,html.cc-bloqueo body{overflow:hidden!important;overscroll-behavior:none!important}
 html body:not(#pp):not(#pp) .client-chat-overlay{overscroll-behavior:none}
 html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-messages,html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-content{overscroll-behavior:contain}
+/* Chat del cliente: la ventana mide siempre lo mismo que la pantalla (100dvh en iOS a veces se queda corto) */
+@media (max-width:760px){
+  html body:not(#pp):not(#pp) .client-chat-overlay{padding:0!important;align-items:stretch!important;justify-items:stretch!important}
+  html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-view{height:100%!important;max-height:none!important;width:100%!important}
+}
