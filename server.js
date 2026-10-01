@@ -524,6 +524,41 @@ http.createServer((req, res) => {
       return json(res, 201, message);
     }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
   }
+  // Adjuntos del chat (fotos y PDF): se guardan en DATA_DIR/chat-adjuntos y solo los ven emisor y destinatario
+  if (requestPath === "/api/chat/attachments" && req.method === "POST") {
+    const user = requireUser(req, res);if (!user) return;
+    let name = "archivo", caption = "", recipientId = "";
+    try { name = path.basename(decodeURIComponent(String(req.headers["x-file-name"] || "archivo"))).slice(0, 160) || "archivo"; } catch {}
+    try { caption = cleanText(decodeURIComponent(String(req.headers["x-caption"] || "")), 500); } catch {}
+    try { recipientId = decodeURIComponent(String(req.headers["x-recipient"] || "")); } catch {}
+    const recipient = chatParticipant(recipientId);
+    if (!recipient || recipient.id === user.id) return json(res, 400, { error: "Destinatario no válido." });
+    const type = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+    const isImage = /^image\/(jpeg|png|webp|gif|heic|heif)$/.test(type), isPdf = type === "application/pdf" || /\.pdf$/i.test(name);
+    if (!isImage && !isPdf) return json(res, 415, { error: "Solo se pueden enviar fotos o PDF." });
+    return readBuffer(req, 15 * 1024 * 1024 + 1024).then(buffer => {
+      if (!buffer.length) return json(res, 400, { error: "El archivo está vacío." });
+      if (buffer.length > 15 * 1024 * 1024) return json(res, 413, { error: "El archivo supera los 15 MB." });
+      const folder = path.join(dataDirectory, "chat-adjuntos");fs.mkdirSync(folder, { recursive: true });
+      const id = crypto.randomUUID();fs.writeFileSync(path.join(folder, id), buffer);
+      const attachment = { id, name, type: isPdf ? "application/pdf" : type, size: buffer.length, kind: isPdf ? "pdf" : "image" };
+      const messages = loadCollection(messagesFile), createdAt = new Date().toISOString();
+      const message = { id: crypto.randomUUID(), senderId: user.id, recipientId: recipient.id, text: caption || (isPdf ? `📄 ${name}` : "📷 Foto"), autoText: !caption, attachment, createdAt };
+      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));
+      return json(res, 201, message);
+    }).catch(() => json(res, 400, { error: "No se pudo enviar el archivo." }));
+  }
+  if (requestPath.startsWith("/api/chat/attachments/") && req.method === "GET") {
+    const user = requireUser(req, res);if (!user) return;
+    const id = requestPath.split("/").pop();
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return json(res, 404, { error: "Archivo no encontrado." });
+    const message = loadCollection(messagesFile).find(item => item.attachment?.id === id);
+    if (!message || (message.senderId !== user.id && message.recipientId !== user.id)) return json(res, 404, { error: "Archivo no encontrado." });
+    const file = path.join(dataDirectory, "chat-adjuntos", id);
+    if (!fs.existsSync(file)) return json(res, 404, { error: "Archivo no encontrado." });
+    res.writeHead(200, { "Content-Type": message.attachment.type || "application/octet-stream", "Cache-Control": "private, max-age=86400", "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(message.attachment.name)}` });
+    return fs.createReadStream(file).pipe(res);
+  }
   if (requestPath === "/api/chat/read" && req.method === "POST") {
     const user = requireUser(req, res);if (!user) return;
     return readJson(req).then(({ withUserId }) => {

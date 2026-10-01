@@ -4603,3 +4603,133 @@ setInterval(refreshSuggestions,15000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)revisar()});
   window.addEventListener("pageshow",revisar);
 })();
+
+/* ===== Chat de trabajadores: conversación a pantalla completa en móvil, teclado como WhatsApp y adjuntos (fotos y PDF) ===== */
+(function(){
+  const panel=document.querySelector("#chatPanel");if(!panel||typeof renderConversation!=="function")return;
+  const movil=()=>matchMedia("(max-width:760px)").matches;
+  const ICO={
+    clip:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+    camara:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+    fotos:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 8"/></svg>',
+    pdf:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+    enviar:'<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>'
+  };
+  const tam=b=>b>1048576?`${(b/1048576).toFixed(1).replace(".",",")} MB`:`${Math.max(1,Math.round(b/1024))} KB`;
+
+  // Mensajes con adjuntos
+  chatMessagesMarkup=function(messages,name){
+    if(!messages.length)return `<div class="chat-empty"><span>✦</span><strong>Inicia la conversación</strong><small>Escribe el primer mensaje para ${escapeHtml(name)}.</small></div>`;
+    return messages.map(message=>{
+      const outgoing=message.senderId===signedInUser?.id,read=outgoing&&Boolean(message.readAt),a=message.attachment;
+      let adjunto="";
+      if(a?.kind==="image")adjunto=`<button type="button" class="ch3-foto" data-adj="${escapeHtml(a.id)}" data-nombre="${escapeHtml(a.name)}" data-tipo="${escapeHtml(a.type)}"><img src="/api/chat/attachments/${encodeURIComponent(a.id)}" alt="${escapeHtml(a.name)}" loading="lazy"></button>`;
+      else if(a)adjunto=`<button type="button" class="ch3-doc" data-adj="${escapeHtml(a.id)}" data-nombre="${escapeHtml(a.name)}" data-tipo="${escapeHtml(a.type)}"><img src="/icons/pdf.png" alt=""><span><strong>${escapeHtml(a.name)}</strong><small>PDF · ${tam(a.size||0)}</small></span></button>`;
+      const texto=a&&message.autoText?"":`<p>${escapeHtml(message.text)}</p>`;
+      return `<div class="chat-message ${outgoing?"outgoing":"incoming"}${a?" ch3-con-adjunto":""}">${adjunto}${texto}<time>${escapeHtml(chatMessageTime(message.createdAt))}${outgoing?`<span class="chat-read-ticks${read?" read":""}" title="${read?"Leído":"Enviado"}" aria-label="${read?"Leído":"Enviado"}">${read?"✓✓":"✓"}</span>`:""}</time></div>`;
+    }).join("");
+  };
+  document.addEventListener("click",async e=>{
+    const b=e.target.closest("#chatPanel [data-adj]");if(!b)return;
+    b.classList.add("cargando");
+    try{const r=await fetch(`/api/chat/attachments/${encodeURIComponent(b.dataset.adj)}`);if(!r.ok)throw 0;const blob=await r.blob();openDocumentPreview(new File([blob],b.dataset.nombre||"archivo",{type:b.dataset.tipo||blob.type}))}
+    catch{alert("No se pudo abrir el archivo.")}finally{b.classList.remove("cargando")}
+  });
+
+  // Fotos: se reducen a JPEG (máx. 1800 px) antes de enviarlas
+  async function prepararFoto(file){
+    try{
+      const bmp=await createImageBitmap(file),max=1800,esc=Math.min(1,max/Math.max(bmp.width,bmp.height));
+      const c=document.createElement("canvas");c.width=Math.round(bmp.width*esc);c.height=Math.round(bmp.height*esc);c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
+      const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.85));if(!blob)return file;
+      return new File([blob],(file.name||"foto").replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg"});
+    }catch{return file}
+  }
+  async function enviarAdjunto(file){
+    const nombre=activeChatWorker;if(!file||!nombre)return;
+    const esPdf=file.type==="application/pdf"||/\.pdf$/i.test(file.name);
+    if(!esPdf&&!/^image\//.test(file.type))return alert("Solo se pueden enviar fotos o PDF.");
+    const box=document.querySelector("#chatMessages");
+    const temp=document.createElement("div");temp.className="chat-message outgoing ch3-enviando";temp.innerHTML=`<p>${esPdf?"📄":"📷"} Enviando ${escapeHtml(esPdf?file.name:"foto")}…</p>`;
+    box?.querySelector(".chat-empty")?.remove();box?.appendChild(temp);if(box)box.scrollTop=box.scrollHeight;
+    try{
+      const final=esPdf?file:await prepararFoto(file);
+      if(final.size>15*1024*1024)throw new Error("El archivo supera los 15 MB.");
+      const r=await fetch("/api/chat/attachments",{method:"POST",headers:{"Content-Type":esPdf?"application/pdf":final.type,"X-File-Name":encodeURIComponent(final.name||"archivo"),"X-Recipient":encodeURIComponent(chatParticipantId(nombre))},body:final});
+      const res=await r.json().catch(()=>({}));if(!r.ok)throw new Error(res.error||"No se pudo enviar el archivo.");
+      if(activeChatWorker===nombre)await renderConversation(nombre,false);refreshChatData(false);
+    }catch(err){temp.remove();alert(err.message||"No se pudo enviar el archivo.")}
+  }
+
+  // Composer: botón de adjuntar y menú
+  function mejorarComposer(){
+    const form=document.querySelector("#chatForm");if(!form||form.querySelector(".ch3-mas"))return;
+    form.insertAdjacentHTML("afterbegin",`<button type="button" class="ch3-mas" aria-label="Adjuntar" aria-expanded="false">${ICO.clip}</button>
+      <div class="ch3-menu" hidden>
+        <button type="button" data-ch3="camara"><span style="background:#FDECEC;color:#D64545">${ICO.camara}</span>Cámara</button>
+        <button type="button" data-ch3="fotos"><span style="background:#EEF1FF;color:#2F4BD6">${ICO.fotos}</span>Fotos</button>
+        <button type="button" data-ch3="pdf"><span style="background:#F2EEFF;color:#6D4AE0">${ICO.pdf}</span>Documento PDF</button>
+      </div>
+      <input type="file" class="ch3-in" data-in="camara" accept="image/*" capture="environment" hidden>
+      <input type="file" class="ch3-in" data-in="fotos" accept="image/*" multiple hidden>
+      <input type="file" class="ch3-in" data-in="pdf" accept="application/pdf,.pdf" multiple hidden>`);
+    const enviar=form.querySelector('button[type="submit"]');if(enviar)enviar.innerHTML=ICO.enviar;
+    const mas=form.querySelector(".ch3-mas"),menu=form.querySelector(".ch3-menu");
+    const cerrarMenu=()=>{menu.hidden=true;mas.setAttribute("aria-expanded","false");mas.classList.remove("on")};
+    mas.addEventListener("click",()=>{const abrir=menu.hidden;menu.hidden=!abrir;mas.setAttribute("aria-expanded",String(abrir));mas.classList.toggle("on",abrir)});
+    menu.querySelectorAll("[data-ch3]").forEach(b=>b.addEventListener("click",()=>{cerrarMenu();form.querySelector(`[data-in="${b.dataset.ch3}"]`).click()}));
+    form.querySelectorAll(".ch3-in").forEach(inp=>inp.addEventListener("change",async()=>{const files=[...inp.files];inp.value="";for(const f of files)await enviarAdjunto(f)}));
+    document.addEventListener("click",e=>{if(!menu.hidden&&!e.target.closest(".ch3-menu,.ch3-mas"))cerrarMenu()},{capture:true});
+    // Enviar sin cerrar el teclado
+    enviar?.addEventListener("pointerdown",e=>{if(document.activeElement?.id==="chatMessage")e.preventDefault()});
+    const ta=form.querySelector("#chatMessage");
+    if(ta){
+      const crecer=()=>{ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,120)+"px"};
+      ta.addEventListener("input",crecer);
+      ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!movil()){e.preventDefault();form.requestSubmit()}});
+    }
+  }
+
+  // Enviar texto sin redibujar toda la conversación (así el teclado no se cierra)
+  sendChatMessage=async function(event){
+    event.preventDefault();
+    const input=document.querySelector("#chatMessage"),button=event.currentTarget.querySelector('button[type="submit"]');
+    const text=input.value.trim(),nombre=activeChatWorker;if(!text||!nombre)return;
+    button&&(button.disabled=true);
+    try{
+      await apiJson("/api/chat/messages",{method:"POST",body:JSON.stringify({recipientId:chatParticipantId(nombre),text})});
+      input.value="";input.style.height="";
+      await refreshOpenChatMessages(nombre);
+      const box=document.querySelector("#chatMessages");if(box)box.scrollTop=box.scrollHeight;
+      refreshChatData(false);
+    }catch(reason){alert(reason.message)}finally{button&&(button.disabled=false)}
+  };
+  const convOriginal=renderConversation;
+  renderConversation=async function(name,focus=true){
+    panel.classList.add("ch3-conv");
+    const r=await convOriginal.call(this,name,movil()?false:focus);
+    if(activeChatWorker===name){mejorarComposer();const box=document.querySelector("#chatMessages");if(box)box.scrollTop=box.scrollHeight}
+    return r;
+  };
+  const contactosOriginal=renderChatContacts;
+  renderChatContacts=function(){panel.classList.remove("ch3-conv");escribiendo(false);return contactosOriginal.apply(this,arguments)};
+  const cerrarOriginal=closeWorkerChat;
+  closeWorkerChat=function(){escribiendo(false);return cerrarOriginal.apply(this,arguments)};
+
+  // Teclado: la barra inferior desaparece y el recuadro queda pegado al teclado
+  const vv=window.visualViewport;
+  function ajustar(){
+    if(!document.body.classList.contains("ch3-escribiendo")||!vv)return;
+    panel.style.setProperty("top",`${vv.offsetTop}px`,"important");panel.style.setProperty("height",`${vv.height}px`,"important");panel.style.setProperty("max-height",`${vv.height}px`,"important");
+    const box=document.querySelector("#chatMessages");if(box&&box.scrollHeight-box.scrollTop-box.clientHeight<160)box.scrollTop=box.scrollHeight;
+  }
+  function escribiendo(on){
+    document.body.classList.toggle("ch3-escribiendo",Boolean(on));
+    if(!on){["top","height","max-height"].forEach(k=>panel.style.removeProperty(k))}else{ajustar();setTimeout(ajustar,250);setTimeout(ajustar,600)}
+  }
+  document.addEventListener("focusin",e=>{if(movil()&&e.target.id==="chatMessage")escribiendo(true)});
+  document.addEventListener("focusout",e=>{if(e.target.id==="chatMessage")setTimeout(()=>{if(document.activeElement?.id!=="chatMessage")escribiendo(false)},120)});
+  vv?.addEventListener("resize",ajustar);vv?.addEventListener("scroll",ajustar);
+})();
+/* Al cargar una foto del chat, si se estaba al final de la conversación, se sigue al final */
+document.addEventListener("load",e=>{const img=e.target;if(img?.tagName!=="IMG"||!img.closest?.("#chatMessages .ch3-foto"))return;const box=img.closest("#chatMessages");if(box.scrollHeight-box.scrollTop-box.clientHeight<img.clientHeight+160)box.scrollTop=box.scrollHeight},true);
