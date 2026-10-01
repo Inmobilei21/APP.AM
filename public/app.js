@@ -5009,7 +5009,9 @@ homeActivityEmpty=function(icon,title,text){
     if(o)preparar(o);
   };
   // Al cerrar el teclado, el iPhone a veces deja la vista desplazada: se recoloca
-  document.addEventListener("focusout",e=>{if(e.target.closest?.(".client-chat-overlay"))setTimeout(()=>{if(!document.activeElement?.closest?.(".client-chat-overlay textarea"))window.scrollTo(0,0)},300)});
+  // Tras cerrarse, el iPhone a veces no devuelve la altura completa a la app: se fuerza a recalcularla
+  const recolocar=()=>{window.scrollTo(0,0);const h=document.documentElement;h.style.minHeight="100.1%";requestAnimationFrame(()=>{h.style.minHeight="";window.scrollTo(0,0)})};
+  document.addEventListener("focusout",e=>{if(e.target.closest?.(".client-chat-overlay"))[150,400,800].forEach(t=>setTimeout(()=>{if(!document.activeElement?.closest?.(".client-chat-overlay textarea"))recolocar()},t))});
   window.visualViewport?.addEventListener("resize",()=>{if(document.documentElement.classList.contains("cc-bloqueo")&&!document.body.classList.contains("cc-escribiendo"))window.scrollTo(0,0)});
   new MutationObserver(revisar).observe(document.body,{childList:true});revisar();
 })();
