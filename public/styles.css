@@ -5252,3 +5252,24 @@ html:has(.login2:not(.saliendo)) body>:not(.login2):not(#splash):not(script){vis
   html body .dv-movil .document-preview-card>footer #downloadPreviewDocument{background:#EEF1F8!important;color:#0A1A3F!important;border:0!important}
   html body .dv-movil .document-preview-card>footer .dv-compartir{background:linear-gradient(135deg,#13275C,#0A1A3F)!important;color:#fff!important;border:0!important}
 }
+
+/* ===== Bloqueo real del fondo al abrir el menú móvil ===== */
+@media(max-width:760px){
+  html.menu-open,
+  body.menu-open{
+    overflow:hidden!important;
+    overscroll-behavior:none;
+  }
+  body.menu-open{
+    position:fixed!important;
+    left:0;
+    right:0;
+    width:100%;
+  }
+  body.menu-open .sidebar{
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+}
