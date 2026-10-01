@@ -4760,3 +4760,16 @@ document.addEventListener("load",e=>{const img=e.target;if(img?.tagName!=="IMG"|
     mover();try{await p}finally{mover()}
   };
 })();
+/* Días de cortesía: el botón Desbloquear pasa a ser un candado */
+(function(){
+  if(typeof renderCourtesyExerciseStatus!=="function")return;
+  const original=renderCourtesyExerciseStatus;
+  renderCourtesyExerciseStatus=function(){
+    const r=original.apply(this,arguments);
+    const st=document.querySelector("#courtesyExerciseStatus strong");
+    if(st&&!st.querySelector(".cx-l")){const m=st.textContent.match(/^(.*?)\s*·\s*(.*)$/);if(m){const corto=m[1].replace(/^Ejercicio\s+/i,"");st.innerHTML=`<span class="cx-l">${escapeHtml(m[1])}</span><span class="cx-c">${escapeHtml(corto.charAt(0).toUpperCase()+corto.slice(1))}</span> · ${escapeHtml(m[2])}`}}
+    const b=document.querySelector("#unlockCourtesyYear");
+    if(b){b.classList.add("cx-candado");b.setAttribute("aria-label","Desbloquear ejercicio");b.title="Desbloquear ejercicio";b.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="16" r="1.2" fill="currentColor"/></svg>'}
+    return r;
+  };
+})();

@@ -5378,3 +5378,14 @@ html body .courtesy-panel .courtesy-heading-actions .courtesy-year-filter{flex:n
   html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status button{width:100%!important}
 }
 @media (max-width:760px){html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status strong{font-size:12.5px!important;white-space:normal!important}}
+/* Días de cortesía: estado compacto con candado, a la altura del selector */
+html body .courtesy-panel .courtesy-heading-actions{align-items:flex-end!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status{flex-direction:row!important;align-items:center!important;justify-content:space-between!important;height:var(--cx-alto,48px)!important;box-sizing:border-box!important;padding:0 6px 0 12px!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status>div>span{display:none!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status strong{white-space:nowrap!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status button.cx-candado{flex:none!important;width:38px!important;height:38px!important;min-width:0!important;padding:0!important;border-radius:11px!important;display:grid!important;place-items:center!important;background:#fff!important;border:1px solid #EADBC4!important;color:#9A6418!important;box-shadow:none!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status.is-open{padding-right:12px!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-year-filter select{height:46px!important;min-height:46px!important;box-sizing:border-box!important}
+html body .courtesy-panel .courtesy-heading-actions{--cx-alto:46px}
+html body .courtesy-panel .cx-c{display:none}
+@media (max-width:760px){html body .courtesy-panel .cx-l{display:none}html body .courtesy-panel .cx-c{display:inline}html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status strong{font-size:14px!important}}
