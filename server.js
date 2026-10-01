@@ -578,6 +578,25 @@ http.createServer((req, res) => {
       return json(res, 200, { read: true });
     }).catch(() => json(res, 400, { error: "No se pudo marcar la conversación como leída." }));
   }
+  // Puente con ProPymes: los clientes de la demo de ProPymes escriben a Álvaro Molinero.
+  // Sin sesión, pero solo con la clave compartida PP_PUENTE_CLAVE (si no está definida, queda desactivado).
+  if (requestPath === "/api/puente/propymes" && req.method === "POST") {
+    const clave = String(process.env.PP_PUENTE_CLAVE || ""), dada = Buffer.from(String(req.headers["x-clave"] || ""));
+    if (!clave || dada.length !== Buffer.byteLength(clave) || !crypto.timingSafeEqual(dada, Buffer.from(clave))) { req.resume(); return json(res, 403, { error: "No autorizado." }); }
+    const ahora = Date.now(), lista = (global.__puentePP = (global.__puentePP || []).filter(t => ahora - t < 60 * 60 * 1000));
+    if (lista.length >= 120) { req.resume(); return json(res, 429, { error: "Demasiados mensajes." }); }
+    lista.push(ahora);
+    return readJson(req, 16 * 1024).then(input => {
+      const cliente = cleanText(input.cliente, 80) || "Cliente", nombre = cleanText(input.nombre, 80), correo = cleanText(input.correo, 120), telefono = cleanText(input.telefono, 30), servicio = cleanText(input.servicio, 120), texto = cleanText(input.texto, 500);
+      if (!texto && !correo) return json(res, 400, { error: "Mensaje vacío." });
+      const lineas = input.tipo === "solicitud"
+        ? ["📩 Solicitud de información (ProPymes · demo)", servicio && `Servicio: ${servicio}`, `Nombre: ${nombre || cliente}`, correo && `Correo: ${correo}`, `Teléfono: ${telefono || "no indicado"}`]
+        : ["💬 Mensaje desde la demo de ProPymes", texto, nombre && nombre !== cliente && `Nombre: ${nombre}`, correo && `Correo: ${correo}`, telefono && `Teléfono: ${telefono}`];
+      const quien = `${cliente} (ProPymes)`, recipient = teamMember("alvaro");
+      const messages = loadCollection(messagesFile), message = { id: crypto.randomUUID(), senderId: `client:${quien}`, senderName: quien, clientName: quien, recipientId: recipient.id, text: lineas.filter(Boolean).join("\n").slice(0, 900), origen: "propymes-demo", createdAt: new Date().toISOString() };
+      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));return json(res, 201, { ok: true });
+    }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
+  }
   if (requestPath === "/api/client-chat/messages" && req.method === "GET") {
     if (!requireUser(req, res)) return;
     const url = new URL(req.url, "http://localhost"), clientName = cleanText(url.searchParams.get("client"), 160), employee = teamMember(url.searchParams.get("with"));

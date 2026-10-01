@@ -5549,3 +5549,4 @@ html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-messages,html body
 @media (max-width:760px){
   html body:not(#pp):not(#pp):not(#pp) .client-chat-overlay{top:0!important;bottom:0!important;left:0!important;right:0!important;height:auto!important}
 }
+.chat-message p,.client-chat-message p{white-space:pre-line}
