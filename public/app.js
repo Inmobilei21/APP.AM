@@ -5004,8 +5004,9 @@ homeActivityEmpty=function(icon,title,text){
   let guardado=null;
   const revisar=()=>{
     const o=document.querySelector(".client-chat-overlay"),b=document.body;
-    if(o&&guardado===null){guardado=window.scrollY;b.style.top=`-${guardado}px`;document.documentElement.classList.add("cc-bloqueo")}
-    else if(!o&&guardado!==null){document.documentElement.classList.remove("cc-bloqueo");b.style.top="";const y=guardado;guardado=null;window.scrollTo(0,y)}
+    // (sin fijar el body: en el iPhone instalado eso encoge la pantalla y sube la barra inferior)
+    if(o&&guardado===null){guardado=window.scrollY;document.documentElement.classList.add("cc-bloqueo")}
+    else if(!o&&guardado!==null){document.documentElement.classList.remove("cc-bloqueo");guardado=null}
     if(o)preparar(o);
   };
   // Al cerrar el teclado, el iPhone a veces deja la vista desplazada: se recoloca
