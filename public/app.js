@@ -352,8 +352,24 @@ const defaultClientFolders=["ACTAS","CIERRES ANUALES","CONTABILIDAD","DECLARACIO
 document.querySelector("#menu").addEventListener("click",openMenu);
 overlay.addEventListener("click",closeMenu);
 
-function openMenu(){sidebar.classList.add("open");overlay.classList.add("show");document.body.classList.add("menu-open")}
-function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show");document.body.classList.remove("menu-open")}
+let menuBackgroundScrollY=0;
+function openMenu(){
+  sidebar.classList.add("open");overlay.classList.add("show");
+  if(!document.body.classList.contains("menu-open")){
+    menuBackgroundScrollY=window.scrollY||window.pageYOffset||0;
+    if(window.matchMedia("(max-width:760px)").matches)document.body.style.top=`-${menuBackgroundScrollY}px`;
+    document.documentElement.classList.add("menu-open");
+    document.body.classList.add("menu-open");
+  }
+}
+function closeMenu(){
+  sidebar.classList.remove("open");overlay.classList.remove("show");
+  const restoreScroll=document.body.classList.contains("menu-open");
+  document.documentElement.classList.remove("menu-open");
+  document.body.classList.remove("menu-open");
+  document.body.style.top="";
+  if(restoreScroll&&window.matchMedia("(max-width:760px)").matches)window.scrollTo(0,menuBackgroundScrollY);
+}
 let mobileSwipeStart=null;
 document.addEventListener("touchstart",event=>{
   if(!window.matchMedia("(max-width:760px)").matches||sidebar.classList.contains("open")||document.querySelector(".chat-panel.open:not(#chatPanel)")){mobileSwipeStart=null;return}
