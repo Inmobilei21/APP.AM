@@ -5389,3 +5389,8 @@ html body .courtesy-panel .courtesy-heading-actions .courtesy-year-filter select
 html body .courtesy-panel .courtesy-heading-actions{--cx-alto:46px}
 html body .courtesy-panel .cx-c{display:none}
 @media (max-width:760px){html body .courtesy-panel .cx-l{display:none}html body .courtesy-panel .cx-c{display:inline}html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status strong{font-size:14px!important}}
+
+/* Contactos: el título ya está en la cabecera */
+html body .contacts-panel .contacts-heading>div:first-child:has(h2){display:none!important}
+html body .contacts-panel .contacts-heading{justify-content:flex-start!important}
+html body .contacts-panel .contacts-heading .phone-search{flex:1 1 auto;max-width:none!important;width:100%!important}
