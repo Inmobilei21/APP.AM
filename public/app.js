@@ -4773,3 +4773,15 @@ document.addEventListener("load",e=>{const img=e.target;if(img?.tagName!=="IMG"|
     return r;
   };
 })();
+
+/* Inicio: estados vacíos de actividad con iconos de línea en lugar de símbolos */
+homeActivityEmpty=function(icon,title,text){
+  const ICO={
+    "✉":'<path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4.5 3v-3H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/><path d="M8 10.5h8M8 13.5h5"/>',
+    "⌁":'<path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8Z"/><path d="M10 21h4"/>',
+    "✓":'<circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16 9.6"/>'
+  };
+  const tono=icon==="✓"?"hae-verde":icon==="⌁"?"hae-ambar":"hae-azul";
+  const svg=ICO[icon]?`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICO[icon]}</svg>`:icon;
+  return `<div class="home-activity-empty hae"><span class="hae-ic ${tono}" aria-hidden="true">${svg}</span><strong>${title}</strong><small>${text}</small></div>`;
+};

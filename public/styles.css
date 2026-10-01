@@ -5400,3 +5400,20 @@ html body main>.clients-head:has(>div:only-child>h2){display:none!important}
 html body .work-catalog-head>div:first-child:has(>h2){display:none!important}
 html body .work-catalog-head .work-head-actions{width:100%}
 html body .work-catalog-head .work-head-actions .management-library-search{flex:1 1 auto;max-width:none!important}
+
+/* Inicio: estados vacíos más cuidados */
+html body .home-activity-empty.hae{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:6px!important;padding:26px 16px!important;text-align:center!important;background:none!important;border:0!important}
+html body .home-activity-empty.hae .hae-ic{width:52px!important;height:52px!important;margin:0 0 8px!important;border-radius:16px!important;display:grid!important;place-items:center!important;font-size:0!important;position:relative}
+html body .home-activity-empty.hae .hae-ic::after{content:"";position:absolute;inset:-6px;border-radius:20px;border:1px dashed currentColor;opacity:.22}
+html body .home-activity-empty.hae .hae-azul{background:#EEF1FF!important;color:#2F4BD6!important}
+html body .home-activity-empty.hae .hae-ambar{background:#FFF4E2!important;color:#B7791F!important}
+html body .home-activity-empty.hae .hae-verde{background:#E7F6EF!important;color:#12805C!important}
+html body .home-activity-empty.hae strong{font-size:14.5px!important;font-weight:650!important;color:#0E1A33!important}
+html body .home-activity-empty.hae small{font-size:12.5px!important;color:#7A859B!important;max-width:240px;line-height:1.4}
+/* Inicio móvil: la pestaña elegida siempre muestra su tarjeta (aunque esté marcada como oculta en escritorio) */
+@media (max-width:760px){
+  html body .home-activity-rail[data-m2-tab="0"] .home-activity-card.home-messages-card:not(.home-client-messages-card)[hidden],
+  html body .home-activity-rail[data-m2-tab="1"] .home-activity-card.home-client-messages-card[hidden],
+  html body .home-activity-rail[data-m2-tab="2"] .home-activity-card.home-tasks-card[hidden],
+  html body .home-activity-rail[data-m2-tab="3"] .home-activity-card.home-reminders-card[hidden]{display:block!important}
+}
