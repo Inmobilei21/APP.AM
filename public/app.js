@@ -4733,3 +4733,19 @@ setInterval(refreshSuggestions,15000);
 })();
 /* Al cargar una foto del chat, si se estaba al final de la conversación, se sigue al final */
 document.addEventListener("load",e=>{const img=e.target;if(img?.tagName!=="IMG"||!img.closest?.("#chatMessages .ch3-foto"))return;const box=img.closest("#chatMessages");if(box.scrollHeight-box.scrollTop-box.clientHeight<img.clientHeight+160)box.scrollTop=box.scrollHeight},true);
+
+/* ===== Al entrar en la app (o cambiar de sección) la pantalla empieza arriba del todo ===== */
+(function(){
+  try{if("scrollRestoration" in history)history.scrollRestoration="manual"}catch(_){}
+  const arriba=()=>{if(document.body.classList.contains("m2-panel-open"))return;window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;const m=document.querySelector("main");if(m)m.scrollTop=0};
+  const varias=()=>{arriba();requestAnimationFrame(arriba);[120,400,900].forEach(t=>setTimeout(arriba,t))};
+  varias();
+  document.addEventListener("auth-decidida",varias);
+  window.addEventListener("pageshow",e=>{if(!e.persisted)varias()});
+  // Al terminar de iniciar sesión (desaparece la pantalla de acceso)
+  const vigilarAcceso=g=>new MutationObserver((_,o)=>{if(g.classList.contains("saliendo")){o.disconnect();document.activeElement?.blur?.();varias()}}).observe(g,{attributes:true,attributeFilter:["class"]});
+  document.querySelectorAll(".login2").forEach(vigilarAcceso);
+  new MutationObserver(muts=>{for(const m of muts){for(const n of m.addedNodes)if(n.classList?.contains("login2"))vigilarAcceso(n);for(const n of m.removedNodes)if(n.classList?.contains("login2"))varias()}}).observe(document.body,{childList:true});
+  // Al cambiar de sección desde la barra lateral, la barra inferior o el menú
+  document.addEventListener("click",e=>{if(e.target.closest(".sidebar nav button[data-title], .m2-barra [data-mobile-route], .m2-hoja [data-m2-ruta], [data-mobile-route]"))setTimeout(varias,0)},true);
+})();
