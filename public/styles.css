@@ -5353,3 +5353,8 @@ html body .worker-chat #chatPanel .chat-composer .ch3-menu button span{width:40p
   html body .signature-table.mobile-collapsible-table .mobile-client-row.mobile-expanded>td:not(:first-child)>*{justify-self:start;text-align:left}
   html body .signature-table.mobile-collapsible-table .password-cell{padding:6px 12px!important;border-radius:10px!important;background:#F4F6FB!important}
 }
+
+/* Firmas digitales: el título ya está en la cabecera */
+html body .signatures-panel .table-heading>div:first-child:has(h2){display:none!important}
+html body .signatures-panel .table-heading{justify-content:flex-end}
+@media (max-width:760px){html body .signatures-panel .table-heading{margin-top:0!important;padding-top:0!important}}
