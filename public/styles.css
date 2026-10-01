@@ -5530,3 +5530,7 @@ html.sg-abierto,html.sg-abierto body{overflow:hidden!important}
   html body.cc-conv.cc-escribiendo:not(#pp):not(#pp) .client-chat-overlay .client-chat-composer{padding-bottom:8px!important}
 }
 html body:not(#pp):not(#pp) .client-chat-composer.cc-composer button[type="submit"]{flex:none!important;width:46px!important;height:46px!important;min-width:46px!important;padding:0!important;border-radius:14px!important;display:grid!important;place-items:center!important}
+/* Con el chat del cliente abierto, la página de detrás queda fija */
+html.cc-bloqueo,html.cc-bloqueo body{overflow:hidden!important;overscroll-behavior:none!important}
+html body:not(#pp):not(#pp) .client-chat-overlay{overscroll-behavior:none}
+html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-messages,html body:not(#pp):not(#pp) .client-chat-overlay .client-chat-content{overscroll-behavior:contain}

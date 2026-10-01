@@ -4986,3 +4986,15 @@ homeActivityEmpty=function(icon,title,text){
   renderClientAdvisorList=function(){document.body.classList.remove("cc-conv");return lista.apply(this,arguments)};
   new MutationObserver(()=>{if(document.body.classList.contains("cc-conv")&&!capa())document.body.classList.remove("cc-conv")}).observe(document.body,{childList:true});
 })();
+
+/* ===== Chat del área de cliente: el fondo no se desplaza ni "arrastra" el chat hacia arriba en el móvil ===== */
+(function(){
+  const SCROLL=".client-chat-messages,.client-chat-advisors,.client-chat-content,.cc-menu,textarea";
+  const puedeMoverse=el=>{for(let n=el;n&&!n.classList?.contains("client-chat-overlay");n=n.parentElement){if(n.matches?.(SCROLL)&&n.scrollHeight>n.clientHeight+1)return true}return false};
+  const preparar=o=>{
+    if(o.dataset.ccTactil)return;o.dataset.ccTactil="1";
+    o.addEventListener("touchmove",e=>{if(e.touches.length>1)return;if(!puedeMoverse(e.target))e.preventDefault()},{passive:false});
+  };
+  const revisar=()=>{const o=document.querySelector(".client-chat-overlay");document.documentElement.classList.toggle("cc-bloqueo",Boolean(o));if(o)preparar(o)};
+  new MutationObserver(revisar).observe(document.body,{childList:true});revisar();
+})();
