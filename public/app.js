@@ -4749,3 +4749,14 @@ document.addEventListener("load",e=>{const img=e.target;if(img?.tagName!=="IMG"|
   // Al cambiar de sección desde la barra lateral, la barra inferior o el menú
   document.addEventListener("click",e=>{if(e.target.closest(".sidebar nav button[data-title], .m2-barra [data-mobile-route], .m2-hoja [data-m2-ruta], [data-mobile-route]"))setTimeout(varias,0)},true);
 })();
+
+/* ===== Días de cortesía: el estado del ejercicio va junto al selector, en lugar del aviso de servidor ===== */
+(function(){
+  if(typeof renderCourtesyDays!=="function")return;
+  const original=renderCourtesyDays;
+  renderCourtesyDays=async function(){
+    const p=original.apply(this,arguments);
+    const mover=()=>{const st=document.querySelector("#courtesyExerciseStatus"),acc=document.querySelector(".courtesy-heading-actions");if(st&&acc&&st.parentElement!==acc)acc.appendChild(st)};
+    mover();try{await p}finally{mover()}
+  };
+})();

@@ -5358,3 +5358,23 @@ html body .worker-chat #chatPanel .chat-composer .ch3-menu button span{width:40p
 html body .signatures-panel .table-heading>div:first-child:has(h2){display:none!important}
 html body .signatures-panel .table-heading{justify-content:flex-end}
 @media (max-width:760px){html body .signatures-panel .table-heading{margin-top:0!important;padding-top:0!important}}
+
+/* ===== Días de cortesía: sin título repetido ni aviso de servidor; estado del ejercicio junto al selector ===== */
+html body .courtesy-panel .courtesy-heading>div:first-child:has(h2){display:none!important}
+html body .courtesy-panel #connectCourtesyFolder.is-connected{display:none!important}
+html body .courtesy-panel .courtesy-heading{justify-content:flex-start!important}
+html body .courtesy-panel .courtesy-heading-actions{display:flex!important;align-items:flex-end!important;justify-content:flex-start!important;gap:12px!important;flex-wrap:nowrap!important;width:100%}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status{flex:1 1 auto;min-width:0;margin:0!important;padding:8px 10px!important;gap:10px!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status>div{gap:8px!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status>div>span{width:26px!important;height:26px!important;flex:0 0 26px!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status strong{font-size:13px!important;white-space:nowrap;color:#0E1A33!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status small{display:none!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status button{flex:none;margin:0!important;padding:7px 12px!important;min-height:0!important;height:auto!important;font-size:13px!important;border-radius:10px!important;width:auto!important}
+html body .courtesy-panel .courtesy-heading-actions .courtesy-year-filter{flex:none}
+@media (max-width:760px){
+  html body .courtesy-panel .courtesy-heading{margin-top:0!important}
+  html body .courtesy-panel .courtesy-heading-actions .courtesy-year-filter select{min-width:0!important;width:112px!important;padding-right:28px!important}
+  html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status{flex-direction:column!important;align-items:stretch!important;gap:6px!important}
+  html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status button{width:100%!important}
+}
+@media (max-width:760px){html body .courtesy-panel .courtesy-heading-actions .courtesy-exercise-status strong{font-size:12.5px!important;white-space:normal!important}}
