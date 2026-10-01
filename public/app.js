@@ -4905,3 +4905,84 @@ homeActivityEmpty=function(icon,title,text){
   // Al cerrar el chat se quita el modo escritura
   new MutationObserver(()=>{if(document.body.classList.contains("cc-escribiendo")&&!capa())escribiendo(false)}).observe(document.body,{childList:true});
 })();
+
+/* ===== Área de cliente: conversación a pantalla completa (sin barra inferior) y envío de fotos y PDF ===== */
+(function(){
+  if(typeof renderClientAdvisorConversation!=="function")return;
+  const ICO={
+    mas:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    camara:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+    fotos:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 8"/></svg>',
+    pdf:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>'
+  };
+  const tam=b=>b>1048576?`${(b/1048576).toFixed(1).replace(".",",")} MB`:`${Math.max(1,Math.round(b/1024))} KB`;
+  const urlAdj=a=>a.url||`/api/chat/attachments/${encodeURIComponent(a.id)}`;
+  const capa=()=>document.querySelector(".client-chat-overlay");
+
+  clientPortalMessageMarkup=function(messages){
+    const clientId=`client:${clientPreviewName}`;
+    if(!messages.length)return '<div class="client-chat-empty"><strong>Aún no hay mensajes</strong><small>Escribe tu consulta y tu asesor la recibirá en su chat.</small></div>';
+    return messages.map((message,i)=>{
+      const outgoing=message.senderId===clientId,read=outgoing&&message.readAt,a=message.attachment;
+      let adj="";
+      if(a?.kind==="image")adj=`<button type="button" class="cc-foto" data-cc-adj="${i}"><img src="${escapeHtml(urlAdj(a))}" alt="${escapeHtml(a.name||"Foto")}" loading="lazy"></button>`;
+      else if(a)adj=`<button type="button" class="cc-doc" data-cc-adj="${i}"><img src="/icons/pdf.png" alt=""><span><strong>${escapeHtml(a.name||"Documento.pdf")}</strong><small>PDF · ${tam(a.size||0)}</small></span></button>`;
+      const texto=a&&message.autoText?"":`<p>${escapeHtml(message.text)}</p>`;
+      return `<div class="client-chat-message ${outgoing?"outgoing":"incoming"}${a?" cc-con-adjunto":""}" data-cc-url="${a?escapeHtml(urlAdj(a)):""}" data-cc-nombre="${a?escapeHtml(a.name||"archivo"):""}" data-cc-tipo="${a?escapeHtml(a.type||""):""}">${adj}${texto}<time>${chatMessageTime(message.createdAt)}${outgoing?` <span class="chat-read-ticks${read?" read":""}">${read?"✓✓":"✓"}</span>`:""}</time></div>`;
+    }).join("");
+  };
+  document.addEventListener("click",async e=>{
+    const b=e.target.closest(".client-chat-overlay [data-cc-adj]");if(!b)return;
+    const m=b.closest(".client-chat-message");b.classList.add("cargando");
+    try{const r=await fetch(m.dataset.ccUrl);if(!r.ok)throw 0;const blob=await r.blob();openDocumentPreview(new File([blob],m.dataset.ccNombre||"archivo",{type:m.dataset.ccTipo||blob.type}));const pv=document.getElementById("documentPreview");if(pv)pv.style.zIndex="3400"}
+    catch{alert("No se pudo abrir el archivo.")}finally{b.classList.remove("cargando")}
+  });
+
+  async function prepararFoto(file){
+    try{const bmp=await createImageBitmap(file),esc=Math.min(1,1600/Math.max(bmp.width,bmp.height));const c=document.createElement("canvas");c.width=Math.round(bmp.width*esc);c.height=Math.round(bmp.height*esc);c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.82));return blob?new File([blob],(file.name||"foto").replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg"}):file}catch{return file}
+  }
+  const base64=file=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(",")[1]||"");r.onerror=no;r.readAsDataURL(file)});
+  async function enviar(file,overlay){
+    const asesor=activeClientAdvisor;if(!file||!asesor)return;
+    const esPdf=file.type==="application/pdf"||/\.pdf$/i.test(file.name);
+    if(!esPdf&&!/^image\//.test(file.type))return alert("Solo se pueden enviar fotos o PDF.");
+    const box=overlay.querySelector(".client-chat-messages");
+    const temp=document.createElement("div");temp.className="client-chat-message outgoing cc-enviando";temp.innerHTML=`<p>${esPdf?"📄":"📷"} Enviando ${escapeHtml(esPdf?file.name:"foto")}…</p>`;
+    box?.querySelector(".client-chat-empty")?.remove();box?.appendChild(temp);if(box)box.scrollTop=box.scrollHeight;
+    try{
+      const final=esPdf?file:await prepararFoto(file);
+      if(final.size>15*1024*1024)throw new Error("El archivo supera los 15 MB.");
+      await apiJson("/api/client-chat/attachments",{method:"POST",body:JSON.stringify({client:clientPreviewName,recipientId:asesor.id,name:final.name||"archivo",type:esPdf?"application/pdf":final.type,data:await base64(final)})});
+      await refreshClientAdvisorMessages(overlay,asesor,true);
+    }catch(err){temp.remove();alert(err?.message||"No se pudo enviar el archivo.")}
+  }
+  function mejorar(overlay){
+    const form=overlay.querySelector(".client-chat-composer");if(!form||form.querySelector(".cc-mas"))return;
+    form.classList.add("cc-composer");
+    form.insertAdjacentHTML("afterbegin",`<button type="button" class="cc-mas" aria-label="Adjuntar" aria-expanded="false">${ICO.mas}</button>
+      <div class="cc-menu" hidden>
+        <button type="button" data-cc="camara"><span style="background:#FDECEC;color:#D64545">${ICO.camara}</span>Cámara</button>
+        <button type="button" data-cc="fotos"><span style="background:#EEF1FF;color:#2F4BD6">${ICO.fotos}</span>Fotos</button>
+        <button type="button" data-cc="pdf"><span style="background:#F2EEFF;color:#6D4AE0">${ICO.pdf}</span>Documento PDF</button>
+      </div>
+      <input type="file" class="cc-in" data-in="camara" accept="image/*" capture="environment" hidden>
+      <input type="file" class="cc-in" data-in="fotos" accept="image/*" multiple hidden>
+      <input type="file" class="cc-in" data-in="pdf" accept="application/pdf,.pdf" multiple hidden>`);
+    const mas=form.querySelector(".cc-mas"),menu=form.querySelector(".cc-menu");
+    const cerrarMenu=()=>{menu.hidden=true;mas.classList.remove("on");mas.setAttribute("aria-expanded","false")};
+    mas.addEventListener("click",()=>{const abrir=menu.hidden;menu.hidden=!abrir;mas.classList.toggle("on",abrir);mas.setAttribute("aria-expanded",String(abrir))});
+    menu.querySelectorAll("[data-cc]").forEach(b=>b.addEventListener("click",()=>{cerrarMenu();form.querySelector(`[data-in="${b.dataset.cc}"]`).click()}));
+    form.querySelectorAll(".cc-in").forEach(inp=>inp.addEventListener("change",async()=>{const files=[...inp.files];inp.value="";for(const f of files)await enviar(f,overlay)}));
+    overlay.addEventListener("click",e=>{if(!menu.hidden&&!e.target.closest(".cc-menu,.cc-mas"))cerrarMenu()},true);
+  }
+  const conv=renderClientAdvisorConversation;
+  renderClientAdvisorConversation=async function(overlay){
+    document.body.classList.add("cc-conv");
+    const r=await conv.apply(this,arguments);
+    if(overlay)mejorar(overlay);
+    return r;
+  };
+  const lista=renderClientAdvisorList;
+  renderClientAdvisorList=function(){document.body.classList.remove("cc-conv");return lista.apply(this,arguments)};
+  new MutationObserver(()=>{if(document.body.classList.contains("cc-conv")&&!capa())document.body.classList.remove("cc-conv")}).observe(document.body,{childList:true});
+})();

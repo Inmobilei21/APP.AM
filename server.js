@@ -560,7 +560,8 @@ http.createServer((req, res) => {
     const id = requestPath.split("/").pop();
     if (!/^[0-9a-f-]{36}$/i.test(id)) return json(res, 404, { error: "Archivo no encontrado." });
     const message = loadCollection(messagesFile).find(item => item.attachment?.id === id);
-    if (!message || (message.senderId !== user.id && message.recipientId !== user.id)) return json(res, 404, { error: "Archivo no encontrado." });
+    const deCliente = String(message?.senderId || "").startsWith("client:") || String(message?.recipientId || "").startsWith("client:");
+    if (!message || (message.senderId !== user.id && message.recipientId !== user.id && !deCliente)) return json(res, 404, { error: "Archivo no encontrado." });
     const file = path.join(dataDirectory, "chat-adjuntos", id);
     if (!fs.existsSync(file)) return json(res, 404, { error: "Archivo no encontrado." });
     res.writeHead(200, { "Content-Type": message.attachment.type || "application/octet-stream", "Cache-Control": "private, max-age=86400", "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(message.attachment.name)}` });
@@ -595,6 +596,26 @@ http.createServer((req, res) => {
       const messages = loadCollection(messagesFile), message = { id: crypto.randomUUID(), senderId: `client:${clientName}`, senderName: clientName, clientName, recipientId: recipient.id, text: body, createdAt: new Date().toISOString() };
       messages.push(message);saveCollection(messagesFile, messages.slice(-10000));return json(res, 201, message);
     }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
+  }
+  // Adjuntos que envía el cliente desde su área (fotos y PDF, en base64)
+  if (requestPath === "/api/client-chat/attachments" && req.method === "POST") {
+    if (!requireUser(req, res)) return;
+    return readJson(req, 21 * 1024 * 1024).then(({ client, recipientId, name, type, data, caption }) => {
+      const clientName = cleanText(client, 160), recipient = teamMember(recipientId);
+      if (!clientName || !recipient || recipient.id === "manuel") return json(res, 400, { error: "Destinatario no válido." });
+      const fileName = path.basename(String(name || "archivo")).slice(0, 160) || "archivo", mime = String(type || "").toLowerCase();
+      const isImage = /^image\/(jpeg|png|webp|gif|heic|heif)$/.test(mime), isPdf = mime === "application/pdf" || /\.pdf$/i.test(fileName);
+      if (!isImage && !isPdf) return json(res, 415, { error: "Solo se pueden enviar fotos o PDF." });
+      const buffer = Buffer.from(String(data || ""), "base64");
+      if (!buffer.length) return json(res, 400, { error: "El archivo está vacío." });
+      if (buffer.length > 15 * 1024 * 1024) return json(res, 413, { error: "El archivo supera los 15 MB." });
+      const folder = path.join(dataDirectory, "chat-adjuntos");fs.mkdirSync(folder, { recursive: true });
+      const id = crypto.randomUUID();fs.writeFileSync(path.join(folder, id), buffer);
+      const note = cleanText(caption, 500);
+      const attachment = { id, name: fileName, type: isPdf ? "application/pdf" : mime, size: buffer.length, kind: isPdf ? "pdf" : "image" };
+      const messages = loadCollection(messagesFile), message = { id: crypto.randomUUID(), senderId: `client:${clientName}`, senderName: clientName, clientName, recipientId: recipient.id, text: note || (isPdf ? `📄 ${fileName}` : "📷 Foto"), autoText: !note, attachment, createdAt: new Date().toISOString() };
+      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));return json(res, 201, message);
+    }).catch(() => json(res, 400, { error: "No se pudo enviar el archivo." }));
   }
   if (requestPath === "/api/client-chat/read" && req.method === "POST") {
     if (!requireUser(req, res)) return;
