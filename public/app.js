@@ -2522,7 +2522,7 @@ function renderFolderView(name){
         <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
         <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button><button class="upload-button invoice-process-open" id="openInvoiceProcessor" type="button" hidden>▦ Procesar facturas</button></div>
       </div>
-      <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas. Podrás revisar y corregir los datos antes de descargar.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-accounting" id="invoiceAccounting" hidden></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Leer facturas</button></div><section class="invoice-draft" id="invoiceDraft" hidden><div class="invoice-draft-head"><div><p class="eyebrow">BORRADOR DEL EXCEL</p><h4>Comprueba los datos antes de descargar</h4></div><span>Todos los campos se pueden corregir</span></div><div class="invoice-draft-table-wrap"><table><thead><tr><th>Nº factura</th><th>Fecha</th><th>Proveedor</th><th>NIF/CIF</th><th title="Cuenta del proveedor en AMCOMTA">Cta. proveedor</th><th title="Cuenta de gasto en AMCOMTA">Cta. gasto</th><th class="num">Base imponible</th><th class="num">IVA</th><th class="num">Cuota IVA</th><th class="num">Total</th><th>Concepto · ver factura</th><th>Observaciones</th></tr></thead><tbody id="invoiceDraftRows"></tbody></table></div><div class="invoice-draft-confirm"><p>Revisa especialmente el proveedor y los importes. La descarga solo se realizará cuando confirmes este borrador.</p><div class="invoice-draft-buttons"><button class="secondary-button" id="downloadAmcomtaEntries" type="button">Descargar asientos AMCOMTA (.txt)</button><button class="primary blue-button" id="downloadInvoiceDraft" type="button">Confirmar datos y descargar Excel</button></div></div></section></section>
+      <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas. Podrás revisar y corregir los datos antes de descargar.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><div class="invoice-processor-selects"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label><span>Tipo de facturas</span><select id="invoiceType"><option value="">Seleccionar tipo…</option><option value="recibidas">Facturas recibidas</option><option value="emitidas">Facturas emitidas</option></select></label></div><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-accounting" id="invoiceAccounting" hidden></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Leer facturas</button></div><section class="invoice-draft" id="invoiceDraft" hidden><div class="invoice-draft-head"><div><p class="eyebrow">BORRADOR DEL EXCEL</p><h4>Comprueba los datos antes de descargar</h4></div><span>Todos los campos se pueden corregir</span></div><div class="invoice-draft-table-wrap"><table><colgroup id="invoiceDraftCols"></colgroup><thead id="invoiceDraftHead"></thead><tbody id="invoiceDraftRows"></tbody></table></div><div class="invoice-draft-confirm"><p>Revisa especialmente el proveedor y los importes. La descarga solo se realizará cuando confirmes este borrador.</p><div class="invoice-draft-buttons"><button class="secondary-button" id="downloadAmcomtaEntries" type="button">Descargar asientos AMCOMTA (.txt)</button><button class="primary blue-button" id="downloadInvoiceDraft" type="button">Confirmar datos y descargar Excel</button></div></div></section></section>
       <div class="folder-grid" id="folderGrid">
         <div class="empty folder-empty"><span>▤</span><h4>Cargando documentación</h4></div>
       </div>
@@ -2568,8 +2568,13 @@ async function setupInvoiceProcessor(){
   drop.addEventListener("drop",event=>addFiles(event.dataTransfer.files));
   select.addEventListener("change",()=>{panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");loadInvoiceAccounting(select.value)});
   panel.querySelector("#downloadAmcomtaEntries").addEventListener("click",()=>downloadAmcomtaEntries(readInvoiceDraft(),select.value));
-  panel.querySelector("#processInvoices").addEventListener("click",()=>processInvoiceFiles(select.value));
-  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];select.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";panel.querySelector("#processInvoices").textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()});
+  const typeSelect=panel.querySelector("#invoiceType");
+  typeSelect.addEventListener("change",()=>{panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderInvoiceAccountingStatus();refreshDraftAccounts()});
+  panel.querySelector("#processInvoices").addEventListener("click",()=>{
+    if(select.value&&!typeSelect.value){showInvoiceProcessorBanner("Elige si son facturas recibidas o emitidas");typeSelect.focus();return}
+    processInvoiceFiles(select.value);
+  });
+  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];select.value="";typeSelect.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";panel.querySelector("#processInvoices").textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()});
 }
 async function getInvoiceOcrWorker(){
   if(invoiceOcrWorker)return invoiceOcrWorker;
@@ -2664,7 +2669,8 @@ function invoiceFormatRate(value){const number=invoiceParseNumber(value);if(numb
 const INVOICE_MONEY_FIELDS=["base","vat","total"],INVOICE_RATE_FIELDS=["vatRate"];
 function invoiceFormatField(field,value){return INVOICE_MONEY_FIELDS.includes(field)?invoiceFormatMoney(value):INVOICE_RATE_FIELDS.includes(field)?invoiceFormatRate(value):String(value??"")}
 function downloadInvoiceExcel(records,client){
-  const headers=["Cliente","Número de factura","Fecha","Proveedor","NIF/CIF proveedor","Cuenta proveedor","Cuenta gasto","Base imponible","Tipo IVA (%)","Cuota IVA","Importe total","Concepto","Archivo original","Observaciones"];
+  const issued=invoiceProcessorType()==="emitidas";
+  const headers=[issued?"Empresa":"Cliente","Número de factura","Fecha",issued?"Cliente":"Proveedor",issued?"NIF/CIF cliente":"NIF/CIF proveedor","Cuenta proveedor","Cuenta gasto","Base imponible","Tipo IVA (%)","Cuota IVA","Importe total","Concepto","Archivo original","Observaciones"];
   const text=value=>`<Cell><Data ss:Type="String">${excelXmlEscape(value)}</Data></Cell>`;
   const typed=(value,style)=>{const number=invoiceParseNumber(value);return number===null?text(value):`<Cell ss:StyleID="${style}"><Data ss:Type="Number">${number}</Data></Cell>`};
   const rows=records.map(record=>[text(record.client),text(record.number),text(record.date),text(record.supplier),text(record.supplierNif),text(amAccount(record.supplierAccount)),text(amAccount(record.expenseAccount)),typed(record.base,"eur"),typed(record.vatRate,"pct"),typed(record.vat,"eur"),typed(record.total,"eur"),text(record.concept||""),text(record.file),text(record.observation||(record.number&&record.total?"":"Revisar datos no detectados"))]);
@@ -2674,6 +2680,8 @@ function downloadInvoiceExcel(records,client){
 }
 /* ===== Enlace con AMCOMTA: cuentas del cliente y asientos de facturas recibidas ===== */
 let invoiceAccounting={client:"",data:null,loading:false};
+const invoiceProcessorType=()=>document.querySelector("#invoiceType")?.value||"";
+const invoiceReceivedMode=()=>invoiceProcessorType()==="recibidas";
 const amSp=n=>" ".repeat(Math.max(0,n));
 const amCut=(value,length)=>(String(value??"")+amSp(length)).slice(0,length);
 const amPad=(value,length)=>{const t=String(value??"");return t+amSp(length-t.length)};
@@ -2691,6 +2699,19 @@ function amDate(value){
 }
 const amSupplier=account=>invoiceAccounting.data?.proveedores?.find(item=>item.cuenta===account);
 const amExpense=account=>invoiceAccounting.data?.gastos?.find(item=>item.cuenta===account);
+const amWithholding=account=>invoiceAccounting.data?.retenciones?.find(item=>item.cuenta===account);
+function amWithholdingFor(record,supplier){
+  const list=invoiceAccounting.data?.retenciones||[],rate=invoiceParseNumber(record.retentionRate)||0;if(!rate||!list.length)return"";
+  if(supplier?.retencion&&amWithholding(supplier.retencion))return supplier.retencion;
+  const byName=pattern=>list.find(item=>pattern.test(normalizeFiscalText(item.nombre)))?.cuenta;
+  return(rate===19?byName(/ALQUILER|ARRENDAM/):rate===15||rate===7?byName(/PROFESIONAL/):"")||(list.length===1?list[0].cuenta:"");
+}
+function amWithholdingKey(rate,account,supplier){
+  if(rate===19)return"X";if(rate===15)return"G";
+  const name=normalizeFiscalText(amWithholding(account)?.nombre);
+  if(/ALQUILER|ARRENDAM/.test(name))return"X";if(/PROFESIONAL/.test(name))return"G";
+  return supplier?.clave||" ";
+}
 function amFindSupplier(record){
   const list=invoiceAccounting.data?.proveedores||[],nif=amNif(record.supplierNif);
   if(nif){const byNif=list.find(item=>item.nif&&amNif(item.nif)===nif);if(byNif)return{supplier:byNif,via:"nif"}}
@@ -2701,14 +2722,15 @@ function amFindSupplier(record){
 }
 const AM_UNLINKED="Cuenta no relacionada: usa la 4100009999 (acreedores varios) o crea el proveedor en AMCOMTA";
 function applyInvoiceAccounts(records){
-  if(!invoiceAccounting.data?.proveedores?.length)return records;
+  if(!invoiceReceivedMode()||!invoiceAccounting.data?.proveedores?.length)return records;
   records.forEach(record=>{
     if(record.accountChecked===invoiceAccounting.client)return;
     record.accountChecked=invoiceAccounting.client;
-    if(record.supplierAccount){if(!record.expenseAccount)record.expenseAccount=amSupplier(amAccount(record.supplierAccount))?.gasto||"";return}
+    if(record.supplierAccount){const known=amSupplier(amAccount(record.supplierAccount));if(!record.expenseAccount)record.expenseAccount=known?.gasto||"";if(!record.retentionAccount)record.retentionAccount=amWithholdingFor(record,known);return}
     const found=amFindSupplier(record),notes=[record.observation];
     if(found){record.supplierAccount=found.supplier.cuenta;record.expenseAccount=record.expenseAccount||found.supplier.gasto||"";if(found.via==="nombre")notes.unshift("Cuenta relacionada por el nombre del proveedor: revísala")}
     else notes.unshift(AM_UNLINKED);
+    if(!record.retentionAccount)record.retentionAccount=amWithholdingFor(record,found?.supplier);
     record.observation=[...new Set(notes.filter(Boolean))].join(". ");
   });
   return records;
@@ -2723,11 +2745,11 @@ function invoiceAccountTitle(field,value){
 }
 function renderInvoiceAccountingStatus(){
   const box=document.querySelector("#invoiceAccounting");if(!box)return;
-  const {client,data,loading}=invoiceAccounting;box.hidden=!client;if(!client)return;
+  const {client,data,loading}=invoiceAccounting;box.hidden=!client||!invoiceReceivedMode();if(box.hidden)return;
   const date=data?.actualizado?new Intl.DateTimeFormat("es-ES").format(new Date(data.actualizado)):"";
   const has=data?.proveedores?.length;
   box.className=`invoice-accounting${has?" ready":""}`;
-  box.innerHTML=loading?`<span>⟳</span><p><strong>${escapeHtml(loading)}</strong></p>`:`<span>${has?"✓":"!"}</span><p>${has?`<strong>Contabilidad AMCOMTA: ${escapeHtml(data.empresa||client)}${data.ejercicio?` · ejercicio ${escapeHtml(data.ejercicio)}`:""}</strong><small>${data.proveedores.length} proveedores · ${data.gastos.length} cuentas de gasto · actualizada el ${escapeHtml(date)}</small>`:`<strong>Sin contabilidad de AMCOMTA para este cliente</strong><small>Carga su base de datos (el archivo .MDB de la carpeta VINCULACIÓN) para relacionar las facturas con sus cuentas.</small>`}</p><label class="secondary-button"><input type="file" accept=".mdb,.accdb" hidden>${has?"Actualizar base (.MDB)":"Cargar base (.MDB)"}</label>`;
+  box.innerHTML=loading?`<span>⟳</span><p><strong>${escapeHtml(loading)}</strong></p>`:`<span>${has?"✓":"!"}</span><p>${has?`<strong>Contabilidad AMCOMTA: ${escapeHtml(data.empresa||client)}${data.ejercicio?` · ejercicio ${escapeHtml(data.ejercicio)}`:""}</strong><small>${data.proveedores.length} proveedores · ${data.gastos.length} cuentas de gasto · ${(data.retenciones||[]).length} cuentas de retención · actualizada el ${escapeHtml(date)}</small>`:`<strong>Sin contabilidad de AMCOMTA para este cliente</strong><small>Carga su base de datos (el archivo .MDB de la carpeta VINCULACIÓN) para relacionar las facturas con sus cuentas.</small>`}</p><label class="secondary-button"><input type="file" accept=".mdb,.accdb" hidden>${has?"Actualizar base (.MDB)":"Cargar base (.MDB)"}</label>`;
   box.querySelector("input[type=file]")?.addEventListener("change",event=>{const file=event.target.files[0];if(file)uploadInvoiceAccounting(file)});
 }
 function refreshDraftAccounts(){
@@ -2757,13 +2779,14 @@ function buildAmcomtaEntries(records){
   for(const items of groups.values()){
     const first=items[0],lines_=items.filter(item=>invoiceParseNumber(item.base)||invoiceParseNumber(item.vat));
     const account=amAccount(first.supplierAccount),known=amSupplier(account);
-    if(!account||items.some(item=>!amAccount(item.expenseAccount)))missing++;
+    const incomplete=!account||items.some(item=>!amAccount(item.expenseAccount));
     const date=amDate(first.date),number=String(first.number||"").trim();
     const base=lines_.reduce((sum,item)=>sum+(invoiceParseNumber(item.base)||0),0),vat=lines_.reduce((sum,item)=>sum+(invoiceParseNumber(item.vat)||0),0);
     const holder=items.find(item=>invoiceParseNumber(item.retentionRate)),rate=holder?invoiceParseNumber(holder.retentionRate):0;
-    const retention=rate?(invoiceParseNumber(holder.retention)||Math.round(base*rate)/100):0,key=rate===15?"G":rate===19?"X":" ";
+    const withholdingAccount=rate?amAccount(holder.retentionAccount):"",retention=rate?Math.round(base*rate)/100:0,key=rate?amWithholdingKey(rate,withholdingAccount,known):" ";
+    if(incomplete||(rate&&!withholdingAccount))missing++;
     lines.push([++order,"A"+amCut(date,10)+"0   "+"N"+"S"+"  "+amSp(10)+amCut(account,10)+"  "+amCut(known?.nombre||first.supplier,50)+amCut(known?.nif||first.supplierNif,13)+amCut(number,10)+amCut(date,10)+amCut("S/Factura nº   "+number,50)+amCut(number,10)+"8 "+"1    "
-      +(rate?amPad(amNum(base),15)+amPad(amNum(rate),5)+"4751000002  ":amSp(32))+amSp(15)+amSp(12)+amCut(date,10)+"  "+amSp(50)+amPad(amNum(base),15)+amPad(amNum(vat),15)+amSp(15)+"S"
+      +(rate?amPad(amNum(base),15)+amPad(amNum(rate),5)+amCut(withholdingAccount,10)+"  ":amSp(32))+amSp(15)+amSp(12)+amCut(date,10)+"  "+amSp(50)+amPad(amNum(base),15)+amPad(amNum(vat),15)+amSp(15)+"S"
       +"N"+amSp(8)+key+amPad(rate?amNum(retention):" ",15)+amSp(250)+"0"]);
     for(const item of lines_){
       const lineRate=invoiceParseNumber(item.vatRate)||0;
@@ -2781,7 +2804,7 @@ function amcomtaWindows1252(text){
 function downloadAmcomtaEntries(records,client){
   const {lines,invoices,missing}=buildAmcomtaEntries(records);
   if(!invoices){alert("No hay facturas en el borrador.");return}
-  if(missing&&!confirm(`${missing} de ${invoices} ${invoices===1?"factura no tiene":"facturas no tienen"} cuenta de proveedor o de gasto. Se exportarán con la cuenta vacía. ¿Descargar igualmente?`))return;
+  if(missing&&!confirm(`${missing} de ${invoices} ${invoices===1?"factura no tiene":"facturas no tienen"} cuenta de proveedor, de gasto o de retención. Se exportarán con la cuenta vacía. ¿Descargar igualmente?`))return;
   const text=lines.map(([order,line])=>`${order}\t${line.replace(/[\t\r\n"]/g," ")}`).join("\r\n")+"\r\n";
   const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([amcomtaWindows1252(text)],{type:"text/plain"}));
   link.download=`ASIENTOS RECIBIDAS ${client} ${new Date().toISOString().slice(0,10)}.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
@@ -2789,26 +2812,59 @@ function downloadAmcomtaEntries(records,client){
 const INVOICE_EYE_ICON='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 function renderInvoiceDraft(records){
   const draft=document.querySelector("#invoiceDraft"),body=document.querySelector("#invoiceDraftRows");if(!draft||!body)return;
+  const received=invoiceReceivedMode(),withBase=received&&Boolean(invoiceAccounting.data?.proveedores?.length);
   applyInvoiceAccounts(records);
-  const fields=["number","date","supplier","supplierNif","supplierAccount","expenseAccount","base","vatRate","vat","total"],safeValue=value=>escapeHtml(value).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-  const numeric=field=>INVOICE_MONEY_FIELDS.includes(field)||INVOICE_RATE_FIELDS.includes(field);
-  const accountField=field=>field==="supplierAccount"||field==="expenseAccount",withBase=Boolean(invoiceAccounting.data?.proveedores?.length);
-  const input=(index,field,value,extra="")=>accountField(field)?`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(amAccount(value))}" title="${safeValue(invoiceAccountTitle(field,value))}" list="${field==="supplierAccount"?"invoiceSupplierAccounts":"invoiceExpenseAccounts"}" inputmode="numeric" placeholder="${withBase?"Sin relacionar":"—"}" class="account${withBase&&!value?" needs-account":""}">`:`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(value)}" title="${safeValue(value)}" ${numeric(field)?'class="num" inputmode="decimal"':""} ${extra}>`;
-  body.innerHTML=records.map((record,index)=>`<tr>${fields.map(field=>`<td${numeric(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`).join("")}<td><div class="invoice-concept-cell"><button type="button" class="invoice-preview-button" data-invoice-preview="${index}" title="Ver la factura" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}</button>${input(index,"concept",record.concept||"",'placeholder="Sin concepto"')}</div></td><td>${input(index,"observation",record.observation||"",record.observation?'class="has-note"':"")}</td></tr>`).join("");
+  const columns=received
+    ?[["number","Nº factura",7],["date","Fecha",6.5],["supplier","Proveedor",10.5],["supplierNif","NIF/CIF",7],["supplierAccount","Cta. proveedor",9],["expenseAccount","Cta. gasto",9],["base","Base imponible",6.5],["vatRate","IVA",4],["vat","Cuota IVA",6],["retention","Retención",12],["total","Total",6.5],["concept","Concepto · ver factura",8.5],["observation","Observaciones",7.5]]
+    :[["number","Nº factura",8.5],["date","Fecha",8],["supplier",invoiceProcessorType()==="emitidas"?"Cliente":"Proveedor",13],["supplierNif","NIF/CIF",9],["base","Base imponible",9],["vatRate","IVA",6],["vat","Cuota IVA",8],["total","Total",9],["concept","Concepto · ver factura",16],["observation","Observaciones",13.5]];
+  const table=body.closest("table");table.classList.toggle("received",received);
+  table.querySelector("#invoiceDraftCols").innerHTML=columns.map(([,,width])=>`<col style="width:${width}%">`).join("");
+  const titles={supplierAccount:"Cuenta del proveedor en AMCOMTA",expenseAccount:"Cuenta de gasto en AMCOMTA",retention:"Tipo de retención y cuenta 4751 de AMCOMTA"};
+  table.querySelector("#invoiceDraftHead").innerHTML=`<tr>${columns.map(([field,label])=>`<th${numericField(field)?' class="num"':""}${titles[field]?` title="${titles[field]}"`:""}>${label}</th>`).join("")}</tr>`;
+  const safeValue=value=>escapeHtml(value).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  const input=(index,field,value,extra="")=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(value)}" title="${safeValue(value)}" ${numericField(field)?`class="num${field==="total"?" total-input":""}" inputmode="decimal"`:""} ${extra}>`;
+  const accountInput=(index,field,value)=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(amAccount(value))}" title="${safeValue(invoiceAccountTitle(field,value))}" list="${field==="supplierAccount"?"invoiceSupplierAccounts":"invoiceExpenseAccounts"}" inputmode="numeric" placeholder="${withBase?"Sin relacionar":"—"}" class="account${withBase&&!value?" needs-account":""}">`;
+  const retentionCell=(index,record)=>{
+    const rate=invoiceParseNumber(record.retentionRate)||0,account=amAccount(record.retentionAccount),list=invoiceAccounting.data?.retenciones||[];
+    const options=[`<option value="">${list.length?"Sin cuenta":"Sin cuentas 4751"}</option>`,...list.map(item=>`<option value="${safeValue(item.cuenta)}"${item.cuenta===account?" selected":""}>${safeValue(item.cuenta+" · "+item.nombre)}</option>`)];
+    if(account&&!list.some(item=>item.cuenta===account))options.push(`<option value="${safeValue(account)}" selected>${safeValue(account)}</option>`);
+    return `<div class="invoice-retention-cell"><input data-invoice-row="${index}" data-invoice-field="retentionRate" class="num retention-rate" inputmode="decimal" value="${rate?safeValue(String(rate).replace(".",",")):""}" placeholder="%" title="Tipo de retención (%)"><select data-invoice-row="${index}" data-invoice-field="retentionAccount" class="${rate&&withBase&&!account?"needs-account":""}" title="${safeValue(account?(amWithholding(account)?.nombre||account):"Cuenta de retención (4751)")}"${rate?"":" disabled"}>${options.join("")}</select></div>`;
+  };
+  const cell=(index,record,field)=>{
+    if(field==="supplierAccount"||field==="expenseAccount")return `<td>${accountInput(index,field,record[field]||"")}</td>`;
+    if(field==="retention")return `<td>${retentionCell(index,record)}</td>`;
+    if(field==="concept")return `<td><div class="invoice-concept-cell"><button type="button" class="invoice-preview-button" data-invoice-preview="${index}" title="Ver la factura" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}</button>${input(index,"concept",record.concept||"",'placeholder="Sin concepto"')}</div></td>`;
+    if(field==="observation")return `<td>${input(index,"observation",record.observation||"",record.observation?'class="has-note"':"")}</td>`;
+    return `<td${numericField(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`;
+  };
+  body.innerHTML=records.map((record,index)=>`<tr>${columns.map(([field])=>cell(index,record,field)).join("")}</tr>`).join("");
   draft.querySelector("#invoiceAccountLists")?.remove();draft.insertAdjacentHTML("beforeend",`<div id="invoiceAccountLists" hidden>${invoiceAccountLists()}</div>`);
+  draft.querySelector("#downloadAmcomtaEntries").hidden=!received;
   if(!body.dataset.bound){
     body.dataset.bound="1";
-    body.addEventListener("focusout",event=>{const el=event.target;if(!el.matches?.("input[data-invoice-field]"))return;if(numeric(el.dataset.invoiceField))el.value=invoiceFormatField(el.dataset.invoiceField,el.value);el.title=el.value;if(el.dataset.invoiceField==="observation")el.classList.toggle("has-note",Boolean(el.value.trim()));
+    const rowField=(row,field)=>body.querySelector(`[data-invoice-row="${row}"][data-invoice-field="${field}"]`);
+    body.addEventListener("focusout",event=>{const el=event.target;if(!el.matches?.("input[data-invoice-field]"))return;
+      const field=el.dataset.invoiceField,row=el.dataset.invoiceRow;
+      if(field==="retentionRate"){
+        const rate=invoiceParseNumber(el.value)||0,select=rowField(row,"retentionAccount");el.value=rate?String(rate).replace(".",","):"";select.disabled=!rate;
+        if(rate&&!select.value)select.value=amWithholdingFor({retentionRate:rate},amSupplier(amAccount(rowField(row,"supplierAccount")?.value)));
+        select.classList.toggle("needs-account",Boolean(rate)&&!select.value&&Boolean(invoiceAccounting.data?.proveedores?.length));return;
+      }
+      if(numericField(field))el.value=invoiceFormatField(field,el.value);el.title=el.value;if(field==="observation")el.classList.toggle("has-note",Boolean(el.value.trim()));
       if(el.classList.contains("account")){
-        el.value=amAccount(el.value);el.title=invoiceAccountTitle(el.dataset.invoiceField,el.value);el.classList.toggle("needs-account",Boolean(invoiceAccounting.data?.proveedores?.length)&&!el.value);
-        const expense=body.querySelector(`[data-invoice-row="${el.dataset.invoiceRow}"][data-invoice-field="expenseAccount"]`),habitual=amSupplier(el.value)?.gasto;
-        if(el.dataset.invoiceField==="supplierAccount"&&expense&&!expense.value&&habitual){expense.value=habitual;expense.title=invoiceAccountTitle("expenseAccount",habitual);expense.classList.remove("needs-account")}
+        el.value=amAccount(el.value);el.title=invoiceAccountTitle(field,el.value);el.classList.toggle("needs-account",Boolean(invoiceAccounting.data?.proveedores?.length)&&!el.value);
+        if(field!=="supplierAccount")return;
+        const supplier=amSupplier(el.value),expense=rowField(row,"expenseAccount"),withholding=rowField(row,"retentionAccount"),rate=invoiceParseNumber(rowField(row,"retentionRate")?.value);
+        if(expense&&!expense.value&&supplier?.gasto){expense.value=supplier.gasto;expense.title=invoiceAccountTitle("expenseAccount",supplier.gasto);expense.classList.remove("needs-account")}
+        if(withholding&&rate&&!withholding.value){withholding.value=amWithholdingFor({retentionRate:rate},supplier);withholding.classList.toggle("needs-account",!withholding.value)}
       }});
+    body.addEventListener("change",event=>{const el=event.target;if(el.matches?.("select[data-invoice-field=retentionAccount]")){el.classList.remove("needs-account");el.title=el.value?(amWithholding(el.value)?.nombre||el.value):"Cuenta de retención (4751)"}});
     body.addEventListener("click",event=>{const button=event.target.closest?.("[data-invoice-preview]");if(button)openInvoicePreview(Number(button.dataset.invoicePreview))});
   }
   draft.hidden=false;draft.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows input").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim();if(!field)return;if(INVOICE_MONEY_FIELDS.includes(field)||INVOICE_RATE_FIELDS.includes(field)){const number=invoiceParseNumber(value);records[Number(input.dataset.invoiceRow)][field]=number===null?value:String(number)}else records[Number(input.dataset.invoiceRow)][field]=value});return records}
+function numericField(field){return INVOICE_MONEY_FIELDS.includes(field)||INVOICE_RATE_FIELDS.includes(field)}
+function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows [data-invoice-field]").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim(),record=records[Number(input.dataset.invoiceRow)];if(!field||!record)return;if(numericField(field)||field==="retentionRate"){const number=invoiceParseNumber(value);record[field]=number===null?value:String(number)}else record[field]=value});return records}
 /* Vista previa de la factura original con su concepto */
 const invoicePreviewUrls=new Map();
 function invoicePreviewUrl(file){if(!invoicePreviewUrls.has(file))invoicePreviewUrls.set(file,URL.createObjectURL(file));return invoicePreviewUrls.get(file)}
@@ -4210,6 +4266,7 @@ setInterval(refreshSuggestions,15000);
     return t;
   }
   function aRegistros(f,file,client,varias,orden=0){
+    const emitida=invoiceProcessorType()==="emitidas";
     const tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
     const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
     const recargo=num(f.recargo_equivalencia),ret=Math.abs(num(f.retencion_importe)),total=num(f.total);
@@ -4221,7 +4278,7 @@ setInterval(refreshSuggestions,15000);
     if(varias)comun.push(`Una de ${varias} facturas del mismo archivo${f.paginas?` (pág. ${f.paginas})`:""}`);
     if(f.observaciones)comun.push(String(f.observaciones).trim());
     const concepto=String(f.concepto||"").trim();
-    const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String(f.emisor_nombre||"").trim(),supplierNif:nif(f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim(),group:`${file.name}#${orden}`};
+    const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String((emitida?f.receptor_nombre:f.emisor_nombre)||"").trim(),supplierNif:nif(emitida?f.receptor_nif:f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim(),group:`${file.name}#${orden}`};
     const retencion=ret?{retentionRate:String(Math.abs(num(f.retencion_tipo))||""),retention:dinero(ret)}:{};
     const extras=[];
     if(recargo)extras.push(`Recargo de equivalencia ${dinero(recargo)}`);

@@ -37,10 +37,14 @@ module.exports = function ({ dataDirectory }) {
     }
 
     // Histórico de facturas recibidas: NIF usado y cuenta de gasto habitual de cada proveedor.
-    const supplierByEntry = new Map(), invoiceNif = new Map();
-    for (const row of rows("Facturas", ["Fecha", "Asiento", "Emitida", "Cuenta", "Cif"])) {
+    const supplierByEntry = new Map(), invoiceNif = new Map(), withholding = new Map();
+    for (const row of rows("Facturas", ["Fecha", "Asiento", "Emitida", "Cuenta", "Cif", "Cuenta IRPF", "% IRPF", "ClavePercepcion"])) {
       if (isTrue(row.Emitida)) continue;
-      const account = text(row.Cuenta);
+      const account = text(row.Cuenta), irpf = text(row["Cuenta IRPF"]);
+      if (irpf && Number(row["% IRPF"])) {
+        const key = `${irpf}|${Number(row["% IRPF"])}|${text(row.ClavePercepcion)}`, counter = withholding.get(account) || new Map();
+        counter.set(key, (counter.get(key) || 0) + 1);withholding.set(account, counter);
+      }
       supplierByEntry.set(dateKey(row.Fecha, row.Asiento), account);
       if (row.Cif && !invoiceNif.has(account)) invoiceNif.set(account, nif(row.Cif));
     }
@@ -59,13 +63,15 @@ module.exports = function ({ dataDirectory }) {
     const proveedores = [...supplierCodes].sort().map(cuenta => {
       const record = records.get(cuenta) || {}, counter = usage.get(cuenta);
       const habitual = counter ? [...counter.entries()].sort((a, b) => b[1] - a[1])[0][0] : "";
-      return { cuenta, nombre: record.nombre || accountNames.get(cuenta) || "", nif: record.nif || invoiceNif.get(cuenta) || "", gasto: record.gasto && accountNames.has(record.gasto) ? record.gasto : habitual, facturas: counter ? [...counter.values()].reduce((a, b) => a + b, 0) : 0 };
+      const irpf = withholding.get(cuenta), [retencion = "", tipoRetencion = "", clave = ""] = irpf ? [...irpf.entries()].sort((a, b) => b[1] - a[1])[0][0].split("|") : [];
+      return { cuenta, nombre: record.nombre || accountNames.get(cuenta) || "", nif: record.nif || invoiceNif.get(cuenta) || "", gasto: record.gasto && accountNames.has(record.gasto) ? record.gasto : habitual, facturas: counter ? [...counter.values()].reduce((a, b) => a + b, 0) : 0, retencion, tipoRetencion: Number(tipoRetencion) || 0, clave };
     });
     const expenseCodes = new Set([...accountNames.keys()].filter(code => code.startsWith("6")));
     expenseUsed.forEach(code => { if (accountNames.has(code)) expenseCodes.add(code); });
     const gastos = [...expenseCodes].sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "" }));
+    const retenciones = [...accountNames.keys()].filter(code => code.startsWith("4751")).sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "" }));
     const inicio = general["Fecha Inicio"] instanceof Date ? general["Fecha Inicio"] : null;
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos };
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, retenciones };
   }
 
   async function save(client, buffer, user) {
