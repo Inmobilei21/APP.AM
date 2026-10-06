@@ -67,6 +67,7 @@ const SCHEMA = {
         properties: {
           tipo: { type: "string", enum: ["recibo_bancario", "justificante_pago", "albaran", "presupuesto", "pedido", "extracto", "otro"] },
           paginas: { type: "string", description: "Páginas del documento donde aparece (p. ej. \"4\" o \"4-5\")." },
+          fecha: { type: "string", description: "Fecha del documento en formato DD/MM/AAAA. Vacío si no aparece." },
           descripcion: { type: "string", description: "Qué es, en pocas palabras (p. ej. \"Recibo domiciliado Iberdrola septiembre\")." },
           factura_relacionada: { type: "string", description: "Si es el pago o el recibo de una factura, el número de esa factura tal como aparece. Vacío si no se sabe." },
           importe: { type: "number", description: "Importe del documento, en euros. 0 si no aparece." }
@@ -160,7 +161,7 @@ async function readInvoice(buffer, name, contentType, client) {
   const use = (data.content || []).find(item => item.type === "tool_use" && item.name === "guardar_facturas");
   if (!use) { const e = new Error("El lector no ha devuelto datos de factura."); e.status = 502; throw e; }
   const facturas = await Promise.all((Array.isArray(use.input?.facturas) ? use.input.facturas : []).map(convertToEuros));
-  const otros_documentos = (Array.isArray(use.input?.otros_documentos) ? use.input.otros_documentos : []).map(item => ({ tipo: String(item?.tipo || "otro"), paginas: String(item?.paginas || ""), descripcion: String(item?.descripcion || ""), factura_relacionada: String(item?.factura_relacionada || ""), importe: Number(item?.importe) || 0 }));
+  const otros_documentos = (Array.isArray(use.input?.otros_documentos) ? use.input.otros_documentos : []).map(item => ({ tipo: String(item?.tipo || "otro"), paginas: String(item?.paginas || ""), fecha: String(item?.fecha || ""), descripcion: String(item?.descripcion || ""), factura_relacionada: String(item?.factura_relacionada || ""), importe: Number(item?.importe) || 0 }));
   return { facturas, otros_documentos, total_documento: Number(use.input?.total_documento) || 0, modelo: data.model || base.model };
 }
 

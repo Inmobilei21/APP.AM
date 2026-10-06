@@ -2873,16 +2873,25 @@ async function saveInvoiceDocuments(groups,client,kind){
   for(const group of groups){
     if(invoiceConfirmProgress.saved.has(group.key)){saved.push(invoiceConfirmProgress.saved.get(group.key));continue}
     try{
-      const date=invoiceDateParts(group.record.date),key=`${date.year}/${date.quarter}`;
-      if(!folders.has(key)){const year=await accounting.getDirectoryHandle(date.year,{create:true}),quarter=await year.getDirectoryHandle(date.quarter,{create:true}),folder=await quarter.getDirectoryHandle(kind,{create:true}),names=new Set();for await(const entry of folder.values())names.add(entry.name.toLocaleLowerCase("es"));folders.set(key,{folder,names})}
-      const {folder,names}=folders.get(key),{blob,extension}=await invoiceDocumentBlob(group,cache);
-      const base=`${date.year}.${date.month}.${date.day} ${safeFileName(group.record.supplier)||"SIN NOMBRE"}`;let name=`${base}${extension}`;
+      const date=invoiceDateParts(group.record.date),key=`${date.year}/${date.quarter}`,place=`${key}/${kind}${group.subfolder?`/${group.subfolder}`:""}`;
+      if(!folders.has(place)){const year=await accounting.getDirectoryHandle(date.year,{create:true}),quarter=await year.getDirectoryHandle(date.quarter,{create:true});let folder=await quarter.getDirectoryHandle(kind,{create:true});if(group.subfolder)folder=await folder.getDirectoryHandle(group.subfolder,{create:true});const names=new Set();for await(const entry of folder.values())names.add(entry.name.toLocaleLowerCase("es"));folders.set(place,{folder,names})}
+      const {folder,names}=folders.get(place),{blob,extension}=await invoiceDocumentBlob(group,cache),prefix=`${date.year}.${date.month}.${date.day}`;
+      const base=group.fileName?[group.datePrefix?prefix:"",safeFileName(group.fileName)].filter(Boolean).join(" "):`${prefix} ${safeFileName(group.record.supplier)||"SIN NOMBRE"}`;let name=`${base}${extension}`;
       for(let copy=2;names.has(name.toLocaleLowerCase("es"));copy++)name=`${base} (${copy})${extension}`;
       const handle=await folder.getFileHandle(name,{create:true}),writable=await handle.createWritable();await writable.write(blob);await writable.close();
-      names.add(name.toLocaleLowerCase("es"));saved.push(`CONTABILIDAD/${key}/${kind}/${name}`);invoiceConfirmProgress.saved.set(group.key,`CONTABILIDAD/${key}/${kind}/${name}`);
-    }catch(error){console.error("Guardar factura",group.record,error);errors.push(`${group.record.number||group.record.file}: ${error.message}`)}
+      names.add(name.toLocaleLowerCase("es"));saved.push(`CONTABILIDAD/${place}/${name}`);invoiceConfirmProgress.saved.set(group.key,`CONTABILIDAD/${place}/${name}`);
+    }catch(error){console.error("Guardar factura",group.record,error);errors.push(`${group.fileName||group.record.number||group.record.file}: ${error.message}`)}
   }
   return{saved,errors};
+}
+function otherDocumentGroups(groups){
+  const today=new Date(),todayText=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+  const fallback=file=>groups.find(group=>group.record.file===file)?.record.date||groups[0]?.record.date||todayText;
+  return invoiceIgnoredDocs.map((doc,index)=>({doc,index})).filter(({doc})=>!doc.linked).map(({doc,index})=>{
+    const own=Boolean(invoiceDateParts(doc.fecha)),label=INVOICE_OTHER_DOCS[doc.tipo]||INVOICE_OTHER_DOCS.otro;
+    const description=String(doc.descripcion||"").trim(),name=description.toLocaleLowerCase("es").startsWith(label.toLocaleLowerCase("es"))?description:[label,description].filter(Boolean).join(" ");
+    return{key:`otro:${index}:${doc.file}#${doc.paginas||""}`,record:{file:doc.file,pages:doc.paginas,date:own?doc.fecha:fallback(doc.file)},receipt:null,subfolder:"OTROS DOCUMENTOS",fileName:name,datePrefix:own};
+  });
 }
 async function saveAmcomtaImport(text,client){
   const bytes=amcomtaWindows1252(text),stamp=new Date().toLocaleString("sv-SE").slice(0,16).replace(" ","_").replace(":","");
@@ -2895,27 +2904,30 @@ async function saveAmcomtaImport(text,client){
 }
 async function confirmInvoiceDraft(client){
   const records=readInvoiceDraft(),received=invoiceReceivedMode(),kind=received?"RECIBIDAS":"EMITIDAS",groups=invoiceDocumentGroups(records);
-  if(!groups.length){alert("No hay facturas en el borrador.");return""}
+  if(!groups.length&&!invoiceIgnoredDocs.length){alert("No hay facturas en el borrador.");return""}
   const noDate=groups.filter(group=>!invoiceDateParts(group.record.date));
   if(noDate.length){alert(`Corrige la fecha (DD/MM/AAAA) de ${noDate.length===1?"la factura":"las facturas"} ${noDate.map(group=>group.record.number||group.record.supplier||group.record.file).slice(0,8).join(", ")}${noDate.length>8?"…":""}: hace falta para guardarla en su trimestre.`);return""}
+  const others=otherDocumentGroups(groups);
   let entries=null;
-  if(received){entries=amcomtaEntriesText(records);if(entries.missing&&!confirm(`${entries.missing} de ${entries.invoices} ${entries.invoices===1?"factura no tiene":"facturas no tienen"} cuenta de proveedor, de gasto o de retención. Se importarán con la cuenta vacía. ¿Continuar?`))return""}
-  if(!confirm(`${received?`Se enviarán ${entries.invoices} ${entries.invoices===1?"asiento":"asientos"} a la carpeta de importación de AMCOMTA y se`:"Se descargará el Excel y se"} guardarán ${groups.length} ${groups.length===1?"factura":"facturas"} en CLIENTES/${client}/CONTABILIDAD (${kind}). ¿Continuar?`))return"";
+  if(received&&groups.length){entries=amcomtaEntriesText(records);if(entries.missing&&!confirm(`${entries.missing} de ${entries.invoices} ${entries.invoices===1?"factura no tiene":"facturas no tienen"} cuenta de proveedor, de gasto o de retención. Se importarán con la cuenta vacía. ¿Continuar?`))return""}
+  const otherText=others.length?` y ${others.length} ${others.length===1?"documento":"documentos"} en OTROS DOCUMENTOS`:"";
+  if(!confirm(`${entries?`Se enviarán ${entries.invoices} ${entries.invoices===1?"asiento":"asientos"} a la carpeta de importación de AMCOMTA y se`:received||!groups.length?"Se":"Se descargará el Excel y se"} guardarán ${groups.length} ${groups.length===1?"factura":"facturas"}${otherText} en CLIENTES/${client}/CONTABILIDAD (${kind}). ¿Continuar?`))return"";
   const parts=[];
-  if(received){
+  if(entries){
     if(!invoiceConfirmProgress.entries)invoiceConfirmProgress.entries=await saveAmcomtaImport(entries.text,client)||"descargado";
     parts.push(invoiceConfirmProgress.entries==="descargado"?"Asientos descargados (.txt): el servidor no está conectado":`Asientos enviados a ${invoiceConfirmProgress.entries}`);
   }
-  else downloadInvoiceExcel(records,client);
-  const {saved,errors}=await saveInvoiceDocuments(groups,client,kind);
-  parts.push(`${saved.length} ${saved.length===1?"factura guardada":"facturas guardadas"} en CLIENTES/${client}/CONTABILIDAD`);
+  else if(!received&&groups.length)downloadInvoiceExcel(records,client);
+  const {saved,errors}=await saveInvoiceDocuments(groups,client,kind),otherResult=others.length?await saveInvoiceDocuments(others,client,kind):{saved:[],errors:[]};
+  errors.push(...otherResult.errors);
+  parts.push(`${saved.length} ${saved.length===1?"factura guardada":"facturas guardadas"}${others.length?` y ${otherResult.saved.length} ${otherResult.saved.length===1?"documento":"documentos"} en OTROS DOCUMENTOS`:""} en CLIENTES/${client}/CONTABILIDAD`);
   if(errors.length){alert(`${parts.join(". ")}.\n\nNo se ${errors.length===1?"ha podido guardar esta factura":"han podido guardar estas facturas"}:\n${errors.join("\n")}${received?"\n\nLos asientos ya se han enviado: si vuelves a confirmar, solo se guardarán las facturas que faltan.":""}`);return""}
   return parts.join(". ")+".";
 }
 function renderInvoiceIgnoredDocs(){
   const box=document.querySelector("#invoiceIgnoredDocs");if(!box)return;
   box.hidden=!invoiceIgnoredDocs.length;if(box.hidden)return;
-  const items=invoiceIgnoredDocs.map(doc=>`<li><strong>${escapeHtml(INVOICE_OTHER_DOCS[doc.tipo]||INVOICE_OTHER_DOCS.otro)}</strong>${doc.descripcion?` · ${escapeHtml(doc.descripcion)}`:""} <span>${escapeHtml(doc.file)}${doc.paginas?` · pág. ${escapeHtml(doc.paginas)}`:""}</span>${doc.linked?` <em>→ pago de la factura ${escapeHtml(doc.linked)} (se ve en su vista previa)</em>`:""}</li>`).join("");
+  const items=invoiceIgnoredDocs.map(doc=>`<li><strong>${escapeHtml(INVOICE_OTHER_DOCS[doc.tipo]||INVOICE_OTHER_DOCS.otro)}</strong>${doc.descripcion?` · ${escapeHtml(doc.descripcion)}`:""} <span>${escapeHtml(doc.file)}${doc.paginas?` · pág. ${escapeHtml(doc.paginas)}`:""}</span>${doc.linked?` <em>→ pago de la factura ${escapeHtml(doc.linked)} (se ve en su vista previa)</em>`:" <em>→ se guardará en OTROS DOCUMENTOS</em>"}</li>`).join("");
   box.innerHTML=`<p>Se ${invoiceIgnoredDocs.length===1?"ha ignorado 1 documento que no es factura":`han ignorado ${invoiceIgnoredDocs.length} documentos que no son facturas`}. Comprueba que no falta ninguna:</p><ul>${items}</ul>`;
 }
 const INVOICE_EYE_ICON='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
