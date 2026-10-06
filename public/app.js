@@ -2805,7 +2805,7 @@ function downloadAmcomtaEntries(records,client){
   const {lines,invoices,missing}=buildAmcomtaEntries(records);
   if(!invoices){alert("No hay facturas en el borrador.");return}
   if(missing&&!confirm(`${missing} de ${invoices} ${invoices===1?"factura no tiene":"facturas no tienen"} cuenta de proveedor, de gasto o de retención. Se exportarán con la cuenta vacía. ¿Descargar igualmente?`))return;
-  const text=lines.map(([order,line])=>`${order}\t${line.replace(/[\t\r\n"]/g," ")}`).join("\r\n")+"\r\n";
+  const text=lines.map(([,line])=>line.replace(/[\t\r\n"]/g," ")).join("\r\n")+"\r\n";
   const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([amcomtaWindows1252(text)],{type:"text/plain"}));
   link.download=`ASIENTOS RECIBIDAS ${client} ${new Date().toISOString().slice(0,10)}.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 }
