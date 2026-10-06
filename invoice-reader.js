@@ -26,7 +26,6 @@ const SCHEMA = {
           emisor_nif: { type: "string", description: "NIF/CIF/VAT del emisor, sin espacios ni guiones." },
           emisor_pais: { type: "string", description: "País de la dirección del emisor, en código ISO de 2 letras (ES, FR, IT, US, AU…). Vacío si no aparece." },
           receptor_pais: { type: "string", description: "País de la dirección del receptor, en código ISO de 2 letras. Vacío si no aparece." },
-          naturaleza: { type: "string", enum: ["bienes", "servicios"], description: "\"bienes\" si se entregan productos físicos; \"servicios\" si son servicios, suscripciones, software o licencias." },
           concepto: { type: "string", description: "Qué se factura, en una frase breve en español (máx. 120 caracteres): los productos o servicios principales, p. ej. \"Transporte de aceituna campaña 2026\" o \"Honorarios asesoría fiscal septiembre\"." },
           receptor_nombre: { type: "string", description: "Nombre de quien recibe la factura." },
           receptor_nif: { type: "string", description: "NIF/CIF/VAT del receptor, sin espacios ni guiones." },
