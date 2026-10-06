@@ -302,6 +302,55 @@ function loadMetadata() {
   try { const saved = JSON.parse(fs.readFileSync(metadataFile, "utf8"));return { clients: saved.clients || [], signatures: saved.signatures || [] }; }
   catch { return { clients: [], signatures: [] }; }
 }
+// Las fichas de clientes se identifican por el nombre de su carpeta en CLIENTES del servidor.
+// Una ficha con otro nombre que corresponde a una carpeta (mismo nombre sin puntos ni "S.L." o mismo CIF)
+// se renombra a la carpeta o, si la carpeta ya tiene ficha, se fusiona con ella y se borra.
+const clientFolderKey = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")
+  .replace(/\b(SOCIEDAD LIMITADA PROFESIONAL|SOCIEDAD LIMITADA LABORAL|SOCIEDAD LIMITADA UNIPERSONAL|SOCIEDAD LIMITADA|SOCIEDAD ANONIMA|S L P|S L L|S L U|S A U|S L|S A|SLP|SLL|SLU|SAU|SL|SA|C B|CB|S C|SC|SCOOP)\b/g, " ").replace(/\s+/g, "");
+const clientCif = value => String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const isEmptyValue = value => value === undefined || value === null || value === "" || (Array.isArray(value) && !value.length) || (typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length);
+function reconcileClientsWithFolders(metadata, folders) {
+  const folderSet = new Set(folders), keyed = new Map();
+  for (const folder of folders) { const key = clientFolderKey(folder); keyed.set(key, keyed.has(key) ? null : folder); }
+  const byFolder = new Map(), others = [], changes = [];
+  for (const client of metadata.clients) {
+    if (client && folderSet.has(client.id) && !byFolder.has(client.id)) byFolder.set(client.id, client);else others.push(client);
+  }
+  const kept = [];
+  for (const client of others) {
+    const identity = client?.id || client?.name || "", cif = clientCif(client?.cif);
+    let folder = keyed.get(clientFolderKey(identity)) || keyed.get(clientFolderKey(client?.name)) || null;
+    if (!folder && cif) folder = [...byFolder.entries()].find(([, record]) => clientCif(record.cif) === cif)?.[0] || null;
+    if (!folder) { kept.push(client); continue; }
+    const target = byFolder.get(folder);
+    if (target) {
+      for (const [key, value] of Object.entries(client)) if (!["id", "name"].includes(key) && isEmptyValue(target[key]) && !isEmptyValue(value)) target[key] = value;
+      changes.push(`"${identity}" fusionada con la carpeta "${folder}" y borrada`);
+    } else {
+      byFolder.set(folder, { ...client, id: folder, name: folder });
+      changes.push(`"${identity}" renombrada a la carpeta "${folder}"`);
+    }
+    for (const signature of metadata.signatures) if (signature.client === identity) signature.client = folder;
+  }
+  metadata.clients = [...byFolder.values(), ...kept];
+  return changes;
+}
+let clientFolderSync = { at: 0, running: null };
+function syncClientsWithFolders() {
+  if (clientFolderSync.running) return clientFolderSync.running;
+  if (Date.now() - clientFolderSync.at < 5 * 60 * 1000 || !process.env.WEBDAV_USERNAME) return Promise.resolve();
+  clientFolderSync.running = davRequest("CLIENTES", { method: "PROPFIND", headers: { Depth: "1", "Content-Type": "application/xml" }, body: webdavProperties })
+    .then(async response => {
+      const folders = parseDavEntries(await response.text(), "CLIENTES").filter(entry => entry.kind === "directory").map(entry => entry.name);
+      clientFolderSync.at = Date.now();
+      if (!folders.length) return;
+      const metadata = loadMetadata(), changes = reconcileClientsWithFolders(metadata, folders);
+      if (changes.length) { saveMetadata(metadata); console.log("Fichas de clientes unificadas con sus carpetas:", changes.join("; ")); }
+    })
+    .catch(error => console.error("No se pudieron comparar las fichas con las carpetas de clientes:", error.message))
+    .finally(() => { clientFolderSync.running = null; });
+  return clientFolderSync.running;
+}
 function saveMetadata(data) {
   fs.mkdirSync(dataDirectory, { recursive: true });
   const temporary = `${metadataFile}.tmp`;fs.writeFileSync(temporary, JSON.stringify(data, null, 2), { mode: 0o600 });fs.renameSync(temporary, metadataFile);
@@ -432,7 +481,7 @@ http.createServer((req, res) => {
     if (!['clients','signatures'].includes(kind)) return json(res, 404, { error: "Tipo de datos no válido." });
     if (req.method === "GET") {
       if (kind === "signatures") reconcileUrgentSignatureTasks();
-      return json(res, 200, loadMetadata()[kind]);
+      return (kind === "clients" ? syncClientsWithFolders() : Promise.resolve()).then(() => json(res, 200, loadMetadata()[kind]));
     }
     return readJson(req, 256 * 1024).then(record => {
       if (!record?.id || typeof record.id !== "string") return json(res, 400, { error: "Falta el identificador." });

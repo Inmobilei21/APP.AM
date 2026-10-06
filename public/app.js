@@ -3265,7 +3265,12 @@ async function getMergedMetadata(kind,store){const local=await getLocalMetadata(
 async function getAllSignatureMetadata(){return getMergedMetadata("signatures","signatureMetadata")}
 
 async function saveClientMetadata(data){if(data.personType==='juridica'&&data.administratorPartnerId!==undefined){const administrator=data.partners?.find(p=>p.id===data.administratorPartnerId);data={...data,administrators:administrator?.name||'',representative:administrator?.name||'',representativeNif:administrator?.dni?.toUpperCase()||''}}const d=await folderDb();await new Promise((ok,no)=>{const tx=d.transaction("clientMetadata","readwrite");tx.objectStore("clientMetadata").put(data);tx.oncomplete=()=>{d.close();ok()};tx.onerror=()=>no(tx.error)});await remoteMetadata("clients","PUT",data)}
-async function getAllClientMetadata(){return getMergedMetadata("clients","clientMetadata")}
+// El servidor manda: sus fichas sustituyen a las guardadas en este navegador, para que no vuelvan las duplicadas ya borradas.
+async function getAllClientMetadata(){
+  let remote;try{remote=await remoteMetadata("clients")}catch{return getLocalMetadata("clientMetadata")}
+  try{await replaceLocalClientsWithServer(remote)}catch{}
+  return remote;
+}
 function serverClientDedupKey(client){
   const cif=String(client?.cif||"").replace(/[^0-9A-Za-z]/g,"").toUpperCase();
   if(cif)return "cif:"+cif;
