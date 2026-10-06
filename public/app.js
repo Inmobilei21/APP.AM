@@ -2875,6 +2875,7 @@ const INVOICE_ES_VAT_RATES=[0,4,5,10,21];
 function invoiceVatOrigin(nif){
   const code=String(nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"").match(/^([A-Z]{2})[A-Z0-9]*\d/)?.[1];
   if(!code||code==="ES")return null;
+  if(code==="EU")return{code,name:"ventanilla única OSS/VOES",eu:false};
   return{code,name:INVOICE_COUNTRIES[code]||code,eu:INVOICE_EU_PREFIXES.has(code)};
 }
 // Avisa de proveedores de fuera de España y de tipos de IVA que no existen en la normativa española.
