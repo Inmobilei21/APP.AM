@@ -24,6 +24,9 @@ const SCHEMA = {
           fecha: { type: "string", description: "Fecha de expedición en formato DD/MM/AAAA. Vacío si no aparece." },
           emisor_nombre: { type: "string", description: "Razón social o nombre de quien emite la factura (el proveedor)." },
           emisor_nif: { type: "string", description: "NIF/CIF/VAT del emisor, sin espacios ni guiones." },
+          emisor_pais: { type: "string", description: "País de la dirección del emisor, en código ISO de 2 letras (ES, FR, IT, US, AU…). Vacío si no aparece." },
+          receptor_pais: { type: "string", description: "País de la dirección del receptor, en código ISO de 2 letras. Vacío si no aparece." },
+          naturaleza: { type: "string", enum: ["bienes", "servicios"], description: "\"bienes\" si se entregan productos físicos; \"servicios\" si son servicios, suscripciones, software o licencias." },
           concepto: { type: "string", description: "Qué se factura, en una frase breve en español (máx. 120 caracteres): los productos o servicios principales, p. ej. \"Transporte de aceituna campaña 2026\" o \"Honorarios asesoría fiscal septiembre\"." },
           receptor_nombre: { type: "string", description: "Nombre de quien recibe la factura." },
           receptor_nif: { type: "string", description: "NIF/CIF/VAT del receptor, sin espacios ni guiones." },
@@ -45,7 +48,12 @@ const SCHEMA = {
           retencion_tipo: { type: "number", description: "Porcentaje de retención de IRPF. 0 si no hay." },
           retencion_importe: { type: "number", description: "Importe retenido de IRPF (positivo). 0 si no hay." },
           total: { type: "number", description: "Importe total de la factura a pagar, en euros." },
-          moneda: { type: "string", description: "Código de moneda, normalmente EUR." },
+          moneda: { type: "string", description: "Código ISO de la moneda de los importes (EUR, USD, GBP…)." },
+          equivalente_eur: {
+            type: "object",
+            description: "Solo si la factura NO está en euros y muestra algún importe también en euros (p. ej. el IVA o el total en €): ese importe en la moneda original y en euros. Omítelo si no aparece.",
+            properties: { importe_original: { type: "number" }, importe_eur: { type: "number" } }
+          },
           rectificativa: { type: "boolean", description: "true si es una factura rectificativa o abono." },
           observaciones: { type: "string", description: "Avisos breves en español solo si hay algo que revisar (datos ilegibles, importes que no cuadran, no es una factura…). Vacío si todo está bien." }
         },
@@ -105,7 +113,7 @@ async function readInvoice(buffer, name, contentType, client) {
     "- Copia el número de factura, nombres y NIF exactamente como aparecen.",
     "- Si el NIF/VAT del emisor es extranjero, conserva su prefijo de país (IT, FR, DE, GB…). Copia el tipo de IVA tal como aparece aunque no sea español (p. ej. 22 %).",
     "- En concepto resume en una frase lo que se factura (productos o servicios), sin importes.",
-    "- Importes como números con punto decimal (1234.56), sin símbolo de moneda.",
+    "- Importes como números con punto decimal (1234.56), sin símbolo de moneda, en la moneda de la factura (no los conviertas tú).",
     "- Desglosa cada tipo de IVA por separado. Los suplidos o conceptos no sujetos van con tipo 0.",
     "- La retención de IRPF resta del total; el recargo de equivalencia suma.",
     "- Comprueba que suma de bases + cuotas + recargo − retención = total. Si no cuadra, dilo en observaciones.",
@@ -135,8 +143,58 @@ async function readInvoice(buffer, name, contentType, client) {
   }
   const use = (data.content || []).find(item => item.type === "tool_use" && item.name === "guardar_facturas");
   if (!use) { const e = new Error("El lector no ha devuelto datos de factura."); e.status = 502; throw e; }
-  const facturas = Array.isArray(use.input?.facturas) ? use.input.facturas : [];
+  const facturas = await Promise.all((Array.isArray(use.input?.facturas) ? use.input.facturas : []).map(convertToEuros));
   return { facturas, total_documento: Number(use.input?.total_documento) || 0, modelo: data.model || base.model };
+}
+
+// Facturas en otra moneda: se pasan a euros con el cambio que muestre la propia
+// factura o, si no, con el tipo de referencia del BCE de la fecha de la factura.
+const rateCache = new Map();
+async function ecbRate(currency, date) {
+  const key = `${currency}|${date}`;
+  if (rateCache.has(key)) return rateCache.get(key);
+  const urls = [
+    `https://api.frankfurter.app/${date}?from=${currency}&to=EUR`,
+    `https://api.frankfurter.dev/v1/${date}?base=${currency}&symbols=EUR`
+  ];
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!response.ok) continue;
+      const data = await response.json();
+      const rate = Number(data?.rates?.EUR);
+      if (rate > 0) { const result = { rate, date: data.date || date }; rateCache.set(key, result); return result; }
+    } catch {}
+  }
+  return null;
+}
+const round2 = value => Math.round(value * 100) / 100;
+const isoDate = value => { const m = String(value || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : ""; };
+const spanishDate = value => String(value).split("-").reverse().join("/");
+const spanishNumber = (value, decimals = 2) => Number(value).toLocaleString("es-ES", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+async function convertToEuros(factura) {
+  const currency = String(factura.moneda || "").trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency) || currency === "EUR") return factura;
+  let rate = 0, source = "";
+  const pair = factura.equivalente_eur || {};
+  if (Number(pair.importe_original) > 0 && Number(pair.importe_eur) > 0) {
+    rate = Number(pair.importe_eur) / Number(pair.importe_original);
+    source = "según el importe en euros que indica la propia factura";
+  } else {
+    const date = isoDate(factura.fecha) || new Date().toISOString().slice(0, 10);
+    const ecb = await ecbRate(currency, date);
+    if (ecb) { rate = ecb.rate; source = `cambio de referencia del BCE del ${spanishDate(ecb.date)}`; }
+  }
+  if (!rate) return { ...factura, observaciones: [factura.observaciones, `Importes en ${currency}: no se ha podido obtener el cambio a euros, conviértelos a mano`].filter(Boolean).join(". ") };
+  const total = Number(factura.total) || 0;
+  const tipos = (factura.tipos_iva || []).map(t => ({ ...t, base: round2((Number(t.base) || 0) * rate), cuota: round2((Number(t.cuota) || 0) * rate) }));
+  const recargo = round2((Number(factura.recargo_equivalencia) || 0) * rate), retencion = round2((Number(factura.retencion_importe) || 0) * rate);
+  // El total en euros se ajusta para que cuadre con las bases y cuotas ya redondeadas.
+  const sum = tipos.reduce((acc, t) => acc + t.base + t.cuota, 0) + recargo - retencion;
+  const converted = round2(total * rate), totalEur = Math.abs(sum - converted) <= 0.02 * Math.max(1, tipos.length) ? round2(sum) : converted;
+  const note = `Importes estimados en euros: ${spanishNumber(total)} ${currency} × ${spanishNumber(rate, 4)} (${source})`;
+  return { ...factura, tipos_iva: tipos, recargo_equivalencia: recargo, retencion_importe: retencion, total: totalEur, moneda: "EUR", moneda_original: currency, observaciones: [note, factura.observaciones].filter(Boolean).join(". ") };
 }
 
 module.exports = { readInvoice, readerStatus, MAX_FILE_BYTES };
