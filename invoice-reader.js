@@ -103,6 +103,7 @@ async function readInvoice(buffer, name, contentType, client) {
     `Nombre del archivo: ${name}`,
     "Reglas:",
     "- Copia el número de factura, nombres y NIF exactamente como aparecen.",
+    "- Si el NIF/VAT del emisor es extranjero, conserva su prefijo de país (IT, FR, DE, GB…). Copia el tipo de IVA tal como aparece aunque no sea español (p. ej. 22 %).",
     "- En concepto resume en una frase lo que se factura (productos o servicios), sin importes.",
     "- Importes como números con punto decimal (1234.56), sin símbolo de moneda.",
     "- Desglosa cada tipo de IVA por separado. Los suplidos o conceptos no sujetos van con tipo 0.",
