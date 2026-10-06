@@ -2522,7 +2522,7 @@ function renderFolderView(name){
         <div><button class="folder-back" id="folderBack" type="button" aria-label="Volver" hidden>←</button><strong id="folderName">${name}</strong><span id="folderCount">0 elementos</span></div>
         <div class="folder-actions"><div class="folder-view-toggle" role="group" aria-label="Forma de mostrar los elementos"><button type="button" data-folder-view="grid" aria-label="Vista en cuadrícula" title="Vista en cuadrícula">▦</button><button type="button" data-folder-view="list" aria-label="Vista en lista" title="Vista en lista">☷</button></div><label class="client-search"><span aria-hidden="true">⌕</span><input id="clientSearch" type="search" placeholder="Buscar…" aria-label="Buscar en ${name}"></label><button class="upload-button" id="uploadFiles" type="button" hidden>＋ Añadir documentación</button><button class="upload-button invoice-process-open" id="openInvoiceProcessor" type="button" hidden>▦ Procesar facturas</button></div>
       </div>
-      <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas. Podrás revisar y corregir los datos antes de descargar.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Leer facturas</button></div><section class="invoice-draft" id="invoiceDraft" hidden><div class="invoice-draft-head"><div><p class="eyebrow">BORRADOR DEL EXCEL</p><h4>Comprueba los datos antes de descargar</h4></div><span>Todos los campos se pueden corregir</span></div><div class="invoice-draft-table-wrap"><table><thead><tr><th>Nº factura</th><th>Fecha</th><th>Proveedor</th><th>NIF/CIF</th><th class="num">Base imponible</th><th class="num">IVA</th><th class="num">Cuota IVA</th><th class="num">Total</th><th>Concepto · ver factura</th><th>Observaciones</th></tr></thead><tbody id="invoiceDraftRows"></tbody></table></div><div class="invoice-draft-confirm"><p>Revisa especialmente el proveedor y los importes. La descarga solo se realizará cuando confirmes este borrador.</p><button class="primary blue-button" id="downloadInvoiceDraft" type="button">Confirmar datos y descargar Excel</button></div></section></section>
+      <section class="invoice-processor" id="invoiceProcessor" hidden><div class="invoice-processor-head"><div><p class="eyebrow">LECTURA DE FACTURAS</p><h3>Procesar facturas</h3><p>Selecciona el cliente y añade las facturas. Podrás revisar y corregir los datos antes de descargar.</p></div><button type="button" id="closeInvoiceProcessor" aria-label="Cerrar">×</button></div><div class="invoice-processor-fields"><label><span>Cliente</span><select id="invoiceClient"><option value="">Seleccionar cliente…</option></select></label><label class="invoice-drop-zone" id="invoiceDropZone"><input id="invoiceFiles" type="file" accept=".pdf,.xml,.txt,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" multiple><span>⇩</span><strong>Añadir documentación</strong><small>Selecciona los archivos o arrástralos directamente aquí</small></label></div><div class="invoice-accounting" id="invoiceAccounting" hidden></div><div class="invoice-selected-files" id="invoiceSelectedFiles">Ningún archivo seleccionado</div><div class="invoice-processor-actions"><p id="invoiceProcessStatus"></p><button class="primary blue-button" id="processInvoices" type="button">Leer facturas</button></div><section class="invoice-draft" id="invoiceDraft" hidden><div class="invoice-draft-head"><div><p class="eyebrow">BORRADOR DEL EXCEL</p><h4>Comprueba los datos antes de descargar</h4></div><span>Todos los campos se pueden corregir</span></div><div class="invoice-draft-table-wrap"><table><thead><tr><th>Nº factura</th><th>Fecha</th><th>Proveedor</th><th>NIF/CIF</th><th title="Cuenta del proveedor en AMCOMTA">Cta. proveedor</th><th title="Cuenta de gasto en AMCOMTA">Cta. gasto</th><th class="num">Base imponible</th><th class="num">IVA</th><th class="num">Cuota IVA</th><th class="num">Total</th><th>Concepto · ver factura</th><th>Observaciones</th></tr></thead><tbody id="invoiceDraftRows"></tbody></table></div><div class="invoice-draft-confirm"><p>Revisa especialmente el proveedor y los importes. La descarga solo se realizará cuando confirmes este borrador.</p><div class="invoice-draft-buttons"><button class="secondary-button" id="downloadAmcomtaEntries" type="button">Descargar asientos AMCOMTA (.txt)</button><button class="primary blue-button" id="downloadInvoiceDraft" type="button">Confirmar datos y descargar Excel</button></div></div></section></section>
       <div class="folder-grid" id="folderGrid">
         <div class="empty folder-empty"><span>▤</span><h4>Cargando documentación</h4></div>
       </div>
@@ -2566,9 +2566,10 @@ async function setupInvoiceProcessor(){
   ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();event.stopPropagation();drop.classList.add("dragging")}));
   ["dragleave","drop"].forEach(type=>drop.addEventListener(type,event=>{event.preventDefault();event.stopPropagation();drop.classList.remove("dragging")}));
   drop.addEventListener("drop",event=>addFiles(event.dataTransfer.files));
-  select.addEventListener("change",()=>{panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","")});
+  select.addEventListener("change",()=>{panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");loadInvoiceAccounting(select.value)});
+  panel.querySelector("#downloadAmcomtaEntries").addEventListener("click",()=>downloadAmcomtaEntries(readInvoiceDraft(),select.value));
   panel.querySelector("#processInvoices").addEventListener("click",()=>processInvoiceFiles(select.value));
-  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];select.value="";input.value="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";panel.querySelector("#processInvoices").textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()});
+  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>{downloadInvoiceExcel(readInvoiceDraft(),select.value);clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];select.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";panel.querySelector("#processInvoices").textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()});
 }
 async function getInvoiceOcrWorker(){
   if(invoiceOcrWorker)return invoiceOcrWorker;
@@ -2663,24 +2664,146 @@ function invoiceFormatRate(value){const number=invoiceParseNumber(value);if(numb
 const INVOICE_MONEY_FIELDS=["base","vat","total"],INVOICE_RATE_FIELDS=["vatRate"];
 function invoiceFormatField(field,value){return INVOICE_MONEY_FIELDS.includes(field)?invoiceFormatMoney(value):INVOICE_RATE_FIELDS.includes(field)?invoiceFormatRate(value):String(value??"")}
 function downloadInvoiceExcel(records,client){
-  const headers=["Cliente","Número de factura","Fecha","Proveedor","NIF/CIF proveedor","Base imponible","Tipo IVA (%)","Cuota IVA","Importe total","Concepto","Archivo original","Observaciones"];
+  const headers=["Cliente","Número de factura","Fecha","Proveedor","NIF/CIF proveedor","Cuenta proveedor","Cuenta gasto","Base imponible","Tipo IVA (%)","Cuota IVA","Importe total","Concepto","Archivo original","Observaciones"];
   const text=value=>`<Cell><Data ss:Type="String">${excelXmlEscape(value)}</Data></Cell>`;
   const typed=(value,style)=>{const number=invoiceParseNumber(value);return number===null?text(value):`<Cell ss:StyleID="${style}"><Data ss:Type="Number">${number}</Data></Cell>`};
-  const rows=records.map(record=>[text(record.client),text(record.number),text(record.date),text(record.supplier),text(record.supplierNif),typed(record.base,"eur"),typed(record.vatRate,"pct"),typed(record.vat,"eur"),typed(record.total,"eur"),text(record.concept||""),text(record.file),text(record.observation||(record.number&&record.total?"":"Revisar datos no detectados"))]);
+  const rows=records.map(record=>[text(record.client),text(record.number),text(record.date),text(record.supplier),text(record.supplierNif),text(amAccount(record.supplierAccount)),text(amAccount(record.expenseAccount)),typed(record.base,"eur"),typed(record.vatRate,"pct"),typed(record.vat,"eur"),typed(record.total,"eur"),text(record.concept||""),text(record.file),text(record.observation||(record.number&&record.total?"":"Revisar datos no detectados"))]);
   const styles=`<Styles><Style ss:ID="head"><Font ss:Bold="1"/></Style><Style ss:ID="eur"><NumberFormat ss:Format="#,##0.00 &quot;€&quot;"/></Style><Style ss:ID="pct"><NumberFormat ss:Format="General&quot; %&quot;"/></Style></Styles>`;
   const xml=`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${styles}<Worksheet ss:Name="Facturas"><Table><Row>${headers.map(h=>`<Cell ss:StyleID="head"><Data ss:Type="String">${excelXmlEscape(h)}</Data></Cell>`).join("")}</Row>${rows.map(row=>`<Row>${row.join("")}</Row>`).join("")}</Table></Worksheet></Workbook>`;
   const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([xml],{type:"application/vnd.ms-excel"}));link.download=`Facturas ${client} ${new Date().toISOString().slice(0,10)}.xls`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 }
+/* ===== Enlace con AMCOMTA: cuentas del cliente y asientos de facturas recibidas ===== */
+let invoiceAccounting={client:"",data:null,loading:false};
+const amSp=n=>" ".repeat(Math.max(0,n));
+const amCut=(value,length)=>(String(value??"")+amSp(length)).slice(0,length);
+const amPad=(value,length)=>{const t=String(value??"");return t+amSp(length-t.length)};
+const amNum=value=>{const n=Math.round((invoiceParseNumber(value)??0)*100)/100;return String(n).replace(".",",")};
+function amNif(value){const clean=String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return clean.length>9&&clean.startsWith("ES")?clean.slice(2):clean}
+function amAccount(value){
+  const text=String(value||"").trim().replace(/\s/g,"");if(!text)return"";
+  const parts=text.match(/^(\d+)[,.](\d+)$/),digits=invoiceAccounting.data?.digitos||10;
+  if(parts)return parts[1]+"0".repeat(Math.max(0,digits-parts[1].length-parts[2].length))+parts[2];
+  return text.replace(/\D/g,"");
+}
+function amDate(value){
+  const text=String(value||"").trim();let m=text.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return `${m[3]}/${m[2]}/${m[1]}`;
+  m=text.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/);return m?`${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3].length===2?"20"+m[3]:m[3]}`:text;
+}
+const amSupplier=account=>invoiceAccounting.data?.proveedores?.find(item=>item.cuenta===account);
+const amExpense=account=>invoiceAccounting.data?.gastos?.find(item=>item.cuenta===account);
+function amFindSupplier(record){
+  const list=invoiceAccounting.data?.proveedores||[],nif=amNif(record.supplierNif);
+  if(nif){const byNif=list.find(item=>item.nif&&amNif(item.nif)===nif);if(byNif)return{supplier:byNif,via:"nif"}}
+  const name=normalizeFiscalClient(record.supplier);if(!name)return null;
+  let best=null,score=0;
+  for(const item of list){const value=normalizeFiscalClient(item.nombre)===name?1:declarationClientScore(record.supplier,normalizeFiscalText(item.nombre));if(value>score){best=item;score=value}}
+  return best&&score>=.85?{supplier:best,via:"nombre"}:null;
+}
+const AM_UNLINKED="Cuenta no relacionada: usa la 4100009999 (acreedores varios) o crea el proveedor en AMCOMTA";
+function applyInvoiceAccounts(records){
+  if(!invoiceAccounting.data?.proveedores?.length)return records;
+  records.forEach(record=>{
+    if(record.accountChecked===invoiceAccounting.client)return;
+    record.accountChecked=invoiceAccounting.client;
+    if(record.supplierAccount){if(!record.expenseAccount)record.expenseAccount=amSupplier(amAccount(record.supplierAccount))?.gasto||"";return}
+    const found=amFindSupplier(record),notes=[record.observation];
+    if(found){record.supplierAccount=found.supplier.cuenta;record.expenseAccount=record.expenseAccount||found.supplier.gasto||"";if(found.via==="nombre")notes.unshift("Cuenta relacionada por el nombre del proveedor: revísala")}
+    else notes.unshift(AM_UNLINKED);
+    record.observation=[...new Set(notes.filter(Boolean))].join(". ");
+  });
+  return records;
+}
+function invoiceAccountLists(){
+  const data=invoiceAccounting.data||{},option=(value,label)=>`<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+  return `<datalist id="invoiceSupplierAccounts">${(data.proveedores||[]).map(item=>option(item.cuenta,[item.nombre,item.nif].filter(Boolean).join(" · "))).join("")}</datalist><datalist id="invoiceExpenseAccounts">${(data.gastos||[]).map(item=>option(item.cuenta,item.nombre)).join("")}</datalist>`;
+}
+function invoiceAccountTitle(field,value){
+  const account=amAccount(value),item=field==="supplierAccount"?amSupplier(account):amExpense(account);
+  return item?`${account} · ${item.nombre}`:(account?`${account} · no existe en la contabilidad cargada`:"Sin cuenta");
+}
+function renderInvoiceAccountingStatus(){
+  const box=document.querySelector("#invoiceAccounting");if(!box)return;
+  const {client,data,loading}=invoiceAccounting;box.hidden=!client;if(!client)return;
+  const date=data?.actualizado?new Intl.DateTimeFormat("es-ES").format(new Date(data.actualizado)):"";
+  const has=data?.proveedores?.length;
+  box.className=`invoice-accounting${has?" ready":""}`;
+  box.innerHTML=loading?`<span>⟳</span><p><strong>${escapeHtml(loading)}</strong></p>`:`<span>${has?"✓":"!"}</span><p>${has?`<strong>Contabilidad AMCOMTA: ${escapeHtml(data.empresa||client)}${data.ejercicio?` · ejercicio ${escapeHtml(data.ejercicio)}`:""}</strong><small>${data.proveedores.length} proveedores · ${data.gastos.length} cuentas de gasto · actualizada el ${escapeHtml(date)}</small>`:`<strong>Sin contabilidad de AMCOMTA para este cliente</strong><small>Carga su base de datos (el archivo .MDB de la carpeta VINCULACIÓN) para relacionar las facturas con sus cuentas.</small>`}</p><label class="secondary-button"><input type="file" accept=".mdb,.accdb" hidden>${has?"Actualizar base (.MDB)":"Cargar base (.MDB)"}</label>`;
+  box.querySelector("input[type=file]")?.addEventListener("change",event=>{const file=event.target.files[0];if(file)uploadInvoiceAccounting(file)});
+}
+function refreshDraftAccounts(){
+  if(document.querySelector("#invoiceDraft")?.hidden!==false||!invoiceDraftRecords.length)return;
+  invoiceDraftRecords=readInvoiceDraft();renderInvoiceDraft(invoiceDraftRecords);
+}
+async function loadInvoiceAccounting(client){
+  invoiceAccounting={client,data:null,loading:client?"Buscando la contabilidad de AMCOMTA del cliente…":false};renderInvoiceAccountingStatus();if(!client)return;
+  try{const data=await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`);if(invoiceAccounting.client!==client)return;invoiceAccounting.data=data}catch{}
+  invoiceAccounting.loading=false;renderInvoiceAccountingStatus();refreshDraftAccounts();
+}
+async function uploadInvoiceAccounting(file){
+  const client=invoiceAccounting.client;if(!client)return;
+  invoiceAccounting.loading=`Leyendo la base de datos ${file.name} (${Math.max(1,Math.round(file.size/1048576))} MB)…`;renderInvoiceAccountingStatus();
+  try{
+    const response=await fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
+    const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"No se pudo leer la base de datos.");
+    if(invoiceAccounting.client===client)invoiceAccounting.data=result;
+  }catch(error){alert(error.message)}
+  invoiceAccounting.loading=false;renderInvoiceAccountingStatus();refreshDraftAccounts();
+}
+/* Líneas de importación de AMCOMTA (pestaña ASIENTOS RECIBIDAS de la plantilla de facturas recibidas) */
+function buildAmcomtaEntries(records){
+  const groups=new Map();
+  records.forEach((record,index)=>{const key=record.group||`fila-${index}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(record)});
+  const lines=[];let order=0,missing=0;
+  for(const items of groups.values()){
+    const first=items[0],lines_=items.filter(item=>invoiceParseNumber(item.base)||invoiceParseNumber(item.vat));
+    const account=amAccount(first.supplierAccount),known=amSupplier(account);
+    if(!account||items.some(item=>!amAccount(item.expenseAccount)))missing++;
+    const date=amDate(first.date),number=String(first.number||"").trim();
+    const base=lines_.reduce((sum,item)=>sum+(invoiceParseNumber(item.base)||0),0),vat=lines_.reduce((sum,item)=>sum+(invoiceParseNumber(item.vat)||0),0);
+    const holder=items.find(item=>invoiceParseNumber(item.retentionRate)),rate=holder?invoiceParseNumber(holder.retentionRate):0;
+    const retention=rate?(invoiceParseNumber(holder.retention)||Math.round(base*rate)/100):0,key=rate===15?"G":rate===19?"X":" ";
+    lines.push([++order,"A"+amCut(date,10)+"0   "+"N"+"S"+"  "+amSp(10)+amCut(account,10)+"  "+amCut(known?.nombre||first.supplier,50)+amCut(known?.nif||first.supplierNif,13)+amCut(number,10)+amCut(date,10)+amCut("S/Factura nº   "+number,50)+amCut(number,10)+"8 "+"1    "
+      +(rate?amPad(amNum(base),15)+amPad(amNum(rate),5)+"4751000002  ":amSp(32))+amSp(15)+amSp(12)+amCut(date,10)+"  "+amSp(50)+amPad(amNum(base),15)+amPad(amNum(vat),15)+amSp(15)+"S"
+      +"N"+amSp(8)+key+amPad(rate?amNum(retention):" ",15)+amSp(250)+"0"]);
+    for(const item of lines_){
+      const lineRate=invoiceParseNumber(item.vatRate)||0;
+      lines.push([++order,"B"+amCut(amAccount(item.expenseAccount),10)+"  "+amPad(amNum(item.base),15)+"4720000000  "+(lineRate?amPad(amNum(lineRate),5):amSp(5))+amSp(17)+"1    "+"0"+amPad(amNum(item.vat),15)+amSp(15)]);
+    }
+  }
+  return{lines,invoices:groups.size,missing};
+}
+function amcomtaWindows1252(text){
+  const special={"€":0x80,"‚":0x82,"ƒ":0x83,"„":0x84,"…":0x85,"†":0x86,"‡":0x87,"ˆ":0x88,"‰":0x89,"Š":0x8a,"‹":0x8b,"Œ":0x8c,"Ž":0x8e,"‘":0x91,"’":0x92,"“":0x93,"”":0x94,"•":0x95,"–":0x96,"—":0x97,"˜":0x98,"™":0x99,"š":0x9a,"›":0x9b,"œ":0x9c,"ž":0x9e,"Ÿ":0x9f};
+  const bytes=new Uint8Array(text.length);
+  for(let i=0;i<text.length;i++){const char=text[i],code=char.charCodeAt(0);bytes[i]=special[char]??(code<256&&(code<0x80||code>0x9f)?code:0x3f)}
+  return bytes;
+}
+function downloadAmcomtaEntries(records,client){
+  const {lines,invoices,missing}=buildAmcomtaEntries(records);
+  if(!invoices){alert("No hay facturas en el borrador.");return}
+  if(missing&&!confirm(`${missing} de ${invoices} ${invoices===1?"factura no tiene":"facturas no tienen"} cuenta de proveedor o de gasto. Se exportarán con la cuenta vacía. ¿Descargar igualmente?`))return;
+  const text=lines.map(([order,line])=>`${order}\t${line.replace(/[\t\r\n"]/g," ")}`).join("\r\n")+"\r\n";
+  const link=document.createElement("a");link.href=URL.createObjectURL(new Blob([amcomtaWindows1252(text)],{type:"text/plain"}));
+  link.download=`ASIENTOS RECIBIDAS ${client} ${new Date().toISOString().slice(0,10)}.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+}
 const INVOICE_EYE_ICON='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 function renderInvoiceDraft(records){
   const draft=document.querySelector("#invoiceDraft"),body=document.querySelector("#invoiceDraftRows");if(!draft||!body)return;
-  const fields=["number","date","supplier","supplierNif","base","vatRate","vat","total"],safeValue=value=>escapeHtml(value).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  applyInvoiceAccounts(records);
+  const fields=["number","date","supplier","supplierNif","supplierAccount","expenseAccount","base","vatRate","vat","total"],safeValue=value=>escapeHtml(value).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const numeric=field=>INVOICE_MONEY_FIELDS.includes(field)||INVOICE_RATE_FIELDS.includes(field);
-  const input=(index,field,value,extra="")=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(value)}" title="${safeValue(value)}" ${numeric(field)?'class="num" inputmode="decimal"':""} ${extra}>`;
+  const accountField=field=>field==="supplierAccount"||field==="expenseAccount",withBase=Boolean(invoiceAccounting.data?.proveedores?.length);
+  const input=(index,field,value,extra="")=>accountField(field)?`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(amAccount(value))}" title="${safeValue(invoiceAccountTitle(field,value))}" list="${field==="supplierAccount"?"invoiceSupplierAccounts":"invoiceExpenseAccounts"}" inputmode="numeric" placeholder="${withBase?"Sin relacionar":"—"}" class="account${withBase&&!value?" needs-account":""}">`:`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(value)}" title="${safeValue(value)}" ${numeric(field)?'class="num" inputmode="decimal"':""} ${extra}>`;
   body.innerHTML=records.map((record,index)=>`<tr>${fields.map(field=>`<td${numeric(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`).join("")}<td><div class="invoice-concept-cell"><button type="button" class="invoice-preview-button" data-invoice-preview="${index}" title="Ver la factura" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}</button>${input(index,"concept",record.concept||"",'placeholder="Sin concepto"')}</div></td><td>${input(index,"observation",record.observation||"",record.observation?'class="has-note"':"")}</td></tr>`).join("");
+  draft.querySelector("#invoiceAccountLists")?.remove();draft.insertAdjacentHTML("beforeend",`<div id="invoiceAccountLists" hidden>${invoiceAccountLists()}</div>`);
   if(!body.dataset.bound){
     body.dataset.bound="1";
-    body.addEventListener("focusout",event=>{const el=event.target;if(!el.matches?.("input[data-invoice-field]"))return;if(numeric(el.dataset.invoiceField))el.value=invoiceFormatField(el.dataset.invoiceField,el.value);el.title=el.value;if(el.dataset.invoiceField==="observation")el.classList.toggle("has-note",Boolean(el.value.trim()))});
+    body.addEventListener("focusout",event=>{const el=event.target;if(!el.matches?.("input[data-invoice-field]"))return;if(numeric(el.dataset.invoiceField))el.value=invoiceFormatField(el.dataset.invoiceField,el.value);el.title=el.value;if(el.dataset.invoiceField==="observation")el.classList.toggle("has-note",Boolean(el.value.trim()));
+      if(el.classList.contains("account")){
+        el.value=amAccount(el.value);el.title=invoiceAccountTitle(el.dataset.invoiceField,el.value);el.classList.toggle("needs-account",Boolean(invoiceAccounting.data?.proveedores?.length)&&!el.value);
+        const expense=body.querySelector(`[data-invoice-row="${el.dataset.invoiceRow}"][data-invoice-field="expenseAccount"]`),habitual=amSupplier(el.value)?.gasto;
+        if(el.dataset.invoiceField==="supplierAccount"&&expense&&!expense.value&&habitual){expense.value=habitual;expense.title=invoiceAccountTitle("expenseAccount",habitual);expense.classList.remove("needs-account")}
+      }});
     body.addEventListener("click",event=>{const button=event.target.closest?.("[data-invoice-preview]");if(button)openInvoicePreview(Number(button.dataset.invoicePreview))});
   }
   draft.hidden=false;draft.scrollIntoView({behavior:"smooth",block:"nearest"});
@@ -4086,7 +4209,7 @@ setInterval(refreshSuggestions,15000);
     m=t.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/);if(m)return `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3].length===2?"20"+m[3]:m[3]}`;
     return t;
   }
-  function aRegistros(f,file,client,varias){
+  function aRegistros(f,file,client,varias,orden=0){
     const tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
     const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
     const recargo=num(f.recargo_equivalencia),ret=Math.abs(num(f.retencion_importe)),total=num(f.total);
@@ -4098,20 +4221,21 @@ setInterval(refreshSuggestions,15000);
     if(varias)comun.push(`Una de ${varias} facturas del mismo archivo${f.paginas?` (pág. ${f.paginas})`:""}`);
     if(f.observaciones)comun.push(String(f.observaciones).trim());
     const concepto=String(f.concepto||"").trim();
-    const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String(f.emisor_nombre||"").trim(),supplierNif:nif(f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim()};
+    const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String(f.emisor_nombre||"").trim(),supplierNif:nif(f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim(),group:`${file.name}#${orden}`};
+    const retencion=ret?{retentionRate:String(Math.abs(num(f.retencion_tipo))||""),retention:dinero(ret)}:{};
     const extras=[];
     if(recargo)extras.push(`Recargo de equivalencia ${dinero(recargo)}`);
     if(ret)extras.push(`Retención IRPF ${num(f.retencion_tipo)?num(f.retencion_tipo)+"% ":""}${dinero(ret)}`);
     if(tipos.length<=1){
       const t=tipos[0];
-      return[{...cab,concept:concepto||String(t?.concepto||"").trim(),base:t?dinero(t.base):"",vatRate:t?String(num(t.tipo)):"",vat:t?dinero(t.cuota):"",total:total?total.toFixed(2):"",observation:[...new Set([t?.concepto&&num(t.tipo)===0?t.concepto:"",...extras,...comun].filter(Boolean))].join(". ")}];
+      return[{...cab,...retencion,concept:concepto||String(t?.concepto||"").trim(),base:t?dinero(t.base):"",vatRate:t?String(num(t.tipo)):"",vat:t?dinero(t.cuota):"",total:total?total.toFixed(2):"",observation:[...new Set([t?.concepto&&num(t.tipo)===0?t.concepto:"",...extras,...comun].filter(Boolean))].join(". ")}];
     }
     // Una fila por cada tipo de IVA para poder contabilizarlas por separado.
     return tipos.map((t,k)=>{
       const linea=num(t.base)+num(t.cuota);
       const notas=[`Línea ${k+1} de ${tipos.length} (IVA ${num(t.tipo)}%${t.concepto?` · ${t.concepto}`:""}) · total factura ${total?total.toFixed(2):"sin detectar"}`];
       if(k===0)notas.push(...extras);
-      return{...cab,concept:[concepto,t.concepto&&t.concepto!==concepto?String(t.concepto).trim():""].filter(Boolean).join(" · "),base:dinero(t.base),vatRate:String(num(t.tipo)),vat:dinero(t.cuota),total:linea.toFixed(2),observation:[...new Set([...notas,...comun].filter(Boolean))].join(". ")};
+      return{...cab,...(k===0?retencion:{}),concept:[concepto,t.concepto&&t.concepto!==concepto?String(t.concepto).trim():""].filter(Boolean).join(" · "),base:dinero(t.base),vatRate:String(num(t.tipo)),vat:dinero(t.cuota),total:linea.toFixed(2),observation:[...new Set([...notas,...comun].filter(Boolean))].join(". ")};
     });
   }
   async function leerConIA(file,client){
@@ -4120,7 +4244,7 @@ setInterval(refreshSuggestions,15000);
     if(!r.ok)throw new Error(data.error||`Error ${r.status}`);
     const lista=Array.isArray(data.facturas)?data.facturas:[];
     if(!lista.length)throw new Error("No se ha encontrado ninguna factura en el archivo");
-    const filas=lista.flatMap(f=>aRegistros(f,file,client,lista.length>1?lista.length:0));
+    const filas=lista.flatMap((f,i)=>aRegistros(f,file,client,lista.length>1?lista.length:0,i));
     const avisos=[];
     const suma=lista.reduce((t,f)=>t+num(f.total),0),totalDoc=num(data.total_documento);
     if(totalDoc&&Math.abs(suma-totalDoc)>0.05)avisos.push(`La suma de las facturas (${suma.toFixed(2)}) no coincide con el total del documento (${totalDoc.toFixed(2)}): puede faltar alguna`);
