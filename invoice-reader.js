@@ -15,7 +15,7 @@ const SCHEMA = {
   properties: {
     facturas: {
       type: "array",
-      description: "Una entrada por cada factura del documento. Normalmente una sola.",
+      description: "Una entrada por cada factura (o factura rectificativa/abono) del documento. Normalmente una sola. Los recibos, justificantes de pago, albaranes y demás documentos que no son facturas NO van aquí, sino en otros_documentos.",
       items: {
         type: "object",
         properties: {
@@ -57,6 +57,21 @@ const SCHEMA = {
           observaciones: { type: "string", description: "Avisos breves en español solo si hay algo que revisar (datos ilegibles, importes que no cuadran, no es una factura…). Vacío si todo está bien." }
         },
         required: ["numero", "fecha", "emisor_nombre", "emisor_nif", "concepto", "tipos_iva", "total"]
+      }
+    },
+    otros_documentos: {
+      type: "array",
+      description: "Documentos del archivo que NO son facturas: recibos bancarios o de domiciliación, justificantes de transferencia o de pago con tarjeta, albaranes, presupuestos, pedidos, extractos… Vacío si todo son facturas.",
+      items: {
+        type: "object",
+        properties: {
+          tipo: { type: "string", enum: ["recibo_bancario", "justificante_pago", "albaran", "presupuesto", "pedido", "extracto", "otro"] },
+          paginas: { type: "string", description: "Páginas del documento donde aparece (p. ej. \"4\" o \"4-5\")." },
+          descripcion: { type: "string", description: "Qué es, en pocas palabras (p. ej. \"Recibo domiciliado Iberdrola septiembre\")." },
+          factura_relacionada: { type: "string", description: "Si es el pago o el recibo de una factura, el número de esa factura tal como aparece. Vacío si no se sabe." },
+          importe: { type: "number", description: "Importe del documento, en euros. 0 si no aparece." }
+        },
+        required: ["tipo", "paginas"]
       }
     },
     total_documento: { type: "number", description: "Si el documento muestra un resumen con el importe total a pagar de todas las facturas juntas, ese importe. 0 si no hay resumen." }
@@ -122,6 +137,8 @@ async function readInvoice(buffer, name, contentType, client) {
     "- Un bloque de \"resumen total\" o \"total a pagar\" que suma varias facturas NO es una factura: su importe va en total_documento.",
     "- No mezcles importes de una factura con otra. Los totales de la primera página (\"Fijo\", \"Variable\", \"Impuestos\"…) son un resumen; usa el detalle de cada factura.",
     "- Impuestos especiales (hidrocarburos, electricidad), alquileres de equipos y cánones forman parte de la base imponible cuando el IVA se calcula sobre ellos.",
+    "- Solo son facturas los documentos que el emisor titula como factura (o factura simplificada, rectificativa o abono), con su número de factura. Los recibos bancarios o de domiciliación, justificantes de transferencia o de pago con tarjeta, albaranes, presupuestos, pedidos y extractos NO son facturas: no los pongas en facturas, sino en otros_documentos con sus páginas. Si son el pago de una factura, indica su número en factura_relacionada.",
+    "- No dupliques una factura porque aparezca también su recibo o justificante de pago.",
     "- Si una factura tiene conceptos con distintos tipos de IVA (o partes exentas, no sujetas o suplidos), da una línea en tipos_iva por cada tipo, sin juntarlas."
   ].filter(Boolean).join("\n");
 
@@ -143,7 +160,8 @@ async function readInvoice(buffer, name, contentType, client) {
   const use = (data.content || []).find(item => item.type === "tool_use" && item.name === "guardar_facturas");
   if (!use) { const e = new Error("El lector no ha devuelto datos de factura."); e.status = 502; throw e; }
   const facturas = await Promise.all((Array.isArray(use.input?.facturas) ? use.input.facturas : []).map(convertToEuros));
-  return { facturas, total_documento: Number(use.input?.total_documento) || 0, modelo: data.model || base.model };
+  const otros_documentos = (Array.isArray(use.input?.otros_documentos) ? use.input.otros_documentos : []).map(item => ({ tipo: String(item?.tipo || "otro"), paginas: String(item?.paginas || ""), descripcion: String(item?.descripcion || ""), factura_relacionada: String(item?.factura_relacionada || ""), importe: Number(item?.importe) || 0 }));
+  return { facturas, otros_documentos, total_documento: Number(use.input?.total_documento) || 0, modelo: data.model || base.model };
 }
 
 // Facturas en otra moneda: se pasan a euros con el cambio que muestre la propia
