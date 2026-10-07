@@ -35,7 +35,7 @@ function m190Draft(){
   return{model:"190",period:PERIOD,year:taxDraftYear(),client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",title:"Resumen anual de retenciones del trabajo y profesionales",records,summary:sum,result:sum.retenciones,
     confirmedAt:new Date().toISOString(),confirmedBy:typeof signedInUser!=="undefined"&&signedInUser?signedInUser.name:""};
 }
-function openM190(){
+function m190DetailHtml(){
   const year=taxDraftYear(),records=m190Records(),sum=m190Summary(records),control=state().data;
   const ret111=tdRound(["1T","2T","3T","4T"].reduce((s,period)=>s+taxDraftBuild("111",period).result,0));
   const checks=[Math.abs(ret111-sum.retenciones)<0.02?`<div class="td-check ok">✓ <div><b>Cuadra con los 111 del año</b>Retenciones de los cuatro trimestres: ${tdEur(ret111)}.</div></div>`:`<div class="td-check warn">⚠ <div><b>No cuadra con los 111</b>Suma de los 111: ${tdEur(ret111)} · resumen anual: ${tdEur(sum.retenciones)}.</div></div>`];
@@ -47,36 +47,37 @@ function openM190(){
     <td><input class="m190-nif" data-m190-nif value="${escapeHtml(r.nif)}" maxlength="9" placeholder="NIF"></td><td><input class="m190-name" data-m190-name value="${escapeHtml(r.nombre)}"><small>${escapeHtml(r.cuenta)}${r.estimado?" · estimado":""}</small></td>
     <td><input class="m347-small" data-m190-prov value="${escapeHtml(r.provincia)}" maxlength="2" inputmode="numeric"></td>
     <td class="num">${tdEur(r.integra)}</td><td class="num">${tdEur(r.retenciones)}</td><td class="num">${r.especieValor?tdEur(r.especieValor):'<span class="td-dim">—</span>'}</td><td class="num">${r.especieIngresos?tdEur(r.especieIngresos):'<span class="td-dim">—</span>'}</td></tr>`;
-  document.querySelector("#tdDraftView")?.remove();
-  const view=document.createElement("div");view.id="tdDraftView";view.className="td-modal";view.setAttribute("role","dialog");view.setAttribute("aria-modal","true");
-  view.innerHTML=`<div class="td-modal-box td-form-modal m190-modal"><header><div><span class="td-tag">Resumen anual</span><h3>Modelo 190 · ${year}</h3><p>${escapeHtml(taxDrafts.clientData?.cif?taxDrafts.clientData.cif+" · ":"")}${escapeHtml(taxDrafts.client)} · ${control.draft?`borrador confirmado el ${tdDate(control.draft.confirmedAt)}`:"sin confirmar"}</p></div><div class="td-form-actions"><button type="button" class="td-close" aria-label="Cerrar">×</button></div></header>
-    <div class="td-modal-body">
+  return `<div class="td-card-title"><strong>Resumen anual · Modelo 190 · ${year}</strong><span>${escapeHtml(taxDrafts.clientData?.cif?taxDrafts.clientData.cif+" · ":"")}${escapeHtml(taxDrafts.client)}</span></div>
       <div class="m347-summary m190-summary"><div><small>01 · Número de percepciones</small><b>${sum.n}</b></div><div><small>02 · Importe de las percepciones</small><b>${tdEur(sum.importe)}</b></div><div><small>03 · Retenciones e ingresos a cuenta</small><b>${tdEur(sum.retenciones)}</b></div></div>
       ${checks.join("")}
       <div class="td-table-wrap"><table class="td-list m190-table"><thead><tr><th>Clave</th><th>Subclave</th><th>NIF</th><th>Perceptor</th><th>Prov.</th><th class="num">Percepción íntegra</th><th class="num">Retenciones</th><th class="num">Especie: valoración</th><th class="num">Ingresos a cuenta</th></tr></thead>
       <tbody>${records.map(row).join("")||'<tr><td colspan="9" class="td-dim">No hay percepciones con retención en el año.</td></tr>'}</tbody></table></div>
-      <div class="td-actions m347-actions"><button type="button" class="secondary-button" data-m190-csv>Excel (CSV)</button><button type="button" class="secondary-button" data-m190-view>Ver borrador</button><button type="button" class="primary blue-button" data-m190-confirm${records.length?"":" disabled"}>${control.draft?"Volver a confirmar":"Confirmar borrador"}</button></div>
-    </div></div>`;
-  document.body.append(view);
-  const keyOf=el=>el.closest("[data-m190]").dataset.m190;
-  view.querySelectorAll("[data-m190-nif]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.nif[keyOf(i)]=i.value.trim().toUpperCase()});openM190()}));
-  view.querySelectorAll("[data-m190-name]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.nombre[keyOf(i)]=i.value.trim()});openM190()}));
-  view.querySelectorAll("[data-m190-prov]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.provincia[keyOf(i)]=i.value.replace(/\D/g,"").padStart(i.value.trim()?2:0,"0")});openM190()}));
-  view.querySelectorAll("[data-m190-sub]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.subclave[keyOf(i)]=i.value});openM190()}));
-  view.querySelector("[data-m190-confirm]")?.addEventListener("click",()=>{
+      <div class="td-actions m347-actions">${control.draft?`<p class="td-confirmed">✓ Confirmado el ${tdDate(control.draft.confirmedAt)}${control.draft.confirmedBy?` por ${escapeHtml(control.draft.confirmedBy)}`:""}</p>`:""}<button type="button" class="secondary-button" data-m190-csv>Excel (CSV)</button><button type="button" class="secondary-button" data-m190-view>Ver borrador</button><button type="button" class="primary blue-button" data-m190-confirm${records.length?"":" disabled"}>${control.draft?"Confirmar de nuevo":"Confirmar borrador"}</button></div>`;
+}
+function bindM190(box){
+  const year=taxDraftYear(),keyOf=el=>el.closest("[data-m190]").dataset.m190;
+  box.querySelectorAll("[data-m190-nif]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.nif[keyOf(i)]=i.value.trim().toUpperCase()});renderTaxDraftMain()}));
+  box.querySelectorAll("[data-m190-name]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.nombre[keyOf(i)]=i.value.trim()});renderTaxDraftMain()}));
+  box.querySelectorAll("[data-m190-prov]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.provincia[keyOf(i)]=i.value.replace(/\D/g,"").padStart(i.value.trim()?2:0,"0")});renderTaxDraftMain()}));
+  box.querySelectorAll("[data-m190-sub]").forEach(i=>i.addEventListener("change",()=>{save(m=>{m.subclave[keyOf(i)]=i.value});renderTaxDraftMain()}));
+  box.querySelector("[data-m190-confirm]")?.addEventListener("click",()=>{
     const draft=m190Draft(),key=declarationKey("190",PERIOD,taxDrafts.client,draft.year),data=declarationData("190",PERIOD,taxDrafts.client,draft.year),t=new Date();
     data.prepared=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;data.draft=draft;localStorage.setItem(key,JSON.stringify(data));
-    renderTaxDraftMain();openM190();
+    renderTaxDraftMain();
   });
-  view.querySelector("[data-m190-view]")?.addEventListener("click",()=>openM190Form(m190Draft(),false));
-  view.querySelector("[data-m190-csv]")?.addEventListener("click",()=>{
+  box.querySelector("[data-m190-view]")?.addEventListener("click",()=>openM190Form(m190Draft(),false));
+  box.querySelector("[data-m190-csv]")?.addEventListener("click",()=>{
     const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,num=v=>(Number(v)||0).toFixed(2).replace(".",",");
     const lines=[["Clave","Subclave","NIF","Perceptor","Provincia","Percepción íntegra","Retenciones","Especie valoración","Ingresos a cuenta"].map(cell).join(";"),...m190Records().map(r=>[cell(r.clave),cell(r.subclave),cell(r.nif),cell(r.nombre),cell(r.provincia),num(r.integra),num(r.retenciones),num(r.especieValor),num(r.especieIngresos)].join(";"))];
-    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}));a.download=`Modelo 190 ${year} ${taxDrafts.client}.csv`;document.body.append(a);a.click();a.remove();
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}));a.download=`Modelo 190 ${year} ${taxDrafts.client}.csv`;document.body.append(a);a.click();a.remove();
   });
-  const close=()=>{view.remove();document.removeEventListener("keydown",onKey)},onKey=e=>{if(e.key==="Escape")close()};
-  view.addEventListener("click",e=>{if(e.target===view||e.target.closest(".td-close"))close()});document.addEventListener("keydown",onKey);
+  // Los clics dentro del detalle no pliegan la fila.
+  box.addEventListener("click",event=>event.stopPropagation());
 }
+const previousDetail=window.taxDraftAnnualDetail;
+window.taxDraftAnnualDetail=model=>model==="190"?m190DetailHtml():(previousDetail?previousDetail(model):"");
+const previousMain=renderTaxDraftMain;
+renderTaxDraftMain=function(){const r=previousMain.apply(this,arguments);const box=document.querySelector('#tdMain [data-td-annual-detail="190"]');if(box)bindM190(box);return r};
 /* Borrador con el aspecto del impreso: hoja resumen y relación de percepciones (Percepción 1, 2…) */
 function m190FormHtml(draft){
   const f=(label,value,cls="")=>`<label class="${cls}"><small>${label}</small><span>${escapeHtml(value??"")}</span></label>`,money=tdFormMoney;
@@ -116,8 +117,6 @@ function openM190Form(draft,confirmed){
   const close=()=>{view.remove();document.removeEventListener("keydown",onKey)},onKey=e=>{if(e.key==="Escape")close()};
   view.addEventListener("click",e=>{if(e.target===view||e.target.closest(".td-close"))close()});document.addEventListener("keydown",onKey);
 }
-document.addEventListener("click",event=>{const row=event.target.closest('[data-td-annual="190"]');if(!row)return;event.preventDefault();openM190()});
-document.addEventListener("keydown",event=>{const row=event.target.closest?.('[data-td-annual="190"]');if(row&&(event.key==="Enter"||event.key===" ")){event.preventDefault();openM190()}});
 // «Ver borrador» del 190 en Control de declaraciones.
 if(typeof openConfirmedTaxDraft==="function"){
   const previousOpen=openConfirmedTaxDraft;
@@ -125,7 +124,7 @@ if(typeof openConfirmedTaxDraft==="function"){
     if(data.draft?.model==="190")return openM190Form(data.draft,true);return previousOpen.apply(this,arguments)};
 }
 (function(){const style=document.createElement("style");style.textContent=`.td-table tfoot tr.td-annual{cursor:pointer}.td-table tfoot tr.td-annual:hover td{background:#eef2fb}
-.m190-modal{width:min(1180px,100%)}.m190-summary{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px;border:1px solid #e8ebf1;border-radius:12px;overflow:hidden}
+.td-table tfoot tr.td-annual.open .td-caret{transform:rotate(90deg)}.td-table tfoot tr.td-annual-detail>td{white-space:normal;font-weight:400;background:#f6f8fd;padding:4px 12px 14px}.td-annual-detail .m190-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important}.td-annual-detail .td-card *{font-weight:inherit}.td-annual-detail .td-card b,.td-annual-detail .td-card strong,.td-annual-detail .td-card th{font-weight:800}.td-annual-detail .td-card input,.td-annual-detail .td-card select{font-weight:500}.td-card-title{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}.td-card-title span{color:#69748a;font-size:12px}.m190-summary{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px;border:1px solid #e8ebf1;border-radius:12px;overflow:hidden}
 .m190-table input{height:30px;padding:3px 6px;border:1px solid #dfe4ee;border-radius:7px;font:inherit;font-size:12.5px}.m190-nif{width:100px}.m190-name{width:100%;min-width:220px}.m190-table small{display:block;color:#69748a;font-size:11px}.m190-table select{height:30px;border:1px solid #dfe4ee;border-radius:7px;font:inherit;font-size:12px;max-width:190px}
-.m190-modal .td-check{margin:6px 0}`;document.head.append(style)})();
+[data-td-annual-detail] .td-check{margin:6px 0}`;document.head.append(style)})();
 })();

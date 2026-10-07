@@ -234,8 +234,12 @@ function taxDraftAnnualRow(model,totals){
   });
   const control=declarationData(annual[0],"4T",taxDrafts.client,taxDraftYear());
   const status=control.submitted?["Presentado","pres"]:control.prepared?["Preparado","conf"]:["Pendiente","pend"];
-  return `<tr class="td-annual" data-td-annual="${annual[0]}" tabindex="0" title="Ver el resumen anual"><td><strong><span class="td-caret">›</span> Declaración anual · Modelo ${annual[0]}</strong><small>${escapeHtml(annual[1])}</small></td><td class="num" title="${model==="123"?"Rentas del año":"Perceptores distintos en el año"}">${ids.size}</td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num td-dim">—</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td></td></tr>`;
+  const open=taxDrafts.open==="anual",detail=open?`<tr class="td-detail td-annual-detail"><td colspan="7"><div class="td-card" data-td-annual-detail="${annual[0]}">${typeof window.taxDraftAnnualDetail==="function"&&window.taxDraftAnnualDetail(annual[0])||'<p class="td-note">El detalle de este resumen anual estará disponible más adelante.</p>'}</div></td></tr>`:"";
+  return `<tr class="td-annual${open?" open":""}" data-td-annual="${annual[0]}" tabindex="0" aria-expanded="${open}" title="Desplegar el resumen anual"><td><strong><span class="td-caret">›</span> Declaración anual · Modelo ${annual[0]}</strong><small>${escapeHtml(annual[1])}</small></td><td class="num" title="${model==="123"?"Rentas del año":"Perceptores distintos en el año"}">${ids.size}</td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num td-dim">—</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td></td></tr>${detail}`;
 }
+// La fila anual se despliega hacia abajo como los trimestres.
+document.addEventListener("click",event=>{const row=event.target.closest("tr[data-td-annual]");if(!row||!document.querySelector("#tdMain")?.contains(row))return;taxDrafts.open=taxDrafts.open==="anual"?"":"anual";renderTaxDraftMain()});
+document.addEventListener("keydown",event=>{const row=event.target.closest?.("tr[data-td-annual]");if(row&&(event.key==="Enter"||event.key===" ")){event.preventDefault();taxDrafts.open=taxDrafts.open==="anual"?"":"anual";renderTaxDraftMain()}});
 function renderTaxDraftMain(){
   const box=document.querySelector("#tdMain");if(!box)return;
   const model=taxDrafts.model;
