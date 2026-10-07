@@ -75,8 +75,26 @@ module.exports = function ({ dataDirectory }) {
     const ingresos = [...incomeCodes].sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "", facturas: incomeUsage.get(cuenta) || 0 }));
     const ingresoHabitual = [...incomeUsage.entries()].filter(([code]) => accountNames.has(code)).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
     const retenciones = [...accountNames.keys()].filter(code => code.startsWith("4751")).sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "" }));
+    // Facturas recibidas con retención de IRPF: base de los borradores de los modelos 115 (alquileres) y 111.
+    const money = (row, euro, plain) => { const value = row[euro] ?? row[plain]; return Math.round((Number(value) || 0) * 100) / 100; };
+    const isoDay = value => value instanceof Date ? value.toISOString().slice(0, 10) : "";
+    const retencionesIrpf = [];
+    for (const row of rows("Facturas")) {
+      if (isTrue(row.Emitida)) continue;
+      const retencion = money(row, "IRPF Euro", "IRPF");
+      if (!retencion) continue;
+      const cuentaIrpf = text(row["Cuenta IRPF"]), clave = text(row.ClavePercepcion).toUpperCase(), cuentaNombre = accountNames.get(cuentaIrpf) || "";
+      const tipo = clave === "X" || /ALQUILER|ARRENDAM/i.test(cuentaNombre) ? "alquiler" : clave === "G" || clave === "H" || /PROFESIONAL/i.test(cuentaNombre) ? "profesional" : "otro";
+      const cuenta = text(row.Cuenta), record = records.get(cuenta) || {};
+      retencionesIrpf.push({
+        fecha: isoDay(row.Fecha), fechaFactura: isoDay(row["Fecha Factura"]) || isoDay(row.Fecha),
+        numero: text(row["Número Factura"]), cuenta, nombre: text(row.Nombre) || record.nombre || accountNames.get(cuenta) || "", nif: nif(row.Cif) || record.nif || "",
+        base: money(row, "Base IRPF Euro", "Base IRPF"), porcentaje: Number(row["% IRPF"]) || 0, retencion, cuentaIrpf, cuentaIrpfNombre: cuentaNombre, clave, tipo
+      });
+    }
+    retencionesIrpf.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.nombre.localeCompare(b.nombre, "es"));
     const inicio = general["Fecha Inicio"] instanceof Date ? general["Fecha Inicio"] : null;
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones };
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf };
   }
 
   async function save(client, buffer, user) {
