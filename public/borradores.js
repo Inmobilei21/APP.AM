@@ -196,7 +196,7 @@ function renderTaxDraftMain(){
   if(!model){box.innerHTML="";return}
   if(!TAX_DRAFT_BUILDERS[model]){box.innerHTML=`<p class="td-note">El borrador del modelo ${escapeHtml(model)} estará disponible más adelante.</p>`;return}
   if(!taxDrafts.base){box.innerHTML='<p class="td-note">Carga la base de AMCOMTA del cliente para ver el borrador.</p>';return}
-  if(!Array.isArray(taxDrafts.base.retencionesIrpf)||(model==="111"&&!Array.isArray(taxDrafts.base.nominas))){box.innerHTML='<p class="td-note">La base cargada es de una versión anterior. Pulsa «Actualizar base (.MDB)» para leer las retenciones y las nóminas.</p>';return}
+  if(!Array.isArray(taxDrafts.base.retencionesIrpf)){box.innerHTML='<p class="td-note">La base cargada es de una versión anterior. Pulsa «Actualizar base (.MDB)» para leer las retenciones y las nóminas.</p>';return}
   const year=taxDraftYear();let totals={base:0,ret:0,control:0},title="";
   const rows=["1T","2T","3T","4T"].map(period=>{
     const draft=taxDraftBuild(model,period),control=taxDraftControl(model,period),amount=control.amount===""||control.amount===undefined?null:Number(control.amount);
@@ -210,6 +210,7 @@ function renderTaxDraftMain(){
   box.innerHTML=`<div class="td-card-head"><span class="td-chip m${escapeHtml(model)}">${escapeHtml(model)}</span><strong>${escapeHtml(title)} · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">${model==="111"?"Percepciones":"Base"}</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr></tfoot></table></div>
+    ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Al actualizar la base (.MDB) se añadirán las nóminas.</p>':""}
     <p class="td-hint">Pulsa un trimestre para desplegar su borrador.</p>`;
   box.querySelectorAll("tr.td-q").forEach(row=>{
     const toggle=event=>{if(event.target.closest(".td-decl"))return;const period=row.dataset.tdPeriod;taxDrafts.open=taxDrafts.open===period?"":period;renderTaxDraftMain()};
