@@ -5718,3 +5718,17 @@ html body .client-unavailable-overlay .am-srv-done p{margin:0 0 12px!important;f
    para que al aparecer o desaparecer no cambie el ancho y las tarjetas no tiemblen. */
 body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .task-list[data-task-list]{scrollbar-gutter:stable;overflow-anchor:none}
+
+/* Ficha del cliente: base de datos de contabilidad */
+#newClientForm .client-accounting-base{grid-column:1/-1;margin:0;border:1px solid #d8e3d9;border-radius:16px;background:linear-gradient(145deg,#f6fbf7,#fff);padding:11px 13px 13px;min-width:0}
+#newClientForm .client-accounting-base legend{padding:0 8px;color:var(--ink);font-size:14px;font-weight:850}
+#newClientForm .client-accounting-base>p{margin:0 0 10px;color:var(--muted);font-size:12px}
+.client-accounting-base .cab-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.client-accounting-base .cab-status{min-width:0;font-size:13px;line-height:1.4}
+.client-accounting-base .cab-status small{display:block;color:var(--muted);font-size:11.5px}
+.client-accounting-base .cab-dim{color:var(--muted)}
+.client-accounting-base .cab-ok{color:#168456}.client-accounting-base .cab-warn{color:#b42318}
+.client-accounting-base .cab-actions{display:flex;gap:8px;flex-wrap:wrap}
+.client-accounting-base .cab-upload{cursor:pointer;display:inline-flex;align-items:center}
+.client-accounting-base .cab-upload.disabled{opacity:.5;pointer-events:none}
+.client-accounting-base .cab-actions .secondary-button{min-height:34px;padding:6px 14px;font-size:13px}

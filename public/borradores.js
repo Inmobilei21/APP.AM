@@ -27,7 +27,6 @@ function renderTaxDrafts(){
     <section class="declarations-panel td-shell">
       <div class="td-toolbar">
         <label class="td-field"><span>Cliente</span><select id="tdClient"><option value="">Seleccionar cliente…</option></select></label>
-        <label class="secondary-button td-upload" id="tdUploadLabel" hidden>Actualizar base (.MDB)<input id="tdUpload" type="file" accept=".mdb,.accdb" hidden></label>
       </div>
       <div class="td-source" id="tdSource" hidden></div>
       <div class="td-layout" id="tdLayout" hidden>
@@ -47,7 +46,6 @@ function renderTaxDrafts(){
     if(remembered&&active.some(client=>client.name===remembered)){select.value=remembered;selectTaxDraftClient(remembered,active)}
     select.addEventListener("change",()=>{try{localStorage.setItem(TAX_DRAFT_CLIENT_KEY,select.value)}catch{}selectTaxDraftClient(select.value,active)});
   }).catch(()=>{document.querySelector("#tdStart").textContent="No se han podido cargar los clientes."});
-  document.querySelector("#tdUpload").addEventListener("change",event=>{const file=event.target.files[0];event.target.value="";if(file)uploadTaxDraftBase(file)});
   document.querySelector("#tdShade").addEventListener("click",closeTaxDraftSide);
   document.querySelector("#tdSideClose").addEventListener("click",closeTaxDraftSide);
 }
@@ -61,22 +59,17 @@ async function selectTaxDraftClient(name,clients){
   if(taxDrafts.client!==name)return;
   taxDrafts.loading="";renderTaxDraftShell();loadTaxDraftDocuments();
 }
-async function uploadTaxDraftBase(file){
-  const client=taxDrafts.client;if(!client)return;
-  taxDrafts.loading=`Leyendo la base de datos ${file.name}…`;renderTaxDraftSource();
-  try{
-    const send=force=>fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}${force?"&force=1":""}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
-    let response=await send(false),result=await response.json().catch(()=>({}));
-    // La base es de otra empresa: solo se guarda si se confirma expresamente.
-    if(response.status===409){
-      if(!confirm(`${result.error}\n\n¿Seguro que quieres guardarla como la contabilidad de ${client}?`))throw new Error("");
-      response=await send(true);result=await response.json().catch(()=>({}));
-    }
-    if(!response.ok)throw new Error(result.error||"No se ha podido leer la base de datos.");
-    if(taxDrafts.client===client)taxDrafts.base=result;
-  }catch(error){if(error.message)alert(error.message)}
-  if(taxDrafts.client!==client)return;
-  taxDrafts.loading="";taxDrafts.documents=new Map();renderTaxDraftShell();loadTaxDraftDocuments();
+// Sube la base de AMCOMTA (.MDB) de un cliente. Si la empresa de la base no coincide con el
+// cliente se pide confirmación antes de guardarla. Devuelve el resumen guardado o null.
+async function uploadClientAccountingBase(client,file){
+  const send=force=>fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}${force?"&force=1":""}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
+  let response=await send(false),result=await response.json().catch(()=>({}));
+  if(response.status===409){
+    if(!confirm(`${result.error}\n\n¿Seguro que quieres guardarla como la contabilidad de ${client}?`))return null;
+    response=await send(true);result=await response.json().catch(()=>({}));
+  }
+  if(!response.ok)throw new Error(result.error||"No se ha podido leer la base de datos.");
+  return result;
 }
 // Modelos que presenta el cliente según su ficha (obligaciones fiscales).
 function taxDraftClientModels(){
@@ -87,7 +80,6 @@ function renderTaxDraftShell(){
   const has=Boolean(taxDrafts.client);
   document.querySelector("#tdStart").hidden=has;
   document.querySelector("#tdLayout").hidden=!has;
-  document.querySelector("#tdUploadLabel").hidden=!has;
   renderTaxDraftSource();if(!has)return;
   renderTaxDraftModels();renderTaxDraftMain();
 }
@@ -100,11 +92,11 @@ function renderTaxDraftSource(){
   const box=document.querySelector("#tdSource");if(!box)return;
   const {client,base,loading}=taxDrafts;box.hidden=!client;if(!client)return;
   if(loading){box.className="td-source";box.textContent=loading;return}
-  if(!base){box.className="td-source missing";box.innerHTML=`<strong>Falta la contabilidad de AMCOMTA de ${escapeHtml(client)}.</strong> Pulsa «Actualizar base (.MDB)» y elige su base de datos para rellenar los borradores.`;return}
+  if(!base){box.className="td-source missing";box.innerHTML=`<strong>Falta la contabilidad de AMCOMTA de ${escapeHtml(client)}.</strong> Añádela en Gestión → Clientes → ficha del cliente → «Base de datos de contabilidad».`;return}
   const when=base.actualizado?new Date(base.actualizado).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
   if(taxDraftBaseMismatch()){
     box.className="td-source missing";
-    box.innerHTML=`<strong>⚠ La base guardada para ${escapeHtml(client)} es de «${escapeHtml(base.empresa)}».</strong> Se subió con otro cliente seleccionado. <button type="button" class="secondary-button" id="tdRemoveBase">Quitar esta base</button> y sube la correcta con «Actualizar base (.MDB)».`;
+    box.innerHTML=`<strong>⚠ La base guardada para ${escapeHtml(client)} es de «${escapeHtml(base.empresa)}».</strong> Se subió con otro cliente seleccionado. <button type="button" class="secondary-button" id="tdRemoveBase">Quitar esta base</button> y añade la correcta en la ficha del cliente.`;
     box.querySelector("#tdRemoveBase").onclick=async()=>{
       if(!confirm(`¿Quitar la base de «${base.empresa}» de ${client}?`))return;
       try{await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"DELETE"});taxDrafts.base=null;renderTaxDraftShell()}catch(error){alert(error.message)}
@@ -112,7 +104,7 @@ function renderTaxDraftSource(){
     return;
   }
   box.className="td-source ready";
-  box.innerHTML=`<span>✓</span><div>Datos de <strong>AMCOMTA · ${escapeHtml(base.empresa||client)}${base.ejercicio?` · ejercicio ${escapeHtml(base.ejercicio)}`:""}</strong>${when?` · base actualizada el ${escapeHtml(when)}`:""}${base.actualizadoPor?` por ${escapeHtml(base.actualizadoPor)}`:""}. Los borradores se recalculan al actualizarla.</div>`;
+  box.innerHTML=`<span>✓</span><div>Datos de <strong>AMCOMTA · ${escapeHtml(base.empresa||client)}${base.ejercicio?` · ejercicio ${escapeHtml(base.ejercicio)}`:""}</strong>${when?` · base actualizada el ${escapeHtml(when)}`:""}${base.actualizadoPor?` por ${escapeHtml(base.actualizadoPor)}`:""}. Se actualiza desde la ficha del cliente.</div>`;
 }
 function renderTaxDraftModels(){
   const models=taxDraftClientModels(),box=document.querySelector("#tdModels");
@@ -228,7 +220,7 @@ function renderTaxDraftMain(){
   if(!TAX_DRAFT_BUILDERS[model]){box.innerHTML=`<p class="td-note">El borrador del modelo ${escapeHtml(model)} estará disponible más adelante.</p>`;return}
   if(!taxDrafts.base){box.innerHTML='<p class="td-note">Carga la base de AMCOMTA del cliente para ver el borrador.</p>';return}
   if(taxDraftBaseMismatch()){box.innerHTML='<p class="td-note">La base cargada no es de este cliente. Quítala con el botón de arriba y sube la suya.</p>';return}
-  if(!Array.isArray(taxDrafts.base.retencionesIrpf)){box.innerHTML='<p class="td-note">La base cargada es de una versión anterior. Pulsa «Actualizar base (.MDB)» para leer las retenciones y las nóminas.</p>';return}
+  if(!Array.isArray(taxDrafts.base.retencionesIrpf)){box.innerHTML='<p class="td-note">La base cargada es de una versión anterior. Vuelve a añadirla en la ficha del cliente («Base de datos de contabilidad»).</p>';return}
   const year=taxDraftYear();let totals={base:0,ret:0,control:0},title="";
   const rows=["1T","2T","3T","4T"].map(period=>{
     const draft=taxDraftBuild(model,period),control=taxDraftControl(model,period),amount=control.amount===""||control.amount===undefined?null:Number(control.amount);
@@ -242,7 +234,7 @@ function renderTaxDraftMain(){
   box.innerHTML=`<div class="td-card-head"><span class="td-chip m${escapeHtml(model)}">${escapeHtml(model)}</span><strong>${escapeHtml(title)} · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">${model==="111"?"Percepciones":"Base"}</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr></tfoot></table></div>
-    ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Pulsa «Actualizar base (.MDB)» una sola vez para añadir los trabajadores; a partir de ahí la base queda guardada y se recalcula sola.</p>':""}
+    ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Vuelve a añadir la base en la ficha del cliente («Base de datos de contabilidad») para incluir los trabajadores.</p>':""}
     <p class="td-hint">Pulsa un trimestre para desplegar su borrador.</p>
     <p class="td-hint td-diag" title="Datos para comprobar que todos los equipos ven lo mismo">${taxDraftDiagnostic()}</p>`;
   box.querySelectorAll("tr.td-q").forEach(row=>{
@@ -402,3 +394,53 @@ function openConfirmedTaxDraft(key){
   view.addEventListener("click",event=>{if(event.target===view||event.target.closest(".td-close"))close()});document.addEventListener("keydown",onKey);
 }
 document.addEventListener("click",event=>{const button=event.target.closest("[data-tax-draft]");if(!button)return;event.preventDefault();openConfirmedTaxDraft(button.dataset.taxDraft)});
+
+/* ===== Ficha del cliente: base de datos de contabilidad (AMCOMTA) ===== */
+// Cada cliente tiene su propia base; Borradores usa siempre la del cliente seleccionado.
+(function(){
+  if(typeof syncClientPortalAccessBlock!=="function")return;
+  const fecha=value=>value?new Date(value).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  let turno=0;
+  function instalar(){
+    const form=document.querySelector("#newClientForm"),after=form?.querySelector(".fiscal-obligations");
+    if(!form||!after)return null;
+    let box=form.querySelector(".client-accounting-base");if(box)return box;
+    box=document.createElement("fieldset");box.className="client-accounting-base";
+    box.innerHTML=`<legend>Base de datos de contabilidad</legend><p>Base de AMCOMTA (.MDB) de este cliente. Es la que usan los borradores de sus modelos.</p>
+      <div class="cab-row"><div class="cab-status" data-cab-status>—</div><div class="cab-actions"><label class="secondary-button cab-upload"><span data-cab-label>Añadir base de datos</span><input type="file" accept=".mdb,.accdb" hidden data-cab-file></label><button type="button" class="secondary-button cab-remove" data-cab-remove hidden>Quitar</button></div></div>`;
+    after.after(box);
+    box.querySelector("[data-cab-file]").addEventListener("change",async event=>{
+      const input=event.currentTarget,file=input.files[0],client=form.dataset.editing;input.value="";
+      if(!file||!client)return;
+      const status=box.querySelector("[data-cab-status]");status.textContent=`Leyendo ${file.name}…`;
+      try{const result=await uploadClientAccountingBase(client,file);if(result&&typeof taxDrafts!=="undefined"&&taxDrafts.client===client)taxDrafts.base=result}
+      catch(error){alert(error.message)}
+      refrescar();
+    });
+    box.querySelector("[data-cab-remove]").addEventListener("click",async()=>{
+      const client=form.dataset.editing;if(!client||!confirm(`¿Quitar la base de datos de contabilidad de ${client}?`))return;
+      try{await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"DELETE"})}catch(error){alert(error.message)}
+      refrescar();
+    });
+    return box;
+  }
+  async function refrescar(){
+    const box=instalar();if(!box)return;
+    const form=document.querySelector("#newClientForm"),client=form.dataset.editing||"",yo=++turno;
+    const status=box.querySelector("[data-cab-status]"),label=box.querySelector("[data-cab-label]"),upload=box.querySelector(".cab-upload"),remove=box.querySelector("[data-cab-remove]"),input=box.querySelector("[data-cab-file]");
+    // Se puede subir aunque la ficha esté en modo consulta: se guarda al momento, no con «Guardar».
+    setTimeout(()=>{input.disabled=!client},0);
+    upload.classList.toggle("disabled",!client);remove.hidden=true;label.textContent="Añadir base de datos";
+    if(!client){status.innerHTML='<span class="cab-dim">Guarda primero el cliente para añadir su base de datos.</span>';return}
+    status.innerHTML='<span class="cab-dim">Comprobando…</span>';
+    let base=null;try{base=await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`)}catch{}
+    if(yo!==turno)return;
+    if(!base?.empresa&&!base?.actualizado){status.innerHTML='<span class="cab-dim">Sin base de datos.</span>';return}
+    const otra=base.empresa&&declarationClientScore(client,normalizeFiscalText(String(base.empresa).replace(/\b20\d\d\b/g," ")))<0.5;
+    status.innerHTML=`${otra?'<b class="cab-warn">⚠ Es de otra empresa:</b> ':'<b class="cab-ok">✓</b> '}<strong>${escapeHtml(base.empresa||client)}</strong>${base.ejercicio?` · ejercicio ${escapeHtml(base.ejercicio)}`:""}<small>${base.actualizado?`Actualizada el ${escapeHtml(fecha(base.actualizado))}`:""}${base.actualizadoPor?` por ${escapeHtml(base.actualizadoPor)}`:""}</small>`;
+    label.textContent="Actualizar base de datos";remove.hidden=false;
+  }
+  const previo=syncClientPortalAccessBlock;
+  syncClientPortalAccessBlock=function(){const r=previo.apply(this,arguments);try{refrescar()}catch{}return r};
+  if(typeof setClientViewMode==="function"){const previoModo=setClientViewMode;setClientViewMode=function(){const r=previoModo.apply(this,arguments);const input=document.querySelector("[data-cab-file]");if(input)input.disabled=!document.querySelector("#newClientForm")?.dataset.editing;return r}}
+})();
