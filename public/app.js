@@ -2166,16 +2166,20 @@ function declarationClientScore(clientName,documentText){
 }
 // Periodo al que pertenece un PDF: manda el nombre del archivo y, si no lo indica, la carpeta.
 // Las marcas se buscan como palabra (o pegadas al modelo/año), para que «2T» no salga de «12T».
-function fiscalPeriodsIn(text,type){
+function fiscalPeriodsIn(text,type,strict=false){
   const periods=type==="trimestral"?["1T","2T","3T","4T"]:["01","02","03","04","05","06","07","08","09","10","11","12"];
-  return periods.filter(period=>fiscalPeriodAliases(type,period).some(alias=>{
+  return periods.filter(period=>fiscalPeriodAliases(type,period).filter(alias=>!strict||!/^T[0-9]$/.test(alias)).some(alias=>{
     const escaped=normalizeFiscalText(alias).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
-    return new RegExp(`(^|[^A-Z])${escaped}(?![A-Z])`).test(text);
+    // «T2» no puede ir seguido de una cifra: si no, «1T2026» (1.er trimestre de 2026) contaría como 2.º.
+    const tail=/^T[0-9]$/.test(normalizeFiscalText(alias))?"(?![A-Z0-9])":"(?![A-Z])";
+    return new RegExp(`(^|[^A-Z])${escaped}${tail}`).test(text);
   }));
 }
 function fiscalDocumentPeriods(doc,type){
-  const fromName=fiscalPeriodsIn(normalizeFiscalText(doc.name.replace(/\.pdf$/i,"")),type);
-  return fromName.length?fromName:fiscalPeriodsIn(doc.normalized,type);
+  // Si salen varios trimestres se descarta la forma «T1» (la más fácil de confundir con fechas).
+  const find=text=>{const all=fiscalPeriodsIn(text,type);return all.length>1?fiscalPeriodsIn(text,type,true):all};
+  const fromName=find(normalizeFiscalText(doc.name.replace(/\.pdf$/i,"")));
+  return fromName.length?fromName:find(doc.normalized);
 }
 async function declarationDocumentsForClients(clients,model,type,period,year,{keepUrls=false}={}){
   if(!keepUrls){declarationObjectUrls.forEach(url=>URL.revokeObjectURL(url));declarationObjectUrls=[]}
@@ -4595,9 +4599,9 @@ setInterval(refreshSuggestions,15000);
   }
   const programar=()=>{if(!pendiente)pendiente=requestAnimationFrame(apilar)};
   function vigilar(){
-    if(!("ResizeObserver" in window))return;
-    ro?.disconnect();ro=new ResizeObserver(programar);
-    document.querySelectorAll(".task-list[data-task-list]>.task-note").forEach(t=>ro.observe(t));
+    // Sin ResizeObserver: recolocar cada vez que cambia un tamaño podía entrar en bucle (la barra de
+    // desplazamiento aparece, el texto se reparte distinto, se recoloca…) y las tarjetas temblaban.
+    // Solo se recolocan al dibujarlas, al cambiar el tamaño de la ventana y al cargar las fuentes.
   }
   const previo=renderTaskBoard;
   renderTaskBoard=function(){
@@ -4609,7 +4613,7 @@ setInterval(refreshSuggestions,15000);
       l.scrollTop=e.top});
     requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.remove("t2-quieto")));
     return r};
-  window.addEventListener("resize",programar);
+  window.addEventListener("resize",programar);document.fonts?.ready?.then(programar);
   // Al pasar por una tarjeta se despliega entera; las de debajo se apartan.
   let abierta=null,temporizador=0;
   // Solo cuentan los movimientos reales del ratón: si se escuchara «mouseover», al desplegarse una
@@ -4664,10 +4668,9 @@ setInterval(refreshSuggestions,15000);
       if(e.abierta){const f=[...l.querySelectorAll(":scope>.home-activity-row")].find(x=>clave(x)===e.abierta);if(f){abierta=null;abrir(f)}}
       l.scrollTop=e.top});
     requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.remove("h4-quieto")));
-    if("ResizeObserver" in window){ro?.disconnect();ro=new ResizeObserver(programar);document.querySelectorAll(`${LISTAS}>.home-activity-row`).forEach(f=>ro.observe(f))}
     return r;
   };
-  window.addEventListener("resize",programar);
+  window.addEventListener("resize",programar);document.fonts?.ready?.then(programar);
   let abierta=null,t=0;
   // Igual que en el tablero de tareas: solo movimientos reales del ratón y una pausa mientras las
   // tarjetas se recolocan, para que no se abran unas a otras sin parar.

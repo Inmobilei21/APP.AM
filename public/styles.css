@@ -5713,3 +5713,8 @@ html body .client-unavailable-overlay .am-srv-done p{margin:0 0 12px!important;f
 .td-list tr.td-especie td{background:#fff8e8}
 .td-list input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue);cursor:pointer}
 .td-list-title{margin:14px 12px 6px;font-size:13px}.td-pad{padding:12px}
+
+/* Tarjetas apiladas (inicio y tareas): el hueco de la barra de desplazamiento siempre reservado,
+   para que al aparecer o desaparecer no cambie el ancho y las tarjetas no tiemblen. */
+body.home-cuatro-columnas .home-activity-rail .home-activity-list,
+.task-list[data-task-list]{scrollbar-gutter:stable;overflow-anchor:none}
