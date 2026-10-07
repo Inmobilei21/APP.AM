@@ -142,6 +142,20 @@ module.exports = function ({ dataDirectory }) {
   async function load(client) {
     let record = null;
     try { record = JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch { return null; }
+    // Resumen antiguo sin su .MDB: si la base de esta empresa se subió por error con otro cliente
+    // seleccionado, se aprovecha ese .MDB para no tener que volver a subirlo.
+    if (record.version !== VERSION && !fs.existsSync(mdbFor(client))) {
+      try {
+        for (const name of fs.readdirSync(directory).filter(file => file.endsWith(".json"))) {
+          const other = JSON.parse(fs.readFileSync(path.join(directory, name), "utf8")), mdb = path.join(directory, name.replace(/\.json$/, ".mdb"));
+          if (other.client !== client && other.empresa && sameCompany(client, other.empresa) && !sameCompany(other.client, other.empresa) && fs.existsSync(mdb)) {
+            fs.copyFileSync(mdb, mdbFor(client));
+            record = { ...record, actualizado: other.actualizado, actualizadoPor: other.actualizadoPor };
+            break;
+          }
+        }
+      } catch (error) { console.error("Buscar base de AMCOMTA:", error.message); }
+    }
     if (record.version !== VERSION && fs.existsSync(mdbFor(client))) {
       try {
         const summary = await summarize(fs.readFileSync(mdbFor(client)));
