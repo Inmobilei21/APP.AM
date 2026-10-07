@@ -873,15 +873,17 @@ http.createServer((req, res) => {
     if (!requireUser(req, res)) return;
     return json(res, 200, invoiceReader.readerStatus());
   }
-  if (requestPath === "/api/contabilidad/base" && ["GET", "POST"].includes(req.method)) {
+  if (requestPath === "/api/contabilidad/base" && ["GET", "POST", "DELETE"].includes(req.method)) {
     const user = requireUser(req, res);if (!user) return;
-    const client = cleanText(new URL(req.url, "http://localhost").searchParams.get("client"), 200);
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const client = cleanText(params.get("client"), 200);
     if (!client) return json(res, 400, { error: "Selecciona un cliente." });
+    if (req.method === "DELETE") { amcomta.remove(client); return json(res, 200, { deleted: true }); }
     if (req.method === "GET") return amcomta.load(client).then(record => json(res, 200, record || { client, proveedores: [], gastos: [] })).catch(() => json(res, 200, { client, proveedores: [], gastos: [] }));
     return readBuffer(req, 300 * 1024 * 1024)
-      .then(buffer => amcomta.save(client, buffer, user))
+      .then(buffer => amcomta.save(client, buffer, user, params.get("force") === "1"))
       .then(record => json(res, 200, record))
-      .catch(error => { console.error("Base de AMCOMTA:", error.message); json(res, error.status || 400, { error: error.status ? error.message : "No se pudo leer la base de datos de AMCOMTA." }); });
+      .catch(error => { console.error("Base de AMCOMTA:", error.message); json(res, error.status || 400, { error: error.status ? error.message : "No se pudo leer la base de datos de AMCOMTA.", empresa: error.empresa }); });
   }
   if (requestPath === "/api/facturas/leer" && req.method === "POST") {
     if (!requireUser(req, res)) return;

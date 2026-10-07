@@ -65,10 +65,16 @@ async function uploadTaxDraftBase(file){
   const client=taxDrafts.client;if(!client)return;
   taxDrafts.loading=`Leyendo la base de datos ${file.name}…`;renderTaxDraftSource();
   try{
-    const response=await fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
-    const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"No se ha podido leer la base de datos.");
+    const send=force=>fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}${force?"&force=1":""}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
+    let response=await send(false),result=await response.json().catch(()=>({}));
+    // La base es de otra empresa: solo se guarda si se confirma expresamente.
+    if(response.status===409){
+      if(!confirm(`${result.error}\n\n¿Seguro que quieres guardarla como la contabilidad de ${client}?`))throw new Error("");
+      response=await send(true);result=await response.json().catch(()=>({}));
+    }
+    if(!response.ok)throw new Error(result.error||"No se ha podido leer la base de datos.");
     if(taxDrafts.client===client)taxDrafts.base=result;
-  }catch(error){alert(error.message)}
+  }catch(error){if(error.message)alert(error.message)}
   if(taxDrafts.client!==client)return;
   taxDrafts.loading="";taxDrafts.documents=new Map();renderTaxDraftShell();loadTaxDraftDocuments();
 }
@@ -85,12 +91,26 @@ function renderTaxDraftShell(){
   renderTaxDraftSource();if(!has)return;
   renderTaxDraftModels();renderTaxDraftMain();
 }
+// La base guardada es de otra empresa (se subió con otro cliente seleccionado).
+function taxDraftBaseMismatch(){
+  const empresa=taxDrafts.base?.empresa;
+  return Boolean(empresa&&taxDrafts.client&&declarationClientScore(taxDrafts.client,normalizeFiscalText(String(empresa).replace(/\b20\d\d\b/g," ")))<0.5);
+}
 function renderTaxDraftSource(){
   const box=document.querySelector("#tdSource");if(!box)return;
   const {client,base,loading}=taxDrafts;box.hidden=!client;if(!client)return;
   if(loading){box.className="td-source";box.textContent=loading;return}
   if(!base){box.className="td-source missing";box.innerHTML=`<strong>Falta la contabilidad de AMCOMTA de ${escapeHtml(client)}.</strong> Pulsa «Actualizar base (.MDB)» y elige su base de datos para rellenar los borradores.`;return}
   const when=base.actualizado?new Date(base.actualizado).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  if(taxDraftBaseMismatch()){
+    box.className="td-source missing";
+    box.innerHTML=`<strong>⚠ La base guardada para ${escapeHtml(client)} es de «${escapeHtml(base.empresa)}».</strong> Se subió con otro cliente seleccionado. <button type="button" class="secondary-button" id="tdRemoveBase">Quitar esta base</button> y sube la correcta con «Actualizar base (.MDB)».`;
+    box.querySelector("#tdRemoveBase").onclick=async()=>{
+      if(!confirm(`¿Quitar la base de «${base.empresa}» de ${client}?`))return;
+      try{await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"DELETE"});taxDrafts.base=null;renderTaxDraftShell()}catch(error){alert(error.message)}
+    };
+    return;
+  }
   box.className="td-source ready";
   box.innerHTML=`<span>✓</span><div>Datos de <strong>AMCOMTA · ${escapeHtml(base.empresa||client)}${base.ejercicio?` · ejercicio ${escapeHtml(base.ejercicio)}`:""}</strong>${when?` · base actualizada el ${escapeHtml(when)}`:""}${base.actualizadoPor?` por ${escapeHtml(base.actualizadoPor)}`:""}. Los borradores se recalculan al actualizarla.</div>`;
 }
@@ -207,6 +227,7 @@ function renderTaxDraftMain(){
   if(!model){box.innerHTML="";return}
   if(!TAX_DRAFT_BUILDERS[model]){box.innerHTML=`<p class="td-note">El borrador del modelo ${escapeHtml(model)} estará disponible más adelante.</p>`;return}
   if(!taxDrafts.base){box.innerHTML='<p class="td-note">Carga la base de AMCOMTA del cliente para ver el borrador.</p>';return}
+  if(taxDraftBaseMismatch()){box.innerHTML='<p class="td-note">La base cargada no es de este cliente. Quítala con el botón de arriba y sube la suya.</p>';return}
   if(!Array.isArray(taxDrafts.base.retencionesIrpf)){box.innerHTML='<p class="td-note">La base cargada es de una versión anterior. Pulsa «Actualizar base (.MDB)» para leer las retenciones y las nóminas.</p>';return}
   const year=taxDraftYear();let totals={base:0,ret:0,control:0},title="";
   const rows=["1T","2T","3T","4T"].map(period=>{

@@ -122,8 +122,17 @@ module.exports = function ({ dataDirectory }) {
   // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
   const VERSION = 2;
   const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
-  async function save(client, buffer, user) {
+  // ¿La empresa de la base es la del cliente elegido? (evita guardar la base de otro cliente)
+  const words = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\b(SOCIEDAD LIMITADA|SOCIEDAD ANONIMA|S L P|S L|S A|SLP|SLL|SL|SA|CB|SC|20\d\d)\b/g, " ").split(" ").filter(word => word.length > 1);
+  function sameCompany(client, empresa) {
+    const target = words(client), found = new Set(words(empresa));
+    if (!target.length || !found.size) return true;
+    return target.filter(word => found.has(word)).length / target.length >= 0.5;
+  }
+  async function save(client, buffer, user, force = false) {
     const summary = await summarize(buffer);
+    if (!force && !sameCompany(client, summary.empresa)) throw Object.assign(new Error(`Esta base de datos es de «${summary.empresa}», no de «${client}».`), { status: 409, empresa: summary.empresa });
     const record = { client, ...summary, version: VERSION, actualizado: new Date().toISOString(), actualizadoPor: user?.name || "" };
     fs.mkdirSync(directory, { recursive: true });
     fs.writeFileSync(mdbFor(client), buffer);
@@ -142,5 +151,8 @@ module.exports = function ({ dataDirectory }) {
     }
     return record;
   }
-  return { save, load, summarize };
+  function remove(client) {
+    for (const file of [fileFor(client), mdbFor(client)]) { try { fs.unlinkSync(file); } catch {} }
+  }
+  return { save, load, remove, summarize, sameCompany };
 };
