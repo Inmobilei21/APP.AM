@@ -80,3 +80,6 @@
     queued = true; requestAnimationFrame(() => { queued = false; texts(); });
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
 })();
+
+// Modelo 347 en Borradores (archivo aparte).
+(()=>{const s=document.createElement("script");s.src="/m347.js?v=1";document.body.append(s)})();

@@ -114,13 +114,39 @@ module.exports = function ({ dataDirectory }) {
     }
     const nominas = [...entries.values()].filter(entry => entry.retencion > 0.004 && entry.asiento !== "0" && !/APERTURA|CIERRE|REGULARIZ/i.test(entry.concepto)).map(entry => ({ ...entry, percepciones: Math.round(entry.percepciones * 100) / 100, retencion: Math.round(entry.retencion * 100) / 100, trabajadores: [...entry.trabajadores].map(([cuenta, nombre]) => ({ cuenta, nombre })) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
     const trabajadores = rows("Trabajadores").map(row => ({ codigo: text(row.Codigo), nombre: text(row.Nombre), cuenta: text(row.Cuenta), nif: nif(row.Nif), clave: text(row.ClavePercepcion) })).filter(worker => worker.nombre);
+    // Modelo 347: operaciones con cada cliente o proveedor por año y trimestre (fecha del asiento, IVA
+    // incluido). No computan las facturas con retención de IRPF ni las de no residentes. Solo se
+    // devuelven los terceros que superan 3.005,06 € en el año con la misma clave (A compras, B ventas).
+    const fichas = new Map(rows("Fichas", ["Código", "Nif", "Razón Social", "Domicilio", "Código Postal", "Población", "Provincia", "País"]).map(row => [text(row["Código"]), row]));
+    const groups = new Map();
+    for (const row of rows("Facturas", ["Fecha", "Asiento", "Emitida", "Cuenta", "Varios", "Nombre", "Cif", "Número Factura", "Fecha Factura", "Total Factura Euro", "Total Euro", "IRPF Euro", "PaisIdentificacion", "TipoIdentificacion"])) {
+      const fecha = isoDay(row.Fecha);if (!fecha) continue;
+      const total = money(row, "Total Factura Euro", "Total Euro");if (!total) continue;
+      const cuenta = text(row.Cuenta), ficha = fichas.get(cuenta) || {}, varios = isTrue(row.Varios) || row.Varios === true;
+      const nifValue = nif(row.Cif) || (varios ? "" : nif(ficha.Nif));
+      const pais = text(row.PaisIdentificacion).toUpperCase();
+      let excluida = "";
+      if (money(row, "IRPF Euro", "IRPF")) excluida = "retencion";
+      else if (pais && pais !== "ES") excluida = "extranjero";
+      const nombre = text(row.Nombre) || text(ficha["Razón Social"]) || accountNames.get(cuenta) || "";
+      const clave = isTrue(row.Emitida) || row.Emitida === true ? "B" : "A";
+      const id = nifValue || (varios ? `${cuenta}|${nombre.toUpperCase()}` : cuenta);
+      const key = `${fecha.slice(0, 4)}|${clave}|${id}`;
+      const group = groups.get(key) || { ejercicio: Number(fecha.slice(0, 4)), clave, id, cuenta, nombre, nif: nifValue, cp: text(ficha["Código Postal"]), poblacion: text(ficha["Población"]), domicilio: text(ficha.Domicilio), pais: pais && pais !== "ES" ? pais : "", trimestres: [0, 0, 0, 0], total: 0, excluido: 0, facturas: [] };
+      const invoice = { fecha, numero: text(row["Número Factura"]), fechaFactura: isoDay(row["Fecha Factura"]) || fecha, total, excluida };
+      group.facturas.push(invoice);
+      if (excluida) group.excluido = Math.round((group.excluido + total) * 100) / 100;
+      else { const q = Math.ceil(Number(fecha.slice(5, 7)) / 3) - 1;group.trimestres[q] = Math.round((group.trimestres[q] + total) * 100) / 100;group.total = Math.round((group.total + total) * 100) / 100; }
+      groups.set(key, group);
+    }
+    const terceros347 = [...groups.values()].filter(group => group.total > 3005.06).map(group => ({ ...group, facturas: group.facturas.sort((a, b) => a.fecha.localeCompare(b.fecha)) })).sort((a, b) => a.ejercicio - b.ejercicio || a.clave.localeCompare(b.clave) || a.nombre.localeCompare(b.nombre, "es"));
     const inicio = general["Fecha Inicio"] instanceof Date ? general["Fecha Inicio"] : null;
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores };
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347 };
   }
 
   // Versión del resumen: al leer más datos de la base se sube y los resúmenes antiguos se
   // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
-  const VERSION = 2;
+  const VERSION = 3;
   const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
   // ¿La empresa de la base es la del cliente elegido? (evita guardar la base de otro cliente)
   const words = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")
