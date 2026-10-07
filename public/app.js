@@ -4575,7 +4575,7 @@ setInterval(refreshSuggestions,15000);
         if(!esEscritorio()||i===0){t.style.removeProperty("--t2-solape");return}
         const prev=tarjetas[i-1],alto=prev.offsetHeight,plazo=prev.querySelector(".task-deadline");
         const asomo=plazo?Math.min(alto,plazo.offsetTop+plazo.offsetHeight+14):Math.min(alto,120);
-        t.style.setProperty("--t2-solape",`${Math.min(0,asomo-alto-12)}px`);
+        const valor=`${Math.round(Math.min(0,asomo-alto-12))}px`;if(t.style.getPropertyValue("--t2-solape")!==valor)t.style.setProperty("--t2-solape",valor);
       });
     });
   }
@@ -4598,9 +4598,12 @@ setInterval(refreshSuggestions,15000);
   window.addEventListener("resize",programar);
   // Al pasar por una tarjeta se despliega entera; las de debajo se apartan.
   let abierta=null,temporizador=0;
-  const abrir=t=>{if(abierta===t)return;abierta?.classList.remove("t2-abierta");abierta=t;t?.classList.add("t2-abierta")};
-  document.addEventListener("mouseover",e=>{
-    if(!document.body.classList.contains("t2-apiladas"))return;
+  // Solo cuentan los movimientos reales del ratón: si se escuchara «mouseover», al desplegarse una
+  // tarjeta las demás se deslizan bajo el puntero, se abre otra y las tarjetas no paran de moverse.
+  let quietoHasta=0;
+  const abrir=t=>{if(abierta===t)return;abierta?.classList.remove("t2-abierta");abierta=t;t?.classList.add("t2-abierta");quietoHasta=performance.now()+400};
+  document.addEventListener("mousemove",e=>{
+    if(!document.body.classList.contains("t2-apiladas")||(!e.movementX&&!e.movementY)||performance.now()<quietoHasta)return;
     const t=e.target.closest?.(".task-list>.task-note");
     clearTimeout(temporizador);
     if(t)temporizador=setTimeout(()=>abrir(t),90);
@@ -4623,7 +4626,7 @@ setInterval(refreshSuggestions,15000);
         if(i===0){f.style.removeProperty("--h4-solape");return}
         const prev=filas[i-1],detalle=prev.querySelector(".home-row-detail");
         const asomo=detalle?detalle.offsetTop-4:prev.offsetHeight;
-        f.style.setProperty("--h4-solape",`${Math.min(0,asomo-prev.offsetHeight-8)}px`);
+        const valor=`${Math.round(Math.min(0,asomo-prev.offsetHeight-8))}px`;if(f.style.getPropertyValue("--h4-solape")!==valor)f.style.setProperty("--h4-solape",valor);
       });
     });
   }
@@ -4646,9 +4649,12 @@ setInterval(refreshSuggestions,15000);
   };
   window.addEventListener("resize",programar);
   let abierta=null,t=0;
-  const abrir=f=>{if(abierta===f)return;abierta?.classList.remove("h4-abierta");abierta=f;f?.classList.add("h4-abierta")};
-  document.addEventListener("mouseover",e=>{
-    if(!document.body.classList.contains("home-cuatro-columnas"))return;
+  // Igual que en el tablero de tareas: solo movimientos reales del ratón y una pausa mientras las
+  // tarjetas se recolocan, para que no se abran unas a otras sin parar.
+  let quietoHasta=0;
+  const abrir=f=>{if(abierta===f)return;abierta?.classList.remove("h4-abierta");abierta=f;f?.classList.add("h4-abierta");quietoHasta=performance.now()+400};
+  document.addEventListener("mousemove",e=>{
+    if(!document.body.classList.contains("home-cuatro-columnas")||(!e.movementX&&!e.movementY)||performance.now()<quietoHasta)return;
     const f=e.target.closest?.(".home-activity-list>.home-activity-row.h4-nota");
     clearTimeout(t);
     if(f)t=setTimeout(()=>abrir(f),90);else if(!e.target.closest?.(".home-activity-list"))t=setTimeout(()=>abrir(null),160);
