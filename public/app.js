@@ -2957,6 +2957,7 @@ function renderInvoiceDraft(records){
     if(field==="vatRate"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""),record.vatWarning&&!record.vatToBase?'data-vat-warning="1"':"")}<label title="Sumar el IVA a la base imponible (IVA extranjero o no deducible): el IVA pasa a ser del 0 %"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="vatToBase"${record.vatToBase?" checked":""}>a base</label></div></td>`;
     if(field==="concept")return `<td><div class="invoice-concept-cell"><button type="button" class="invoice-preview-button" data-invoice-preview="${index}" title="Ver la factura" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}</button>${input(index,"concept",record.concept||"",'placeholder="Sin concepto"')}</div></td>`;
     if(field==="observation")return `<td>${input(index,"observation",record.observation||"",record.observation?'class="has-note"':"")}</td>`;
+    if(field==="number")return `<td>${input(index,"number",record.number||"",`placeholder="Sin número"${invoiceNumberSuspicious(record.number)?' class="needs-account"':""}`)}</td>`;
     return `<td${numericField(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`;
   };
   body.innerHTML=records.map((record,index)=>`<tr${received&&record.vatWarning&&!record.vatToBase?' class="vat-warning"':""}>${columns.map(([field])=>cell(index,record,field)).join("")}</tr>`).join("");
@@ -2974,7 +2975,7 @@ function renderInvoiceDraft(records){
         if(rate&&!select.value)select.value=amWithholdingFor({retentionRate:rate},amSupplier(amAccount(rowField(row,"supplierAccount")?.value)));
         select.classList.toggle("needs-account",Boolean(rate)&&!select.value&&Boolean(invoiceAccounting.data?.proveedores?.length));return;
       }
-      if(numericField(field))el.value=invoiceFormatField(field,el.value);el.title=el.value;if(field==="observation")el.classList.toggle("has-note",Boolean(el.value.trim()));
+      if(numericField(field))el.value=invoiceFormatField(field,el.value);el.title=el.value;if(field==="number")el.classList.toggle("needs-account",invoiceNumberSuspicious(el.value));if(field==="observation")el.classList.toggle("has-note",Boolean(el.value.trim()));
       if(el.classList.contains("account")){
         el.value=amAccount(el.value);el.title=invoiceAccountTitle(field,el.value);el.classList.toggle("needs-account",Boolean(invoiceAccounting.data?.proveedores?.length)&&!el.value);
         if(field!=="supplierAccount")return;
@@ -3031,6 +3032,8 @@ function invoiceToggleVatToBase(box,rowField){
   [base,vat,rate,note].forEach(el=>{if(el)el.title=el.value});if(note)note.classList.toggle("has-note",Boolean(note.value.trim()));
   rate.toggleAttribute("data-vat-warning",Boolean(record.vatWarning)&&!box.checked);tr?.classList.toggle("vat-warning",Boolean(record.vatWarning)&&!box.checked);
 }
+// Un nº de factura sin dígitos (ALB-FACT, FACTURA…) casi siempre es el tipo de documento y no el número.
+function invoiceNumberSuspicious(value){const text=String(value||"").trim();return!text||!/\d/.test(text)}
 function numericField(field){return INVOICE_MONEY_FIELDS.includes(field)||INVOICE_RATE_FIELDS.includes(field)}
 function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows [data-invoice-field]").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim(),record=records[Number(input.dataset.invoiceRow)];if(!field||!record)return;if(input.type==="checkbox"){record[field]=input.checked;return}if(numericField(field)||field==="retentionRate"){const number=invoiceParseNumber(value);record[field]=number===null?value:String(number)}else record[field]=value});return records}
 /* Vista previa de la factura original con su concepto */
@@ -3055,7 +3058,7 @@ async function openInvoicePreview(index){
   modal.querySelector("#invoicePreviewCount").textContent=`${index+1} de ${records.length}`;
   modal.querySelectorAll("[data-preview-step]").forEach(button=>{const target=index+Number(button.dataset.previewStep);button.disabled=target<0||target>=records.length});
   const row=(label,value,cls="")=>`<div class="${cls}"><span>${label}</span><strong>${escapeHtml(value||"—")}</strong></div>`;
-  modal.querySelector("#invoicePreviewData").innerHTML=`<div class="invoice-preview-concept"><span>Concepto</span><p>${escapeHtml(record.concept||"No se ha detectado el concepto. Revísalo en la factura.")}</p></div>${row("Fecha",record.date)}${row("Proveedor",record.supplier)}${row("NIF/CIF",record.supplierNif)}${row("Base imponible",invoiceFormatMoney(record.base))}${row("IVA",invoiceFormatRate(record.vatRate))}${row("Cuota IVA",invoiceFormatMoney(record.vat))}${row("Total",invoiceFormatMoney(record.total),"is-total")}${record.receipt?row("Pago",`${INVOICE_OTHER_DOCS[record.receipt.type]||"Justificante de pago"}${record.receipt.pages?` (pág. ${record.receipt.pages})`:""}`):""}${record.observation?`<div class="invoice-preview-note"><span>Observaciones</span><p>${escapeHtml(record.observation)}</p></div>`:""}<small>${escapeHtml(record.file||"")}${record.pages?` · pág. ${escapeHtml(record.pages)}`:""}</small>`;
+  modal.querySelector("#invoicePreviewData").innerHTML=`<div class="invoice-preview-concept"><span>Concepto</span><p>${escapeHtml(record.concept||"No se ha detectado el concepto. Revísalo en la factura.")}</p></div>${row("Nº factura",record.number,invoiceNumberSuspicious(record.number)?"is-warning":"")}${row("Fecha",record.date)}${row("Proveedor",record.supplier)}${row("NIF/CIF",record.supplierNif)}${row("Base imponible",invoiceFormatMoney(record.base))}${row("IVA",invoiceFormatRate(record.vatRate))}${row("Cuota IVA",invoiceFormatMoney(record.vat))}${row("Total",invoiceFormatMoney(record.total),"is-total")}${record.receipt?row("Pago",`${INVOICE_OTHER_DOCS[record.receipt.type]||"Justificante de pago"}${record.receipt.pages?` (pág. ${record.receipt.pages})`:""}`):""}${record.observation?`<div class="invoice-preview-note"><span>Observaciones</span><p>${escapeHtml(record.observation)}</p></div>`:""}<small>${escapeHtml(record.file||"")}${record.pages?` · pág. ${escapeHtml(record.pages)}`:""}</small>`;
   const doc=modal.querySelector("#invoicePreviewDoc"),file=invoiceProcessorFiles.find(item=>item.name===record.file);
   if(!file){doc.innerHTML='<p class="invoice-preview-empty">El archivo original ya no está disponible.</p>';return}
   // Se muestran solo las páginas de esta factura y, detrás, su recibo o justificante de pago si lo hay.
@@ -4452,6 +4455,7 @@ setInterval(refreshSuggestions,15000);
     if(f.moneda&&!/^eur/i.test(f.moneda))comun.push(`Moneda ${f.moneda}`);
     if(total&&Math.abs(base+cuota+recargo-ret-total)>0.05)comun.push(`Los importes no cuadran (${dinero(base+cuota+recargo-ret)} calculado frente a ${dinero(total)} de total)`);
     if(!f.numero||!total)comun.push("Revisar datos no detectados");
+    if(f.numero&&invoiceNumberSuspicious(f.numero))comun.push(`Revisa el nº de factura: «${String(f.numero).trim()}» no parece un número de factura`);
     if(varias)comun.push(`Una de ${varias} facturas del mismo archivo${f.paginas?` (pág. ${f.paginas})`:""}`);
     if(f.observaciones)comun.push(String(f.observaciones).trim());
     const concepto=String(f.concepto||"").trim();

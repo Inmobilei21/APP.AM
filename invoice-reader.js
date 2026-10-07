@@ -19,7 +19,7 @@ const SCHEMA = {
       items: {
         type: "object",
         properties: {
-          numero: { type: "string", description: "Número o serie+número de la factura, tal como aparece." },
+          numero: { type: "string", description: "Número o serie+número que identifica la factura, tal como aparece (normalmente lleva dígitos). Nunca el tipo de documento (ALB-FACT, FACTURA, FRA, TICKET…) ni el número de pedido, de cliente, de albarán de reparto o de ruta." },
           paginas: { type: "string", description: "Páginas del documento donde aparece esta factura (p. ej. \"1-2\" o \"3\")." },
           fecha: { type: "string", description: "Fecha de expedición en formato DD/MM/AAAA. Vacío si no aparece." },
           emisor_nombre: { type: "string", description: "Razón social o nombre de quien emite la factura (el proveedor)." },
@@ -126,6 +126,7 @@ async function readInvoice(buffer, name, contentType, client) {
     `Nombre del archivo: ${name}`,
     "Reglas:",
     "- Copia el número de factura, nombres y NIF exactamente como aparecen.",
+    "- El número de factura es el identificador del documento, no su tipo: si en la casilla «Documento» pone un código como ALB-FACT, FACT o FRA, eso es el tipo y el número está en «Nº», «Número», «Doc. Origen» o similar (en los albaranes-factura suele ser «Doc. Origen»). No uses el número de pedido, de cliente, de reparto ni de ruta. Si dudas entre varios, elige el que se repite en el documento y dilo en observaciones.",
     "- Si el NIF/VAT del emisor es extranjero, conserva su prefijo de país (IT, FR, DE, GB…). Copia el tipo de IVA tal como aparece aunque no sea español (p. ej. 22 %).",
     "- En concepto resume en una frase lo que se factura (productos o servicios), sin importes.",
     "- Importes como números con punto decimal (1234.56), sin símbolo de moneda, en la moneda de la factura (no los conviertas tú).",
