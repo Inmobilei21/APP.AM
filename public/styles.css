@@ -5701,13 +5701,6 @@ html body .client-unavailable-overlay .am-srv-done p{margin:0 0 12px!important;f
 .td-list .center{text-align:center}.td-list .td-eye{margin:0 auto}
 .td-eye.off{display:grid;place-items:center;color:#b4bccb;cursor:not-allowed;margin:0 auto}.td-eye.off:hover{background:transparent}
 .td-file-wait{color:#b4bccb}
-.td-split{margin:6px 0 10px;padding:10px 12px;border:1px solid #e3e7ef;border-radius:10px;background:#f8f9fc;display:grid;gap:6px}
-.td-split-title{margin:0;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#69748a}
-.td-split-group{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(3,minmax(0,1fr));gap:10px;align-items:baseline;font-size:13px;color:#56607a}
-.td-split-group b{color:var(--ink)}.td-split-group strong{color:var(--ink);font-variant-numeric:tabular-nums;margin-left:4px}
-.td-list tr.td-especie td{background:#fff8e8}
-.td-list input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue);cursor:pointer}
-@media(max-width:700px){.td-split-group{grid-template-columns:1fr 1fr}}
 /* Importes y porcentajes en una sola línea en la lista de facturas del borrador */
 .td-list th,.td-list .num,.td-list td:nth-child(1),.td-list td:nth-child(2){white-space:nowrap}
 .td-list th,.td-list td{padding-inline:10px}

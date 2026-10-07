@@ -114,17 +114,11 @@ async function loadTaxDraftDocuments(){
 /* --- Modelo 115 --- */
 function taxDraft115(period){
   const quarter=Number(period[0]),items=(taxDrafts.base?.retencionesIrpf||[]).filter(item=>item.tipo==="alquiler"&&Math.ceil(Number(String(item.fecha).slice(5,7))/3)===quarter);
-  // Las facturas marcadas «en especie» se guardan junto al control del trimestre (compartido en el servidor).
-  const especie=new Set(taxDraftControl(period).especie||[]);
-  const marked=items.map(item=>({...item,especie:especie.has(taxDraftItemId(item))}));
-  const group=list=>({perceptores:new Set(list.map(item=>item.nif||item.cuenta)).size,base:tdRound(list.reduce((sum,item)=>sum+item.base,0)),retencion:tdRound(list.reduce((sum,item)=>sum+item.retencion,0))});
-  const base=tdRound(marked.reduce((sum,item)=>sum+item.base,0)),ret=tdRound(marked.reduce((sum,item)=>sum+item.retencion,0));
-  const people=[...new Map(marked.map(item=>[item.nif||item.cuenta,item])).values()];
+  const base=tdRound(items.reduce((sum,item)=>sum+item.base,0)),ret=tdRound(items.reduce((sum,item)=>sum+item.retencion,0));
+  const people=[...new Map(items.map(item=>[item.nif||item.cuenta,item])).values()];
   const casillas={"01":people.length,"02":base,"03":ret,"04":0,"05":ret};
-  const desglose=marked.some(item=>item.especie)?{dinerario:group(marked.filter(item=>!item.especie)),especie:group(marked.filter(item=>item.especie))}:null;
-  return{model:"115",period,year:taxDraftYear(),items:marked,people,casillas,desglose};
+  return{model:"115",period,year:taxDraftYear(),items,people,casillas};
 }
-const taxDraftItemId=item=>[item.fecha,item.numero,item.cuenta,item.retencion].join("|");
 function taxDraftControl(period){return declarationData("115",period,taxDrafts.client,taxDraftYear())}
 function renderTaxDraftMain(){
   const box=document.querySelector("#tdMain");if(!box)return;
@@ -157,8 +151,7 @@ function renderTaxDraftMain(){
 }
 function taxDraftBoxes(draft){
   const line=(n,label,value,eye,cls="")=>`<div class="td-box ${cls}"><span class="td-n">${n}</span><span class="td-label">${label}</span><span class="td-value">${value}</span>${eye?`<button type="button" class="td-eye" data-td-eye="${eye}" title="Ver las facturas que componen esta casilla" aria-label="Ver el detalle de la casilla ${n}">${tdEye}</button>`:'<span></span>'}</div>`;
-  const split=draft.desglose?`<div class="td-split"><p class="td-split-title">Desglose de las retenciones</p>${[["dinerario","Rendimientos dinerarios","Retenciones"],["especie","Rendimientos en especie","Ingresos a cuenta"]].map(([key,title,label])=>{const group=draft.desglose[key];return `<div class="td-split-group"><b>${title}</b><span>Perceptores <strong>${group.perceptores}</strong></span><span>Base <strong>${tdEur(group.base)}</strong></span><span>${label} <strong>${tdEur(group.retencion)}</strong></span></div>`}).join("")}</div>`:"";
-  return split+line("01","Número de perceptores",String(draft.casillas["01"]),"people")
+  return line("01","Número de perceptores",String(draft.casillas["01"]),"people")
     +line("02","Base de las retenciones e ingresos a cuenta",tdEur(draft.casillas["02"]),"invoices")
     +line("03","Retenciones e ingresos a cuenta",tdEur(draft.casillas["03"]),"invoices")
     +line("04","A deducir (exclusivamente en caso de declaración complementaria)",tdEur(0),"")
@@ -174,7 +167,7 @@ function taxDraftDetail(draft,control){
   if(draft.items.length)checks.push(rates.length===1&&rates[0]===19?'<div class="td-check ok">✓ <div><b>Tipo de retención correcto</b>Todas las facturas aplican el 19 %.</div></div>':`<div class="td-check warn">⚠ <div><b>Revisa el tipo de retención</b>Hay facturas con ${rates.map(rate=>`${rate} %`).join(", ")}; en alquileres lo habitual es el 19 %.</div></div>`);
   else checks.push('<div class="td-check warn">⚠ <div><b>Sin retenciones de alquiler en el trimestre</b>No hay facturas recibidas con retención de alquiler en la contabilidad.</div></div>');
   const confirmed=control.draft;
-  const changed=confirmed&&(Math.abs((Number(confirmed.casillas?.["05"])||0)-result)>=0.005||JSON.stringify(confirmed.desglose||null)!==JSON.stringify(draft.desglose||null));
+  const changed=confirmed&&Math.abs((Number(confirmed.casillas?.["05"])||0)-result)>=0.005;
   const confirmNote=confirmed?`<p class="td-confirmed">${changed?"⚠ El borrador ha cambiado desde que se confirmó: ":"✓ "}Confirmado el ${tdDate(confirmed.confirmedAt)}${confirmed.confirmedBy?` por ${escapeHtml(confirmed.confirmedBy)}`:""} · ${tdEur(confirmed.casillas?.["05"])}</p>`:"";
   return `<div class="td-detail-head"><b>Borrador modelo 115 · ${draft.period} ${draft.year}</b><span>${escapeHtml(taxDrafts.clientData?.cif||"")}${taxDrafts.clientData?.cif?" · ":""}${escapeHtml(taxDrafts.client)}</span></div>
     <div class="td-boxes">${taxDraftBoxes(draft)}</div>
@@ -192,7 +185,7 @@ function confirmTaxDraft(){
   const draft=taxDraft115(period),year=draft.year,key=declarationKey("115",period,taxDrafts.client,year),data=declarationData("115",period,taxDrafts.client,year);
   const today=new Date(),iso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   data.prepared=iso;data.amount=draft.casillas["05"].toFixed(2);
-  data.draft={model:"115",period,year,client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",casillas:draft.casillas,desglose:draft.desglose,people:draft.people.map(({nombre,nif,cuenta})=>({nombre,nif,cuenta})),items:draft.items,confirmedAt:new Date().toISOString(),confirmedBy:typeof signedInUser!=="undefined"&&signedInUser?.name||""};
+  data.draft={model:"115",period,year,client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",casillas:draft.casillas,people:draft.people.map(({nombre,nif,cuenta})=>({nombre,nif,cuenta})),items:draft.items,confirmedAt:new Date().toISOString(),confirmedBy:typeof signedInUser!=="undefined"&&signedInUser?.name||""};
   localStorage.setItem(key,JSON.stringify(data));
   renderTaxDraftMain();
 }
@@ -206,13 +199,12 @@ function openTaxDraftSide(kind,draft){
   }else{
     document.querySelector("#tdSideTitle").textContent=`Facturas que componen el borrador (${draft.items.length})`;
     document.querySelector("#tdSideSub").textContent="Facturas recibidas con retención de alquiler en la contabilidad de AMCOMTA.";
-    body.innerHTML=taxDraftInvoiceTable(draft.items,true);fillTaxDraftInvoiceFiles(body,taxDrafts.client,draft.items);
-    body.querySelectorAll("[data-td-especie]").forEach(box=>box.addEventListener("change",()=>toggleTaxDraftEspecie(draft.period,box.dataset.tdEspecie,box.checked,box)));
+    body.innerHTML=taxDraftInvoiceTable(draft.items);fillTaxDraftInvoiceFiles(body,taxDrafts.client,draft.items);
   }
   document.querySelector("#tdShade").hidden=false;document.querySelector("#tdSide").classList.add("on");
 }
-function taxDraftInvoiceTable(items,editable=false){
-  return `<table class="td-list td-invoices"><thead><tr><th>Fecha</th><th>Nº factura</th><th>Arrendador</th><th class="center" title="Factura guardada en la carpeta del cliente">Factura</th><th class="num">Base</th><th class="num">%</th><th class="num">Retención</th><th class="center" title="Marca las facturas cuyo pago es en especie">En especie</th></tr></thead><tbody>${items.map((item,index)=>`<tr${item.especie?' class="td-especie"':""}><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<br><small>${escapeHtml(item.nif)}</small></td><td class="center" data-td-file="${index}"><span class="td-file-wait" title="Buscando la factura…">…</span></td><td class="num">${tdEur(item.base)}</td><td class="num">${escapeHtml(item.porcentaje)} %</td><td class="num">${tdEur(item.retencion)}</td><td class="center">${editable?`<input type="checkbox" data-td-especie="${escapeHtml(taxDraftItemId(item))}"${item.especie?" checked":""} aria-label="Factura ${escapeHtml(item.numero)} en especie">`:item.especie?"Sí":"—"}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Total</td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.base,0))}</td><td></td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.retencion,0))}</td><td></td></tr></tfoot></table>`;
+function taxDraftInvoiceTable(items){
+  return `<table class="td-list td-invoices"><thead><tr><th>Fecha</th><th>Nº factura</th><th>Arrendador</th><th class="center" title="Factura guardada en la carpeta del cliente">Factura</th><th class="num">Base</th><th class="num">%</th><th class="num">Retención</th></tr></thead><tbody>${items.map((item,index)=>`<tr><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<br><small>${escapeHtml(item.nif)}</small></td><td class="center" data-td-file="${index}"><span class="td-file-wait" title="Buscando la factura…">…</span></td><td class="num">${tdEur(item.base)}</td><td class="num">${escapeHtml(item.porcentaje)} %</td><td class="num">${tdEur(item.retencion)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Total</td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.base,0))}</td><td></td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.retencion,0))}</td></tr></tfoot></table>`;
 }
 /* --- Facturas guardadas por el lector: CLIENTES/<cliente>/CONTABILIDAD/<año>/<trimestre>/RECIBIDAS --- */
 const tdEyeOff='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -257,13 +249,6 @@ async function fillTaxDraftInvoiceFiles(container,client,items){
     else cell.innerHTML=`<span class="td-eye off" title="No está la factura en CLIENTES/${escapeHtml(client)}/CONTABILIDAD/${escapeHtml(year)}/${escapeHtml(quarters[0]||"")}/RECIBIDAS" aria-label="Factura no encontrada">${tdEyeOff}</span>`;
   }
 }
-function toggleTaxDraftEspecie(period,id,checked,box){
-  const year=taxDraftYear(),key=declarationKey("115",period,taxDrafts.client,year),data=declarationData("115",period,taxDrafts.client,year);
-  const list=new Set(data.especie||[]);if(checked)list.add(id);else list.delete(id);
-  data.especie=[...list];localStorage.setItem(key,JSON.stringify(data));
-  box.closest("tr")?.classList.toggle("td-especie",checked);
-  renderTaxDraftMain();
-}
 function closeTaxDraftSide(){document.querySelector("#tdShade")?.setAttribute("hidden","");document.querySelector("#tdSide")?.classList.remove("on")}
 document.addEventListener("keydown",event=>{if(event.key==="Escape"&&document.querySelector("#tdSide.on"))closeTaxDraftSide()});
 
@@ -276,7 +261,7 @@ function openConfirmedTaxDraft(key){
   const boxes=[["01","Número de perceptores",String(draft.casillas["01"])],["02","Base de las retenciones e ingresos a cuenta",tdEur(draft.casillas["02"])],["03","Retenciones e ingresos a cuenta",tdEur(draft.casillas["03"])],["04","A deducir (declaración complementaria)",tdEur(draft.casillas["04"])],["05","Resultado a ingresar",tdEur(draft.casillas["05"])]];
   view.innerHTML=`<div class="td-modal-box"><header><div><span class="td-tag">Borrador confirmado</span><h3>Modelo ${escapeHtml(draft.model)} · ${escapeHtml(draft.period)} ${escapeHtml(draft.year)}</h3><p>${escapeHtml(draft.cif?draft.cif+" · ":"")}${escapeHtml(draft.client)} · confirmado el ${tdDate(draft.confirmedAt)}${draft.confirmedBy?` por ${escapeHtml(draft.confirmedBy)}`:""}</p></div><button type="button" class="td-close" aria-label="Cerrar">×</button></header>
     <div class="td-modal-body"><p class="td-note">Es el borrador preparado en la app. Cuando la declaración presentada esté en la carpeta de declaraciones, se verá esa en su lugar.</p>
-    ${draft.desglose?taxDraftBoxes(draft).split('<div class="td-box')[0]:""}<div class="td-boxes">${boxes.map(([n,label,value],index)=>`<div class="td-box${index===4?" total":""}"><span class="td-n">${n}</span><span class="td-label">${label}</span><span class="td-value">${value}</span><span></span></div>`).join("")}</div>
+    <div class="td-boxes">${boxes.map(([n,label,value],index)=>`<div class="td-box${index===4?" total":""}"><span class="td-n">${n}</span><span class="td-label">${label}</span><span class="td-value">${value}</span><span></span></div>`).join("")}</div>
     <h4>Facturas (${(draft.items||[]).length})</h4>${taxDraftInvoiceTable(draft.items||[])}</div></div>`;
   document.body.append(view);fillTaxDraftInvoiceFiles(view,draft.client,draft.items||[]);
   const close=()=>{view.remove();document.removeEventListener("keydown",onKey)},onKey=event=>{if(event.key==="Escape")close()};
