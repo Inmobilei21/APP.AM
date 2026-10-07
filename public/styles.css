@@ -5708,3 +5708,7 @@ html body .client-unavailable-overlay .am-srv-done p{margin:0 0 12px!important;f
 .td-list tr.td-especie td{background:#fff8e8}
 .td-list input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue);cursor:pointer}
 @media(max-width:700px){.td-split-group{grid-template-columns:1fr 1fr}}
+/* Importes y porcentajes en una sola línea en la lista de facturas del borrador */
+.td-list th,.td-list .num,.td-list td:nth-child(1),.td-list td:nth-child(2){white-space:nowrap}
+.td-list th,.td-list td{padding-inline:10px}
+.td-side{width:min(880px,96vw)}
