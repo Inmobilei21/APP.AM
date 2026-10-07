@@ -1,11 +1,12 @@
 /* Ficheros para importar en la sede de la AEAT (presentación mediante fichero), con el mismo diseño de
-   registro que genera Cegid Diez «Impresos Hacienda». De momento: modelos 111 y 115.
+   registro que genera Cegid Diez «Impresos Hacienda». Modelos 111, 115 y 123.
    Estructura: <T{modelo}0{ejercicio}{periodo}0000><AUX>…</AUX><T{modelo}01000>{página 1}</T{modelo}01000></T…> */
 (function(){
 if(typeof taxDraftDetail!=="function")return;
 const AEAT_FILE_MODELS={
   // Casillas en orden: [número, ancho]. Recuentos sin decimales; importes en céntimos.
   "115":{page:477,boxes:[["01",15],["02",17],["03",17],["04",17],["05",17]],result:"05"},
+  "123":{page:577,boxes:[["01",15],["02",15],["03",15],...["04","05","06","07","08","09","10","11","12","13","14"].map(n=>[n,17])],result:"14"},
   "111":{page:977,boxes:[...Array.from({length:9},(_,g)=>[[String(g*3+1).padStart(2,"0"),8],[String(g*3+2).padStart(2,"0"),17],[String(g*3+3).padStart(2,"0"),17]]).flat(),["28",17],["29",17],["30",17]],result:"30"}
 };
 const pad=(value,width)=>String(value).slice(0,width).padEnd(width," ");
@@ -14,18 +15,30 @@ const clean=value=>[...String(value||"").toUpperCase()].map(c=>c==="Ñ"||c==="Ç
 function aeatFile(draft){
   const spec=AEAT_FILE_MODELS[draft.model];if(!spec)throw new Error("Modelo sin fichero.");
   const boxes=new Map((draft.boxes||[]).filter(box=>box.n).map(box=>[box.n,box]));
-  const value=(n,width)=>{const box=boxes.get(n);return num(box?box.value:0,width,width>8&&!(draft.model==="115"&&n==="01"))};
+  const value=(n,width)=>{const box=boxes.get(n);return num(box?box.value:0,width,width===17)};
   const result=Number(boxes.get(spec.result)?.value)||0,nif=String(draft.cif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(nif.length!==9)throw new Error("Falta el NIF del cliente (ficha del cliente).");
   const period=String(draft.period||""),year=String(draft.year||"");
-  let page=" "+(result>0?"I":"N")+pad(nif,9)+pad(clean(draft.client),60)+pad("",20)+year+pad(period,2)+spec.boxes.map(([n,width])=>value(n,width)).join("");
+  // Tipo: I ingreso, U domiciliación (con IBAN), N negativa. Tras las casillas: complementaria (1),
+  // justificante anterior (13) e IBAN (34), como en el fichero del 123 de Impresos Hacienda.
+  const iban=String(draft.iban||"").replace(/\s+/g,"").toUpperCase(),type=result>0?(iban?"U":"I"):"N";
+  let page=" "+type+pad(nif,9)+pad(clean(draft.client),60)+pad("",20)+year+pad(period,2)+spec.boxes.map(([n,width])=>value(n,width)).join("")+pad("",14)+pad(type==="U"?iban:"",34);
   page=pad(page,spec.page);
   const aux=pad("",70)+"AM01"+pad("",4)+"B72758998";
   const head=`T${draft.model}0${year}${period}0000`;
   return `<${head}><AUX>${pad(aux,300)}</AUX><T${draft.model}01000>${page}</T${draft.model}01000></${head}>`;
 }
-function downloadAeatFile(draft){
+// Si hay importe y el cliente tiene IBAN en su ficha, se pregunta si se domicilia el pago.
+async function askIban(draft){
+  const result=Number((draft.boxes||[]).find(box=>box.n===AEAT_FILE_MODELS[draft.model]?.result)?.value)||0;if(!(result>0))return"";
+  let client=null;try{client=(await getAllClientMetadata()).find(item=>item.name===draft.client||item.id===draft.client)}catch{}
+  const iban=(client?.bank?.ibans||[]).find(Boolean)||"";
+  if(!iban)return"";
+  return confirm(`¿Domiciliar el pago de ${tdEur(result)} en la cuenta ${iban}?\n\nAceptar: domiciliación · Cancelar: ingreso sin domiciliar`)?iban:"";
+}
+async function downloadAeatFile(draft){
   try{
+    if(draft.iban===undefined)draft={...draft,iban:await askIban(draft)};
     const text=aeatFile(draft),bytes=new Uint8Array([...text].map(ch=>{const c=ch.charCodeAt(0);return c<256?c:32}));
     const blob=new Blob([bytes],{type:"application/octet-stream"}),a=document.createElement("a");
     a.href=URL.createObjectURL(blob);a.download=`${String(draft.cif||"").toUpperCase()}_${draft.model}_${draft.year}_${draft.period}.${draft.model}`;
