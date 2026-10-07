@@ -11,7 +11,13 @@ const TAX_DRAFT_MODELS={
   "123":{title:"Rendimientos del capital mobiliario",ready:false},
   "202":{title:"Pago fraccionado de sociedades",ready:false},
   "182":{title:"Donativos",ready:false},
-  "347":{title:"Operaciones con terceros",ready:false}
+  "347":{title:"Operaciones con terceros",ready:false},
+  "216":{title:"Retenciones de no residentes",ready:false},
+  "308":{title:"IVA · solicitud de devolución (régimen especial)",ready:false},
+  "309":{title:"IVA · liquidación no periódica",ready:false},
+  "369":{title:"IVA · regímenes especiales (OSS/IOSS)",ready:false},
+  "184":{title:"Entidades en régimen de atribución de rentas",ready:false},
+  "345":{title:"Planes de pensiones y mutualidades",ready:false}
 };
 const TAX_DRAFT_CLIENT_KEY="app-am-borradores-cliente";
 let taxDrafts={client:"",clientData:null,base:null,loading:"",model:"",open:"",documents:new Map()};
@@ -214,6 +220,22 @@ function taxDraftDiagnostic(){
   const version=String((typeof loadedApplicationVersion!=="undefined"&&loadedApplicationVersion)||"").slice(0,7)||"—";
   return `Versión ${escapeHtml(version)} · base del ${escapeHtml(when)} (${Array.isArray(base.nominas)?base.nominas.length:"sin"} nóminas, ${(base.retencionesIrpf||[]).length} facturas con retención) · declaraciones: ${info?`${escapeHtml(info.source)}, ${info.total} PDF, ${info.model} del modelo ${escapeHtml(taxDrafts.model)} en ${taxDraftYear()}`:"buscando…"}`;
 }
+// Resumen anual que va implícito en el modelo trimestral (190 del 111, 180 del 115, 193 del 123).
+const TAX_DRAFT_ANNUAL={"111":["190","Resumen anual de retenciones del trabajo y profesionales"],"115":["180","Resumen anual de retenciones de alquileres"],"123":["193","Resumen anual de retenciones del capital mobiliario"]};
+function taxDraftAnnualRow(model,totals){
+  const annual=TAX_DRAFT_ANNUAL[model];if(!annual)return"";
+  const drafts=["1T","2T","3T","4T"].map(period=>taxDraftBuild(model,period));
+  const ids=new Set();
+  drafts.forEach(draft=>{
+    (draft.lists.alquileres||[]).forEach(item=>ids.add(item.nif||item.cuenta));
+    (draft.lists.profesionales||[]).forEach(item=>ids.add(item.nif||item.cuenta));
+    (draft.lists.trabajo||[]).forEach(entry=>(entry.trabajadores||[]).forEach(worker=>ids.add(worker.cuenta)));
+    (draft.lists.capital||[]).forEach(entry=>ids.add(entry.id));
+  });
+  const control=declarationData(annual[0],"4T",taxDrafts.client,taxDraftYear());
+  const status=control.submitted?["Presentado","pres"]:control.prepared?["Preparado","conf"]:["Pendiente","pend"];
+  return `<tr class="td-annual"><td><strong>Declaración anual · Modelo ${annual[0]}</strong><small>${escapeHtml(annual[1])}</small></td><td class="num" title="${model==="123"?"Rentas del año":"Perceptores distintos en el año"}">${ids.size}</td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num td-dim">—</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td></td></tr>`;
+}
 function renderTaxDraftMain(){
   const box=document.querySelector("#tdMain");if(!box)return;
   const model=taxDrafts.model;
@@ -235,7 +257,7 @@ function renderTaxDraftMain(){
   }).join("");
   box.innerHTML=`<div class="td-card-head"><span class="td-chip m${escapeHtml(model)}">${escapeHtml(model)}</span><strong>${escapeHtml(title)} · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">${model==="111"?"Percepciones":"Base"}</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
-    <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr></tfoot></table></div>
+    <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr>${taxDraftAnnualRow(model,totals)}</tfoot></table></div>
     ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Vuelve a añadir la base en la ficha del cliente («Base de datos de contabilidad») para incluir los trabajadores.</p>':""}
     <p class="td-hint">Pulsa un trimestre para desplegar su borrador.</p>
     <p class="td-hint td-diag" title="Datos para comprobar que todos los equipos ven lo mismo">${taxDraftDiagnostic()}</p>`;

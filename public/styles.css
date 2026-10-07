@@ -5734,3 +5734,5 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .client-accounting-base .cab-upload{cursor:pointer;display:inline-flex;align-items:center}
 .client-accounting-base .cab-upload.disabled{opacity:.5;pointer-events:none}
 .client-accounting-base .cab-actions .secondary-button{min-height:34px;padding:6px 14px;font-size:13px}
+.td-table tfoot tr.td-annual td{background:#f6f8fd;border-top:2px solid #dfe4ee;font-weight:600;white-space:normal}
+.td-table tfoot tr.td-annual td:first-child strong{display:block;font-size:13px}.td-table tfoot tr.td-annual td:first-child small{display:block;font-weight:500;color:#69748a;font-size:11px}
