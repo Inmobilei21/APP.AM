@@ -5778,3 +5778,13 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
   .td-main .td-hint.td-diag{display:none}
 }
 @media(max-width:760px){.td-main .td-table:not(.m347-table) tfoot tr.td-annual>td:nth-child(1){white-space:normal;line-height:1.25}.td-main .td-table:not(.m347-table) .td-pill{font-size:11.5px}}
+/* Vista previa en el móvil: zoom abajo a la derecha (el de la cabecera se oculta) */
+@media(max-width:760px),(pointer:coarse){
+  html body .dv-movil .document-preview-card>header .preview-zoom{display:none!important}
+  html body .dv-movil .dv-paginas.ampliado{overflow:auto;align-items:flex-start;touch-action:pan-x pan-y}
+  html body .dv-movil .dv-paginas{touch-action:pan-y}
+  html body .dv-movil .dv-zoom{position:absolute;right:14px;bottom:14px;display:flex;align-items:center;gap:2px;padding:4px;border-radius:999px;background:rgba(6,17,43,.82);box-shadow:0 6px 18px rgba(6,17,43,.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:3}
+  html body .dv-movil .dv-zoom button{width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font:600 22px/1 inherit;display:grid;place-items:center;padding:0}
+  html body .dv-movil .dv-zoom span{min-width:54px;text-align:center;color:#fff;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+  html body .dv-movil .dv-contador{left:16px!important;transform:none!important}
+}

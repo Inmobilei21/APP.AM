@@ -4992,6 +4992,43 @@ setInterval(refreshSuggestions,15000);
       };
       const obs=new IntersectionObserver(entradas=>entradas.forEach(e=>{if(e.isIntersecting)pintar(Number(e.target.dataset.n)).catch(()=>{})}),{root:caja,rootMargin:"600px 0px"});
       hojas.forEach(h=>obs.observe(h));
+      // Zoom: botones − / +, pellizcar con dos dedos y doble toque. Al ampliar, las páginas visibles
+      // se vuelven a dibujar con más resolución para que el texto se lea nítido.
+      let zoom=1,nitidez=0;
+      const control=document.createElement("div");control.className="dv-zoom";
+      control.innerHTML='<button type="button" data-z="-1" aria-label="Reducir">−</button><span>100 %</span><button type="button" data-z="1" aria-label="Ampliar">+</button>';
+      caja.parentElement.appendChild(control);
+      const etiqueta=control.querySelector("span");
+      const repintar=()=>{clearTimeout(nitidez);nitidez=setTimeout(async()=>{
+        const vista=caja.getBoundingClientRect();
+        for(const hoja of hojas){
+          const r=hoja.getBoundingClientRect();if(r.bottom<vista.top-200||r.top>vista.bottom+200)continue;
+          const n=Number(hoja.dataset.n),pagina=await pdf.getPage(n),base=pagina.getViewport({scale:1});
+          const escala=Math.min(ancho*zoom/base.width*dpr,4096/base.width);
+          const viejo=hoja.querySelector("canvas");if(viejo&&Number(viejo.dataset.escala||0)>=escala-0.01)continue;
+          const vp=pagina.getViewport({scale:escala}),lienzo=document.createElement("canvas");lienzo.width=Math.floor(vp.width);lienzo.height=Math.floor(vp.height);lienzo.dataset.escala=escala;
+          await pagina.render({canvasContext:lienzo.getContext("2d"),viewport:vp}).promise;
+          if(viejo)viejo.replaceWith(lienzo);else hoja.appendChild(lienzo);hoja.classList.add("lista");
+        }
+      },220)};
+      const fijarZoom=(z,fx=caja.clientWidth/2,fy=caja.clientHeight/2)=>{
+        z=Math.min(4,Math.max(1,Math.round(z*100)/100));if(Math.abs(z-zoom)<0.005)return;
+        const px=(caja.scrollLeft+fx)/caja.scrollWidth,py=(caja.scrollTop+fy)/caja.scrollHeight;
+        zoom=z;caja.classList.toggle("ampliado",zoom>1.001);
+        hojas.forEach(h=>{h.style.width=zoom>1.001?`${zoom*100}%`:""});
+        caja.scrollLeft=px*caja.scrollWidth-fx;caja.scrollTop=py*caja.scrollHeight-fy;
+        etiqueta.textContent=`${Math.round(zoom*100)} %`;repintar();
+      };
+      control.querySelectorAll("[data-z]").forEach(b=>b.addEventListener("click",()=>{const pasos=[1,1.5,2,3,4],i=pasos.findIndex(v=>v>=zoom-0.01);fijarZoom(Number(b.dataset.z)>0?pasos[Math.min(pasos.length-1,(pasos[i]>zoom+0.01?i:i+1))]:pasos[Math.max(0,(i<0?pasos.length:i)-1)])}));
+      let pellizco=null,ultimoToque=0;
+      const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+      caja.addEventListener("touchstart",e=>{
+        if(e.touches.length===2){const r=caja.getBoundingClientRect();pellizco={d:dist(e.touches),z:zoom,fx:(e.touches[0].clientX+e.touches[1].clientX)/2-r.left,fy:(e.touches[0].clientY+e.touches[1].clientY)/2-r.top};e.preventDefault()}
+        else if(e.touches.length===1){const ahora=Date.now();if(ahora-ultimoToque<300){const r=caja.getBoundingClientRect();fijarZoom(zoom>1.001?1:2,e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);e.preventDefault()}ultimoToque=ahora}
+      },{passive:false});
+      caja.addEventListener("touchmove",e=>{if(pellizco&&e.touches.length===2){e.preventDefault();fijarZoom(pellizco.z*dist(e.touches)/pellizco.d,pellizco.fx,pellizco.fy)}},{passive:false});
+      caja.addEventListener("touchend",e=>{if(e.touches.length<2)pellizco=null});
+      caja.addEventListener("scroll",()=>{if(zoom>1.001)repintar()},{passive:true});
       caja.addEventListener("scroll",()=>{
         const medio=caja.scrollTop+caja.clientHeight/2;let actual=1;
         for(const h of hojas){if(h.offsetTop<=medio)actual=Number(h.dataset.n);else break}
