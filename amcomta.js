@@ -48,9 +48,9 @@ module.exports = function ({ dataDirectory }) {
       supplierByEntry.set(dateKey(row.Fecha, row.Asiento), account);
       if (row.Cif && !invoiceNif.has(account)) invoiceNif.set(account, nif(row.Cif));
     }
-    const usage = new Map(), expenseUsed = new Set();
+    const usage = new Map(), expenseUsed = new Set(), incomeUsage = new Map();
     for (const row of rows("Bases Factura", ["Fecha", "Asiento", "Emitida", "Cuenta"])) {
-      if (isTrue(row.Emitida)) continue;
+      if (isTrue(row.Emitida)) { const income = text(row.Cuenta); if (income) incomeUsage.set(income, (incomeUsage.get(income) || 0) + 1); continue; }
       const supplier = supplierByEntry.get(dateKey(row.Fecha, row.Asiento)), expense = text(row.Cuenta);
       if (!supplier || !expense) continue;
       expenseUsed.add(expense);
@@ -69,9 +69,14 @@ module.exports = function ({ dataDirectory }) {
     const expenseCodes = new Set([...accountNames.keys()].filter(code => code.startsWith("6")));
     expenseUsed.forEach(code => { if (accountNames.has(code)) expenseCodes.add(code); });
     const gastos = [...expenseCodes].sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "" }));
+    // Cuentas de ingresos (grupo 7 y las usadas en facturas emitidas); la habitual, para proponerla en emitidas.
+    const incomeCodes = new Set([...accountNames.keys()].filter(code => code.startsWith("7")));
+    incomeUsage.forEach((count, code) => { if (accountNames.has(code)) incomeCodes.add(code); });
+    const ingresos = [...incomeCodes].sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "", facturas: incomeUsage.get(cuenta) || 0 }));
+    const ingresoHabitual = [...incomeUsage.entries()].filter(([code]) => accountNames.has(code)).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
     const retenciones = [...accountNames.keys()].filter(code => code.startsWith("4751")).sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "" }));
     const inicio = general["Fecha Inicio"] instanceof Date ? general["Fecha Inicio"] : null;
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, retenciones };
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones };
   }
 
   async function save(client, buffer, user) {

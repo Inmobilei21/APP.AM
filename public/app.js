@@ -2680,7 +2680,7 @@ const INVOICE_MONEY_FIELDS=["base","vat","total"],INVOICE_RATE_FIELDS=["vatRate"
 function invoiceFormatField(field,value){return INVOICE_MONEY_FIELDS.includes(field)?invoiceFormatMoney(value):INVOICE_RATE_FIELDS.includes(field)?invoiceFormatRate(value):String(value??"")}
 function downloadInvoiceExcel(records,client){
   const issued=invoiceProcessorType()==="emitidas";
-  const headers=[issued?"Empresa":"Cliente","Número de factura","Fecha",issued?"Cliente":"Proveedor",issued?"NIF/CIF cliente":"NIF/CIF proveedor","Cuenta proveedor","Cuenta gasto","Base imponible","Tipo IVA (%)","Cuota IVA","Importe total","Concepto","Archivo original","Observaciones"];
+  const headers=[issued?"Empresa":"Cliente","Número de factura","Fecha",issued?"Cliente":"Proveedor",issued?"NIF/CIF cliente":"NIF/CIF proveedor","Cuenta proveedor","Cuenta contrapartida","Base imponible","Tipo IVA (%)","Cuota IVA","Importe total","Concepto","Archivo original","Observaciones"];
   const text=value=>`<Cell><Data ss:Type="String">${excelXmlEscape(value)}</Data></Cell>`;
   const typed=(value,style)=>{const number=invoiceParseNumber(value);return number===null?text(value):`<Cell ss:StyleID="${style}"><Data ss:Type="Number">${number}</Data></Cell>`};
   const rows=records.map(record=>[text(record.client),text(record.number),text(record.date),text(record.supplier),text(record.supplierNif),text(amAccount(record.supplierAccount)),text(amAccount(record.expenseAccount)),typed(record.base,"eur"),typed(record.vatRate,"pct"),typed(record.vat,"eur"),typed(record.total,"eur"),text(record.concept||""),text(record.file),text(record.observation||(record.number&&record.total?"":"Revisar datos no detectados"))]);
@@ -2708,7 +2708,7 @@ function amDate(value){
   m=text.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/);return m?`${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3].length===2?"20"+m[3]:m[3]}`:text;
 }
 const amSupplier=account=>invoiceAccounting.data?.proveedores?.find(item=>item.cuenta===account);
-const amExpense=account=>invoiceAccounting.data?.gastos?.find(item=>item.cuenta===account);
+const amExpense=account=>invoiceAccounting.data?.gastos?.find(item=>item.cuenta===account)||invoiceAccounting.data?.ingresos?.find(item=>item.cuenta===account);
 const amWithholding=account=>invoiceAccounting.data?.retenciones?.find(item=>item.cuenta===account);
 function amWithholdingFor(record,supplier){
   const list=invoiceAccounting.data?.retenciones||[],rate=invoiceParseNumber(record.retentionRate)||0;if(!rate||!list.length)return"";
@@ -2747,7 +2747,7 @@ function applyInvoiceAccounts(records){
 }
 function invoiceAccountLists(){
   const data=invoiceAccounting.data||{},option=(value,label)=>`<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
-  return `<datalist id="invoiceSupplierAccounts">${(data.proveedores||[]).map(item=>option(item.cuenta,[item.nombre,item.nif].filter(Boolean).join(" · "))).join("")}</datalist><datalist id="invoiceExpenseAccounts">${(data.gastos||[]).map(item=>option(item.cuenta,item.nombre)).join("")}</datalist>`;
+  return `<datalist id="invoiceSupplierAccounts">${(data.proveedores||[]).map(item=>option(item.cuenta,[item.nombre,item.nif].filter(Boolean).join(" · "))).join("")}</datalist><datalist id="invoiceExpenseAccounts">${(data.gastos||[]).map(item=>option(item.cuenta,item.nombre)).join("")}</datalist><datalist id="invoiceIncomeAccounts">${(data.ingresos||[]).map(item=>option(item.cuenta,item.nombre)).join("")}</datalist>`;
 }
 function invoiceAccountTitle(field,value){
   const account=amAccount(value),item=field==="supplierAccount"?amSupplier(account):amExpense(account);
@@ -2935,16 +2935,18 @@ function renderInvoiceDraft(records){
   const draft=document.querySelector("#invoiceDraft"),body=document.querySelector("#invoiceDraftRows");if(!draft||!body)return;
   const received=invoiceReceivedMode(),withBase=received&&Boolean(invoiceAccounting.data?.proveedores?.length);
   applyInvoiceAccounts(records);if(received)applyInvoiceVatChecks(records);
+  const issued=invoiceProcessorType()==="emitidas";
+  if(issued&&invoiceAccounting.data?.ingresoHabitual)records.forEach(record=>{if(!record.expenseAccount)record.expenseAccount=invoiceAccounting.data.ingresoHabitual});
   const columns=received
-    ?[["number","Nº factura",7],["date","Fecha",6.5],["supplier","Proveedor",9.5],["supplierNif","NIF/CIF",7],["supplierAccount","Cta. proveedor",9],["expenseAccount","Cta. gasto",9],["base","Base imponible",6.5],["vatRate","IVA",6.5],["vat","Cuota IVA",6],["retention","Retención",11],["total","Total",6.5],["concept","Concepto · ver factura",8.5],["observation","Observaciones",7]]
-    :[["number","Nº factura",8.5],["date","Fecha",8],["supplier",invoiceProcessorType()==="emitidas"?"Cliente":"Proveedor",13],["supplierNif","NIF/CIF",9],["base","Base imponible",9],["vatRate","IVA",6],["vat","Cuota IVA",8],["total","Total",9],["concept","Concepto · ver factura",16],["observation","Observaciones",13.5]];
+    ?[["preview","",3.5],["number","Nº factura",7.5],["date","Fecha",7],["supplier","Proveedor",11.5],["supplierNif","NIF/CIF",7.5],["supplierAccount","Cta. proveedor",9],["expenseAccount","Cta. contrapartida",9.5],["base","Base imponible",7],["vatRate","IVA",6.5],["vat","Cuota IVA",6.5],["retention","Retención",12],["total","Total",7.5]]
+    :[["preview","",4],["number","Nº factura",10],["date","Fecha",9],["supplier",issued?"Cliente":"Proveedor",19],["supplierNif","NIF/CIF",10],["expenseAccount","Cta. contrapartida",11],["base","Base imponible",10],["vatRate","IVA",7],["vat","Cuota IVA",9],["total","Total",11]];
   const table=body.closest("table");table.classList.toggle("received",received);
   table.querySelector("#invoiceDraftCols").innerHTML=columns.map(([,,width])=>`<col style="width:${width}%">`).join("");
-  const titles={vatRate:received?"Tipo de IVA · marca «a base» para sumar el IVA no deducible a la base":"",supplierAccount:"Cuenta del proveedor en AMCOMTA",expenseAccount:"Cuenta de gasto en AMCOMTA",retention:"Tipo de retención y cuenta 4751 de AMCOMTA"};
+  const titles={vatRate:received?"Tipo de IVA · marca «a base» para sumar el IVA no deducible a la base":"",supplierAccount:"Cuenta del proveedor en AMCOMTA",expenseAccount:received?"Cuenta de gasto en la que se imputa la factura":"Cuenta de ingresos en la que se imputa la factura",preview:"Ver la factura",retention:"Tipo de retención y cuenta 4751 de AMCOMTA"};
   table.querySelector("#invoiceDraftHead").innerHTML=`<tr>${columns.map(([field,label])=>`<th${numericField(field)?' class="num"':""}${titles[field]?` title="${titles[field]}"`:""}>${label}</th>`).join("")}</tr>`;
   const safeValue=value=>escapeHtml(value).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const input=(index,field,value,extra="")=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(value)}" title="${safeValue(value)}" ${numericField(field)?`class="num${field==="total"?" total-input":""}" inputmode="decimal"`:""} ${extra}>`;
-  const accountInput=(index,field,value)=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(amAccount(value))}" title="${safeValue(invoiceAccountTitle(field,value))}" list="${field==="supplierAccount"?"invoiceSupplierAccounts":"invoiceExpenseAccounts"}" inputmode="numeric" placeholder="${withBase?"Sin relacionar":"—"}" class="account${withBase&&!value?" needs-account":""}">`;
+  const accountInput=(index,field,value)=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(amAccount(value))}" title="${safeValue(invoiceAccountTitle(field,value))}" list="${field==="supplierAccount"?"invoiceSupplierAccounts":received?"invoiceExpenseAccounts":"invoiceIncomeAccounts"}" inputmode="numeric" placeholder="${withBase?"Sin relacionar":"—"}" class="account${withBase&&!value?" needs-account":""}">`;
   const retentionCell=(index,record)=>{
     const rate=invoiceParseNumber(record.retentionRate)||0,account=amAccount(record.retentionAccount),list=invoiceAccounting.data?.retenciones||[];
     const options=[`<option value="">${list.length?"Sin cuenta":"Sin cuentas 4751"}</option>`,...list.map(item=>`<option value="${safeValue(item.cuenta)}"${item.cuenta===account?" selected":""}>${safeValue(item.cuenta+" · "+item.nombre)}</option>`)];
@@ -2955,8 +2957,8 @@ function renderInvoiceDraft(records){
     if(field==="supplierAccount"||field==="expenseAccount")return `<td>${accountInput(index,field,record[field]||"")}</td>`;
     if(field==="retention")return `<td>${retentionCell(index,record)}</td>`;
     if(field==="vatRate"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""),record.vatWarning&&!record.vatToBase?'data-vat-warning="1"':"")}<label title="Sumar el IVA a la base imponible (IVA extranjero o no deducible): el IVA pasa a ser del 0 %"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="vatToBase"${record.vatToBase?" checked":""}>a base</label></div></td>`;
-    if(field==="concept")return `<td><div class="invoice-concept-cell"><button type="button" class="invoice-preview-button" data-invoice-preview="${index}" title="Ver la factura" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}</button>${input(index,"concept",record.concept||"",'placeholder="Sin concepto"')}</div></td>`;
-    if(field==="observation")return `<td>${input(index,"observation",record.observation||"",record.observation?'class="has-note"':"")}</td>`;
+    // Sin columnas de concepto ni observaciones: el ojo abre la factura y, si hay algo que revisar, un aviso lo indica.
+    if(field==="preview")return `<td class="invoice-preview-cell"><button type="button" class="invoice-preview-button${record.observation?" has-warning":""}" data-invoice-preview="${index}" title="${safeValue(record.observation?`Ver la factura · ${record.observation}`:"Ver la factura")}" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}${record.observation?'<span class="invoice-warning-dot" aria-hidden="true">!</span>':""}</button></td>`;
     if(field==="number")return `<td>${input(index,"number",record.number||"",`placeholder="Sin número"${invoiceNumberSuspicious(record.number)?' class="needs-account"':""}`)}</td>`;
     return `<td${numericField(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`;
   };
@@ -3017,19 +3019,19 @@ function applyInvoiceVatChecks(records){
   });
 }
 function invoiceToggleVatToBase(box,rowField){
-  const row=box.dataset.invoiceRow,record=invoiceDraftRecords[Number(row)],base=rowField(row,"base"),vat=rowField(row,"vat"),rate=rowField(row,"vatRate"),note=rowField(row,"observation");
+  const row=box.dataset.invoiceRow,record=invoiceDraftRecords[Number(row)],base=rowField(row,"base"),vat=rowField(row,"vat"),rate=rowField(row,"vatRate");
   if(!record||!base||!vat||!rate)return;
   const NOTE="IVA sumado a la base",tr=box.closest("tr");
   if(box.checked){
     record.vatOriginal={base:base.value,vat:vat.value,vatRate:rate.value};
     const total=(invoiceParseNumber(base.value)||0)+(invoiceParseNumber(vat.value)||0);
     base.value=invoiceFormatField("base",total.toFixed(2));vat.value=invoiceFormatField("vat","0");rate.value=invoiceFormatField("vatRate","0");
-    if(note&&!note.value.includes(NOTE))note.value=[note.value,`${NOTE} (${record.vatOriginal.vatRate} · ${record.vatOriginal.vat})`].filter(Boolean).join(". ");
+    if(!String(record.observation||"").includes(NOTE))record.observation=[record.observation,`${NOTE} (${record.vatOriginal.vatRate} · ${record.vatOriginal.vat})`].filter(Boolean).join(". ");
   }else if(record.vatOriginal){
     base.value=record.vatOriginal.base;vat.value=record.vatOriginal.vat;rate.value=record.vatOriginal.vatRate;record.vatOriginal=null;
-    if(note)note.value=note.value.split(". ").filter(part=>!part.startsWith(NOTE)).join(". ");
+    record.observation=String(record.observation||"").split(". ").filter(part=>!part.startsWith(NOTE)).join(". ");
   }
-  [base,vat,rate,note].forEach(el=>{if(el)el.title=el.value});if(note)note.classList.toggle("has-note",Boolean(note.value.trim()));
+  [base,vat,rate].forEach(el=>{el.title=el.value});
   rate.toggleAttribute("data-vat-warning",Boolean(record.vatWarning)&&!box.checked);tr?.classList.toggle("vat-warning",Boolean(record.vatWarning)&&!box.checked);
 }
 // Un nº de factura sin dígitos (ALB-FACT, FACTURA…) casi siempre es el tipo de documento y no el número.
