@@ -5788,3 +5788,5 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
   html body .dv-movil .dv-zoom span{min-width:54px;text-align:center;color:#fff;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
   html body .dv-movil .dv-contador{left:16px!important;transform:none!important}
 }
+/* Borradores: no se muestra el aviso de «Datos de AMCOMTA…» cuando la base es correcta (solo los avisos) */
+.td-shell .td-source.ready{display:none!important}
