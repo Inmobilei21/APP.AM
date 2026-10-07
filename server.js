@@ -250,6 +250,13 @@ const webdavBaseUrl = (process.env.WEBDAV_URL || "https://servidor.asesoriamolin
 const webdavRoot = "/" + String(process.env.WEBDAV_ROOT || "APP_AM_PRUEBAS").split("/").filter(Boolean).map(encodeURIComponent).join("/");
 const webdavProperties = '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getcontenttype/><d:getlastmodified/></d:prop></d:propfind>';
 const metadataFile = path.join(dataDirectory, "app-metadata.json");
+// Control de declaraciones compartido: { clave: { data, updatedAt, updatedBy } }
+const declarationsFile = path.join(dataDirectory, "declaraciones.json");
+const DECLARATION_KEY = /^app-am-declaration-[^\n]{1,300}$/;
+function loadDeclarations() {
+  try { const saved = JSON.parse(fs.readFileSync(declarationsFile, "utf8")); return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {}; }
+  catch { return {}; }
+}
 
 function requireUser(req, res) {
   const user = currentUser(req);
@@ -819,6 +826,31 @@ http.createServer((req, res) => {
       if (index >= 0) tasks[index] = saved;else tasks.push(saved);
       saveCollection(tasksFile, tasks);return json(res, 200, saved);
     }).catch(() => json(res, 400, { error: "No se pudo guardar la tarea." }));
+  }
+  if (requestPath === "/api/declaraciones" && req.method === "GET") {
+    if (!requireUser(req, res)) return;
+    const since = String(new URL(req.url, "http://localhost").searchParams.get("since") || "");
+    const all = loadDeclarations(), records = {};
+    for (const [key, record] of Object.entries(all)) if (!since || String(record.updatedAt || "") > since) records[key] = record;
+    return json(res, 200, { records, now: new Date().toISOString() });
+  }
+  if (requestPath === "/api/declaraciones" && req.method === "PUT") {
+    const user = requireUser(req, res);if (!user) return;
+    return readJson(req, 8 * 1024 * 1024).then(({ records }) => {
+      if (!records || typeof records !== "object" || Array.isArray(records)) return json(res, 400, { error: "Datos de declaraciones no válidos." });
+      const all = loadDeclarations(), now = new Date().toISOString(), saved = {};
+      for (const [key, value] of Object.entries(records).slice(0, 5000)) {
+        if (!DECLARATION_KEY.test(key) || !value || typeof value !== "object" || Array.isArray(value)) continue;
+        // Se combinan los campos con lo que ya hubiera para no perder lo que otro haya anotado en la misma fila.
+        all[key] = { data: { ...(all[key]?.data || {}), ...value }, updatedAt: now, updatedBy: user.name || user.id };
+        saved[key] = all[key];
+      }
+      fs.mkdirSync(dataDirectory, { recursive: true });
+      const temporary = `${declarationsFile}.tmp`;
+      fs.writeFileSync(temporary, JSON.stringify(all), { mode: 0o600 });
+      fs.renameSync(temporary, declarationsFile);
+      return json(res, 200, { records: saved, now });
+    }).catch(() => json(res, 400, { error: "No se pudieron guardar las declaraciones." }));
   }
   if (requestPath === "/api/tasks/sync" && req.method === "PUT") {
     const user = requireUser(req, res);if (!user) return;

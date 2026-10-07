@@ -2333,8 +2333,8 @@ function renderDeclarations(){
         </div>
       </div>
       <div class="tax-deadlines" id="taxDeadlines"></div>
-      <div class="tax-tabs" role="tablist">${[...taxModels,...annualTaxModels].map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
-      <div class="tax-lock-banner" id="taxLockBanner" hidden></div>
+      <div class="tax-tabs-row"><div class="tax-tabs" role="tablist">${[...taxModels,...annualTaxModels].map(model=>`<button type="button" role="tab" data-tax-tab="${model}" class="${model===activeTaxModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
+      <div class="tax-lock-banner" id="taxLockBanner" hidden></div></div>
       <div class="tax-table-wrap"><table class="tax-table"><thead><tr id="taxTableHead">${declarationTableHeaders("tax",activeTaxModel)}</tr></thead><tbody id="taxRows"><tr><td colspan="10" class="table-empty">Cargando clientes…</td></tr></tbody></table></div>
     </section>`;
    bindHeader();
@@ -2463,8 +2463,8 @@ function renderDeclarationHistory(){
           <label class="quarter-selector"><span>Periodo fiscal</span><select id="historyQuarter"></select></label>
         </div>
       </div>
-      <div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
-      <div class="tax-lock-banner history-lock" id="historyLockBanner"></div>
+      <div class="tax-tabs-row"><div class="tax-tabs" role="tablist">${taxModels.map(model=>`<button type="button" role="tab" data-history-tax-tab="${model}" class="${model===activeHistoryModel?"active":""}">Modelo ${model}</button>`).join("")}</div>
+      <div class="tax-lock-banner history-lock" id="historyLockBanner"></div></div>
       <div class="tax-table-wrap"><table class="tax-table history-tax-table"><thead><tr>${historyTableHeaders()}</tr></thead><tbody id="historyTaxRows"><tr><td colspan="${11+historyControlColumns().length}" class="table-empty">Cargando histórico…</td></tr></tbody></table></div>
     </section>`;
   bindHeader();
@@ -3043,6 +3043,11 @@ function numericField(field){return INVOICE_MONEY_FIELDS.includes(field)||INVOIC
 function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows [data-invoice-field]").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim(),record=records[Number(input.dataset.invoiceRow)];if(!field||!record)return;if(input.type==="checkbox"){record[field]=input.checked;return}if(numericField(field)||field==="retentionRate"){const number=invoiceParseNumber(value);record[field]=number===null?value:String(number)}else record[field]=value});return records}
 /* Vista previa de la factura original con su concepto */
 const invoicePreviewUrls=new Map();
+// Zoom de las vistas previas: botones − / + centrados arriba.
+const PREVIEW_ZOOM_STEPS=[0.5,0.75,1,1.25,1.5,2,3];
+let invoicePreviewZoom=1;
+const previewZoomMarkup=zoom=>`<div class="preview-zoom" role="group" aria-label="Zoom"><button type="button" data-zoom-step="-1" aria-label="Reducir" title="Reducir">−</button><span data-zoom-label>${Math.round(zoom*100)} %</span><button type="button" data-zoom-step="1" aria-label="Ampliar" title="Ampliar">+</button></div>`;
+function nextPreviewZoom(current,step){const index=PREVIEW_ZOOM_STEPS.findIndex(value=>value>=current-0.001);return PREVIEW_ZOOM_STEPS[Math.min(PREVIEW_ZOOM_STEPS.length-1,Math.max(0,(index<0?2:index)+step))]}
 function invoicePreviewUrl(file){if(!invoicePreviewUrls.has(file))invoicePreviewUrls.set(file,URL.createObjectURL(file));return invoicePreviewUrls.get(file)}
 function clearInvoicePreviewUrls(){invoicePreviewUrls.forEach(url=>URL.revokeObjectURL(url));invoicePreviewUrls.clear();document.querySelector("#invoicePreview")?.remove()}
 function invoiceScrollToPage(doc,page){const target=doc.querySelector(`canvas[data-page="${page||1}"]`);if(target)doc.scrollTop=Math.max(0,target.offsetTop-14)}
@@ -3051,10 +3056,10 @@ async function openInvoicePreview(index){
   let modal=document.querySelector("#invoicePreview");
   if(!modal){
     modal=document.createElement("div");modal.id="invoicePreview";modal.className="invoice-preview";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");
-    modal.innerHTML=`<div class="invoice-preview-box"><header><div><p class="eyebrow">VISTA PREVIA</p><h4 id="invoicePreviewTitle"></h4></div><div class="invoice-preview-nav"><button type="button" data-preview-step="-1" aria-label="Factura anterior">‹</button><span id="invoicePreviewCount"></span><button type="button" data-preview-step="1" aria-label="Factura siguiente">›</button><button type="button" class="invoice-preview-close" aria-label="Cerrar">×</button></div></header><div class="invoice-preview-body"><div class="invoice-preview-doc" id="invoicePreviewDoc"></div><aside id="invoicePreviewData"></aside></div></div>`;
+    modal.innerHTML=`<div class="invoice-preview-box"><header><div><p class="eyebrow">VISTA PREVIA</p><h4 id="invoicePreviewTitle"></h4></div>${previewZoomMarkup(invoicePreviewZoom)}<div class="invoice-preview-nav"><button type="button" data-preview-step="-1" aria-label="Factura anterior">‹</button><span id="invoicePreviewCount"></span><button type="button" data-preview-step="1" aria-label="Factura siguiente">›</button><button type="button" class="invoice-preview-close" aria-label="Cerrar">×</button></div></header><div class="invoice-preview-body"><div class="invoice-preview-doc" id="invoicePreviewDoc"></div><aside id="invoicePreviewData"></aside></div></div>`;
     document.body.append(modal);
     const close=()=>{modal.hidden=true;document.removeEventListener("keydown",modal._keys)};
-    modal.addEventListener("click",event=>{if(event.target===modal||event.target.closest(".invoice-preview-close"))close();const step=event.target.closest("[data-preview-step]");if(step)openInvoicePreview(Number(modal.dataset.index)+Number(step.dataset.previewStep))});
+    modal.addEventListener("click",event=>{const zoom=event.target.closest("[data-zoom-step]");if(zoom){invoicePreviewZoom=nextPreviewZoom(invoicePreviewZoom,Number(zoom.dataset.zoomStep));modal.querySelector("[data-zoom-label]").textContent=`${Math.round(invoicePreviewZoom*100)} %`;modal.querySelector("#invoicePreviewDoc").dataset.key="";openInvoicePreview(Number(modal.dataset.index));return}if(event.target===modal||event.target.closest(".invoice-preview-close"))close();const step=event.target.closest("[data-preview-step]");if(step)openInvoicePreview(Number(modal.dataset.index)+Number(step.dataset.previewStep))});
     modal._keys=event=>{if(event.key==="Escape")close();if(event.key==="ArrowLeft"||event.key==="ArrowRight")openInvoicePreview(Number(modal.dataset.index)+(event.key==="ArrowLeft"?-1:1))};
   }
   if(index<0||index>=records.length)return;
@@ -3080,11 +3085,11 @@ async function openInvoicePreview(index){
     if(doc.dataset.token!==token)return;
     if(segment.title){const heading=document.createElement("p");heading.className="invoice-preview-section";heading.textContent=`${segment.title}${segment.pages?` · pág. ${segment.pages}`:""}`;container.append(heading)}
     const url=invoicePreviewUrl(segment.file);
-    if(!invoiceIsPdf(segment.file)){container.insertAdjacentHTML("beforeend",isImage(segment.file)?`<img alt="${escapeHtml(segment.title||"Factura")}" src="${url}">`:`<pre>${escapeHtml((await segment.file.text().catch(()=>"")).slice(0,200000))}</pre>`);continue}
+    if(!invoiceIsPdf(segment.file)){container.insertAdjacentHTML("beforeend",isImage(segment.file)?`<img alt="${escapeHtml(segment.title||"Factura")}" src="${url}" style="width:${Math.round(Math.min(doc.clientWidth-40,1000)*invoicePreviewZoom)}px;max-width:none">`:`<pre>${escapeHtml((await segment.file.text().catch(()=>"")).slice(0,200000))}</pre>`);continue}
     try{
       if(!pdfjs){pdfjs=await import("/vendor/pdfjs/pdf.min.mjs");pdfjs.GlobalWorkerOptions.workerSrc="/vendor/pdfjs/pdf.worker.min.mjs"}
       const pdf=await pdfjs.getDocument({data:await segment.file.arrayBuffer()}).promise;if(doc.dataset.token!==token)return;
-      const width=Math.min(doc.clientWidth-40,1000),ratio=window.devicePixelRatio||1;
+      const width=Math.min(doc.clientWidth-40,1000)*invoicePreviewZoom,ratio=window.devicePixelRatio||1;
       for(const number of invoicePageList(segment.pages,pdf.numPages).slice(0,40)){
         const pdfPage=await pdf.getPage(number),base=pdfPage.getViewport({scale:1}),viewport=pdfPage.getViewport({scale:width/base.width*ratio});
         const canvas=document.createElement("canvas");canvas.width=viewport.width;canvas.height=viewport.height;canvas.style.width=`${viewport.width/ratio}px`;canvas.dataset.page=number;container.append(canvas);
@@ -3262,9 +3267,15 @@ function openDocumentPreview(file){
     :kind==="video"?`<video src="${url}" controls></video>`
     :`<div class="document-preview-unavailable"><span>${documentTypeVisual(file.name)}</span><h3>Vista previa no disponible</h3><p>Este formato no puede mostrarse dentro del navegador, pero puedes descargarlo o imprimirlo con su aplicación correspondiente.</p></div>`;
   const shell=document.createElement("div");shell.id="documentPreview";shell.className="document-preview-shell";
-  shell.innerHTML=`<div class="document-preview-backdrop" data-close-preview></div><section class="document-preview-card" role="dialog" aria-modal="true" aria-labelledby="documentPreviewTitle"><header><div><p class="eyebrow">VISTA PRELIMINAR</p><h2 id="documentPreviewTitle">${escapeHtml(file.name)}</h2><small>${file.size?new Intl.NumberFormat("es-ES",{maximumFractionDigits:1}).format(file.size/1024)+" KB":"Documento"}</small></div><button type="button" data-close-preview aria-label="Cerrar">×</button></header><div class="document-preview-body ${kind}">${content}</div><footer><button type="button" class="secondary-button" data-close-preview>Cerrar</button><button type="button" class="secondary-button" id="printPreviewDocument">⌁ Imprimir</button><button type="button" class="primary blue-button" id="downloadPreviewDocument">↓ Descargar</button></footer></section>`;
+  shell.innerHTML=`<div class="document-preview-backdrop" data-close-preview></div><section class="document-preview-card" role="dialog" aria-modal="true" aria-labelledby="documentPreviewTitle"><header><div><p class="eyebrow">VISTA PRELIMINAR</p><h2 id="documentPreviewTitle">${escapeHtml(file.name)}</h2><small>${file.size?new Intl.NumberFormat("es-ES",{maximumFractionDigits:1}).format(file.size/1024)+" KB":"Documento"}</small></div>${kind==="pdf"||kind==="image"?previewZoomMarkup(1):""}<button type="button" data-close-preview aria-label="Cerrar">×</button></header><div class="document-preview-body ${kind}">${content}</div><footer><button type="button" class="secondary-button" data-close-preview>Cerrar</button><button type="button" class="secondary-button" id="printPreviewDocument">⌁ Imprimir</button><button type="button" class="primary blue-button" id="downloadPreviewDocument">↓ Descargar</button></footer></section>`;
   document.body.appendChild(shell);
   shell.querySelectorAll("[data-close-preview]").forEach(button=>button.addEventListener("click",closeDocumentPreview));
+  let zoom=1;
+  shell.querySelectorAll("[data-zoom-step]").forEach(button=>button.addEventListener("click",()=>{
+    zoom=nextPreviewZoom(zoom,Number(button.dataset.zoomStep));shell.querySelector("[data-zoom-label]").textContent=`${Math.round(zoom*100)} %`;
+    if(kind==="pdf"){const frame=shell.querySelector("#documentPreviewFrame"),fresh=frame.cloneNode();fresh.src=`${url}#toolbar=0&zoom=${Math.round(zoom*100)}`;frame.replaceWith(fresh)}
+    else{const image=shell.querySelector(".document-preview-body img");if(image){image.style.maxWidth="none";image.style.maxHeight="none";image.style.width=zoom===1?"":`${Math.round(zoom*100)}%`}}
+  }));
   shell.querySelector("#downloadPreviewDocument").addEventListener("click",()=>{const link=document.createElement("a");link.href=url;link.download=file.name;document.body.appendChild(link);link.click();link.remove()});
   const printButton=shell.querySelector("#printPreviewDocument");
   if(kind==="other"||kind==="audio"||kind==="video"){printButton.disabled=true;printButton.title="Este formato necesita su aplicación para imprimirse"}else printButton.addEventListener("click",()=>printPreviewDocument(file,url,kind));
