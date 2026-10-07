@@ -105,8 +105,9 @@ async function loadTaxDraftDocuments(){
   const model=taxDrafts.model;
   if(!taxDrafts.clientData||!TAX_DRAFT_BUILDERS[model])return;
   const client=taxDrafts.client,year=taxDraftYear(),found=new Map();
-  let pdfs=[];try{pdfs=await getDeclarationPdfs(true)}catch{}
+  let pdfs=[],root=null;try{root=await getSavedHandle("declarations-folder");pdfs=await getDeclarationPdfs(true)}catch{}
   taxDrafts.docsFolder=pdfs.length>0;
+  taxDrafts.docsInfo={source:root?.remote?"servidor":root?"carpeta de este equipo":"sin conectar",total:pdfs.length,model:pdfs.filter(doc=>doc.normalized.includes(String(year))&&fiscalModelMatches(doc.normalized,model)).length};
   for(const period of ["1T","2T","3T","4T"]){
     // Se conservan los enlaces de los cuatro trimestres (antes cada uno anulaba el del anterior).
     try{const docs=await declarationDocumentsForClients([taxDrafts.clientData],model,"trimestral",period,year,{keepUrls:true});const doc=docs.get(client);if(doc)found.set(period,doc)}catch{}
@@ -192,6 +193,13 @@ const TAX_DRAFT_BUILDERS={
 function taxDraftBuild(model,period){const draft=TAX_DRAFT_BUILDERS[model](period);return{...draft,model,period,year:taxDraftYear()}}
 const tdValue=box=>box.kind==="count"?String(box.value):tdEur(box.value);
 
+// Línea de control: si dos equipos ven cosas distintas, aquí se ve qué difiere.
+function taxDraftDiagnostic(){
+  const base=taxDrafts.base||{},info=taxDrafts.docsInfo;
+  const when=base.actualizado?new Date(base.actualizado).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—";
+  const version=String((typeof loadedApplicationVersion!=="undefined"&&loadedApplicationVersion)||"").slice(0,7)||"—";
+  return `Versión ${escapeHtml(version)} · base del ${escapeHtml(when)} (${Array.isArray(base.nominas)?base.nominas.length:"sin"} nóminas, ${(base.retencionesIrpf||[]).length} facturas con retención) · declaraciones: ${info?`${escapeHtml(info.source)}, ${info.total} PDF, ${info.model} del modelo ${escapeHtml(taxDrafts.model)} en ${taxDraftYear()}`:"buscando…"}`;
+}
 function renderTaxDraftMain(){
   const box=document.querySelector("#tdMain");if(!box)return;
   const model=taxDrafts.model;
@@ -214,7 +222,8 @@ function renderTaxDraftMain(){
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">${model==="111"?"Percepciones":"Base"}</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr></tfoot></table></div>
     ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Pulsa «Actualizar base (.MDB)» una sola vez para añadir los trabajadores; a partir de ahí la base queda guardada y se recalcula sola.</p>':""}
-    <p class="td-hint">Pulsa un trimestre para desplegar su borrador.</p>`;
+    <p class="td-hint">Pulsa un trimestre para desplegar su borrador.</p>
+    <p class="td-hint td-diag" title="Datos para comprobar que todos los equipos ven lo mismo">${taxDraftDiagnostic()}</p>`;
   box.querySelectorAll("tr.td-q").forEach(row=>{
     const toggle=event=>{if(event.target.closest(".td-decl"))return;const period=row.dataset.tdPeriod;taxDrafts.open=taxDrafts.open===period?"":period;renderTaxDraftMain()};
     row.addEventListener("click",toggle);row.addEventListener("keydown",event=>{if(event.key==="Enter")toggle(event)});

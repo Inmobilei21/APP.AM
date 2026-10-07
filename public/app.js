@@ -3463,7 +3463,7 @@ async function saveHandle(key,handle){
   });
 }
 async function getSavedHandle(key){
-  if(webdavFolderMap[key]&&await webdavConnected())return new WebDavDirectoryHandle(webdavFolderMap[key],webdavFolderMap[key]);
+  if(webdavFolderMap[key]&&(await webdavConnected()||await webdavConnected(true)))return new WebDavDirectoryHandle(webdavFolderMap[key],webdavFolderMap[key]);
   const db=await folderDb();
   return new Promise((resolve,reject)=>{
     const request=db.transaction("handles","readonly").objectStore("handles").get(key);
