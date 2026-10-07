@@ -93,8 +93,29 @@ module.exports = function ({ dataDirectory }) {
       });
     }
     retencionesIrpf.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.nombre.localeCompare(b.nombre, "es"));
+    // Nóminas (modelo 111): asientos del diario con abono a la cuenta de retenciones del trabajo.
+    // Percepciones = cargos a 640/641 del asiento; trabajadores = cuentas 465 abonadas en él.
+    const retentionAccounts = [...accountNames.keys()].filter(code => code.startsWith("4751"));
+    let workAccounts = retentionAccounts.filter(code => /TRABAJ|PERSONAL|NOMINA/i.test(accountNames.get(code) || ""));
+    if (!workAccounts.length && accountNames.has("4751000000")) workAccounts = ["4751000000"];
+    const workSet = new Set(workAccounts), entries = new Map();
+    if (workSet.size) {
+      for (const row of rows("Movimientos")) {
+        const code = text(row.Cuenta);
+        if (!workSet.has(code) && !/^64[01]/.test(code) && !code.startsWith("465")) continue;
+        const key = `${isoDay(row.Fecha)}|${text(row.Asiento)}|${text(row.Contabilidad)}`, amount = money(row, "Importe Euro", "Importe"), debit = isTrue(row.Debe) || row.Debe === true;
+        const entry = entries.get(key) || { fecha: isoDay(row.Fecha), asiento: text(row.Asiento), concepto: "", percepciones: 0, retencion: 0, trabajadores: new Map() };
+        if (!entry.concepto) entry.concepto = text(row["Ampliación"]);
+        if (workSet.has(code)) entry.retencion += debit ? -amount : amount;
+        else if (/^64[01]/.test(code)) entry.percepciones += debit ? amount : -amount;
+        else if (!debit && amount) entry.trabajadores.set(code, accountNames.get(code) || code);
+        entries.set(key, entry);
+      }
+    }
+    const nominas = [...entries.values()].filter(entry => entry.retencion > 0.004 && entry.asiento !== "0" && !/APERTURA|CIERRE|REGULARIZ/i.test(entry.concepto)).map(entry => ({ ...entry, percepciones: Math.round(entry.percepciones * 100) / 100, retencion: Math.round(entry.retencion * 100) / 100, trabajadores: [...entry.trabajadores].map(([cuenta, nombre]) => ({ cuenta, nombre })) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const trabajadores = rows("Trabajadores").map(row => ({ codigo: text(row.Codigo), nombre: text(row.Nombre), cuenta: text(row.Cuenta), nif: nif(row.Nif), clave: text(row.ClavePercepcion) })).filter(worker => worker.nombre);
     const inicio = general["Fecha Inicio"] instanceof Date ? general["Fecha Inicio"] : null;
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf };
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores };
   }
 
   async function save(client, buffer, user) {
