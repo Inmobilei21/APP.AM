@@ -199,12 +199,55 @@ function openTaxDraftSide(kind,draft){
   }else{
     document.querySelector("#tdSideTitle").textContent=`Facturas que componen el borrador (${draft.items.length})`;
     document.querySelector("#tdSideSub").textContent="Facturas recibidas con retención de alquiler en la contabilidad de AMCOMTA.";
-    body.innerHTML=taxDraftInvoiceTable(draft.items);
+    body.innerHTML=taxDraftInvoiceTable(draft.items);fillTaxDraftInvoiceFiles(body,taxDrafts.client,draft.items);
   }
   document.querySelector("#tdShade").hidden=false;document.querySelector("#tdSide").classList.add("on");
 }
 function taxDraftInvoiceTable(items){
-  return `<table class="td-list"><thead><tr><th>Fecha</th><th>Nº factura</th><th>Arrendador</th><th class="num">Base</th><th class="num">%</th><th class="num">Retención</th></tr></thead><tbody>${items.map(item=>`<tr><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<br><small>${escapeHtml(item.nif)}</small></td><td class="num">${tdEur(item.base)}</td><td class="num">${escapeHtml(item.porcentaje)} %</td><td class="num">${tdEur(item.retencion)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">Total</td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.base,0))}</td><td></td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.retencion,0))}</td></tr></tfoot></table>`;
+  return `<table class="td-list td-invoices"><thead><tr><th>Fecha</th><th>Nº factura</th><th>Arrendador</th><th class="center" title="Factura guardada en la carpeta del cliente">Factura</th><th class="num">Base</th><th class="num">%</th><th class="num">Retención</th></tr></thead><tbody>${items.map((item,index)=>`<tr><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<br><small>${escapeHtml(item.nif)}</small></td><td class="center" data-td-file="${index}"><span class="td-file-wait" title="Buscando la factura…">…</span></td><td class="num">${tdEur(item.base)}</td><td class="num">${escapeHtml(item.porcentaje)} %</td><td class="num">${tdEur(item.retencion)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Total</td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.base,0))}</td><td></td><td class="num">${tdEur(items.reduce((sum,item)=>sum+item.retencion,0))}</td></tr></tfoot></table>`;
+}
+/* --- Facturas guardadas por el lector: CLIENTES/<cliente>/CONTABILIDAD/<año>/<trimestre>/RECIBIDAS --- */
+const tdEyeOff='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const taxDraftFolderCache=new Map();
+async function taxDraftReceivedFiles(client,year,quarter){
+  const key=`${client}|${year}|${quarter}`;
+  if(!taxDraftFolderCache.has(key))taxDraftFolderCache.set(key,(async()=>{
+    try{
+      const root=await getSavedHandle("clients-folder");if(!root)return[];
+      let folder=await root.getDirectoryHandle(client);
+      for(const part of ["CONTABILIDAD",String(year),quarter,"RECIBIDAS"])folder=await folder.getDirectoryHandle(part);
+      const files=[];for await(const entry of folder.values())if(entry.kind!=="directory")files.push(entry);
+      return files;
+    }catch{return[]}
+  })());
+  return taxDraftFolderCache.get(key);
+}
+// La factura se reconoce por la fecha del nombre (AAAA.MM.DD), el nombre del proveedor y, si aparece, su número.
+function taxDraftMatchFile(item,files,used){
+  const prefixes=[item.fechaFactura,item.fecha].filter(Boolean).map(date=>String(date).slice(0,10).replace(/-/g,"."));
+  const words=normalizeFiscalText(item.nombre).split(" ").filter(word=>word.length>2),number=normalizeFiscalText(item.numero).replace(/ /g,"");
+  let best=null,bestScore=0;
+  for(const file of files){
+    if(used.has(file))continue;
+    const name=normalizeFiscalText(file.name.replace(/\.[a-z0-9]+$/i,"")),compact=name.replace(/ /g,"");
+    let score=prefixes.some(prefix=>file.name.startsWith(prefix))?2:0;
+    if(words.length)score+=2*words.filter(word=>name.split(" ").includes(word)).length/words.length;
+    if(number.length>2&&compact.includes(number))score+=2;
+    if(score>bestScore){best=file;bestScore=score}
+  }
+  return bestScore>=3.5?best:null;
+}
+async function fillTaxDraftInvoiceFiles(container,client,items){
+  taxDraftFolderCache.clear();const used=new Set();
+  for(const [index,item] of items.entries()){
+    const cell=container.querySelector(`[data-td-file="${index}"]`);if(!cell)continue;
+    const year=String(item.fechaFactura||item.fecha).slice(0,4),quarters=[...new Set([item.fechaFactura,item.fecha].filter(Boolean).map(date=>`${Math.ceil(Number(String(date).slice(5,7))/3)}T`))];
+    let file=null;
+    for(const quarter of quarters){file=taxDraftMatchFile(item,await taxDraftReceivedFiles(client,year,quarter),used);if(file)break}
+    if(!cell.isConnected)return;
+    if(file){used.add(file);cell.innerHTML=`<button type="button" class="td-eye" data-preview-document="${registerPreviewDocument({name:file.name,handle:file})}" title="Ver la factura (${escapeHtml(file.name)})" aria-label="Ver la factura ${escapeHtml(item.numero)}">${tdEye}</button>`}
+    else cell.innerHTML=`<span class="td-eye off" title="No está la factura en CLIENTES/${escapeHtml(client)}/CONTABILIDAD/${escapeHtml(year)}/${escapeHtml(quarters[0]||"")}/RECIBIDAS" aria-label="Factura no encontrada">${tdEyeOff}</span>`;
+  }
 }
 function closeTaxDraftSide(){document.querySelector("#tdShade")?.setAttribute("hidden","");document.querySelector("#tdSide")?.classList.remove("on")}
 document.addEventListener("keydown",event=>{if(event.key==="Escape"&&document.querySelector("#tdSide.on"))closeTaxDraftSide()});
@@ -220,7 +263,7 @@ function openConfirmedTaxDraft(key){
     <div class="td-modal-body"><p class="td-note">Es el borrador preparado en la app. Cuando la declaración presentada esté en la carpeta de declaraciones, se verá esa en su lugar.</p>
     <div class="td-boxes">${boxes.map(([n,label,value],index)=>`<div class="td-box${index===4?" total":""}"><span class="td-n">${n}</span><span class="td-label">${label}</span><span class="td-value">${value}</span><span></span></div>`).join("")}</div>
     <h4>Facturas (${(draft.items||[]).length})</h4>${taxDraftInvoiceTable(draft.items||[])}</div></div>`;
-  document.body.append(view);
+  document.body.append(view);fillTaxDraftInvoiceFiles(view,draft.client,draft.items||[]);
   const close=()=>{view.remove();document.removeEventListener("keydown",onKey)},onKey=event=>{if(event.key==="Escape")close()};
   view.addEventListener("click",event=>{if(event.target===view||event.target.closest(".td-close"))close()});document.addEventListener("keydown",onKey);
 }

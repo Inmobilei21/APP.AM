@@ -5698,3 +5698,6 @@ html body .client-unavailable-overlay .am-srv-done p{margin:0 0 12px!important;f
   html body .client-fiscal-overlay .client-fiscal-header{height:calc(82px + env(safe-area-inset-top,0px))!important;padding-top:env(safe-area-inset-top,0px)!important;box-sizing:border-box}
 }
 .td-data-pill{margin-left:auto;align-self:center;padding:4px 11px;border-radius:999px;background:#e6e8ee;color:#3b4560;font-size:11.5px;font-weight:800;white-space:nowrap}
+.td-list .center{text-align:center}.td-list .td-eye{margin:0 auto}
+.td-eye.off{display:grid;place-items:center;color:#b4bccb;cursor:not-allowed;margin:0 auto}.td-eye.off:hover{background:transparent}
+.td-file-wait{color:#b4bccb}
