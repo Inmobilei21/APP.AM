@@ -31,9 +31,9 @@ module.exports = function ({ dataDirectory }) {
       if (code.length === digits) accountNames.set(code, text(row.Nombre));
     }
     const records = new Map();
-    for (const row of rows("Fichas", ["Código", "Nif", "Razón Social", "Contrapartida"])) {
+    for (const row of rows("Fichas", ["Código", "Nif", "Razón Social", "Contrapartida", "Código Postal"])) {
       const code = text(row["Código"]);
-      if (code.length === digits) records.set(code, { nif: nif(row.Nif), nombre: text(row["Razón Social"]), gasto: text(row.Contrapartida) });
+      if (code.length === digits) records.set(code, { nif: nif(row.Nif), nombre: text(row["Razón Social"]), gasto: text(row.Contrapartida), cp: text(row["Código Postal"]) });
     }
 
     // Histórico de facturas recibidas: NIF usado y cuenta de gasto habitual de cada proveedor.
@@ -89,10 +89,12 @@ module.exports = function ({ dataDirectory }) {
       retencionesIrpf.push({
         fecha: isoDay(row.Fecha), fechaFactura: isoDay(row["Fecha Factura"]) || isoDay(row.Fecha),
         numero: text(row["Número Factura"]), cuenta, nombre: text(row.Nombre) || record.nombre || accountNames.get(cuenta) || "", nif: nif(row.Cif) || record.nif || "",
-        base: money(row, "Base IRPF Euro", "Base IRPF"), porcentaje: Number(row["% IRPF"]) || 0, retencion, cuentaIrpf, cuentaIrpfNombre: cuentaNombre, clave, tipo
+        base: money(row, "Base IRPF Euro", "Base IRPF"), porcentaje: Number(row["% IRPF"]) || 0, retencion, cuentaIrpf, cuentaIrpfNombre: cuentaNombre, clave, tipo, cp: record.cp || ""
       });
     }
     retencionesIrpf.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.nombre.localeCompare(b.nombre, "es"));
+    const workerTable = rows("Trabajadores").map(row => ({ cuenta: text(row.Cuenta), nif: nif(row.Nif) }));
+    const workerNif = cuenta => records.get(cuenta)?.nif || workerTable.find(worker => worker.cuenta === cuenta)?.nif || "";
     // Nóminas (modelo 111): asientos del diario con abono a la cuenta de retenciones del trabajo.
     // Percepciones = cargos a 640/641 del asiento; trabajadores = cuentas 465 abonadas en él.
     const retentionAccounts = [...accountNames.keys()].filter(code => code.startsWith("4751"));
@@ -108,11 +110,11 @@ module.exports = function ({ dataDirectory }) {
         if (!entry.concepto) entry.concepto = text(row["Ampliación"]);
         if (workSet.has(code)) entry.retencion += debit ? -amount : amount;
         else if (/^64[01]/.test(code)) entry.percepciones += debit ? amount : -amount;
-        else if (!debit && amount) entry.trabajadores.set(code, accountNames.get(code) || code);
+        else if (!debit && amount) { const worker = entry.trabajadores.get(code) || { nombre: accountNames.get(code) || code, liquido: 0 };worker.liquido += amount;entry.trabajadores.set(code, worker); }
         entries.set(key, entry);
       }
     }
-    const nominas = [...entries.values()].filter(entry => entry.retencion > 0.004 && entry.asiento !== "0" && !/APERTURA|CIERRE|REGULARIZ/i.test(entry.concepto)).map(entry => ({ ...entry, percepciones: Math.round(entry.percepciones * 100) / 100, retencion: Math.round(entry.retencion * 100) / 100, trabajadores: [...entry.trabajadores].map(([cuenta, nombre]) => ({ cuenta, nombre })) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const nominas = [...entries.values()].filter(entry => entry.retencion > 0.004 && entry.asiento !== "0" && !/APERTURA|CIERRE|REGULARIZ/i.test(entry.concepto)).map(entry => ({ ...entry, percepciones: Math.round(entry.percepciones * 100) / 100, retencion: Math.round(entry.retencion * 100) / 100, trabajadores: [...entry.trabajadores].map(([cuenta, worker]) => ({ cuenta, nombre: worker.nombre, liquido: Math.round(worker.liquido * 100) / 100, nif: workerNif(cuenta), cp: records.get(cuenta)?.cp || "" })) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
     const trabajadores = rows("Trabajadores").map(row => ({ codigo: text(row.Codigo), nombre: text(row.Nombre), cuenta: text(row.Cuenta), nif: nif(row.Nif), clave: text(row.ClavePercepcion) })).filter(worker => worker.nombre);
     // Modelo 123: asientos con abono a la cuenta 4751 de rendimientos del capital mobiliario (intereses,
     // dividendos). Base = cargos del asiento (gasto financiero o dividendo a pagar); si no hay, ret. / 19 %.
@@ -165,7 +167,7 @@ module.exports = function ({ dataDirectory }) {
 
   // Versión del resumen: al leer más datos de la base se sube y los resúmenes antiguos se
   // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
-  const VERSION = 4;
+  const VERSION = 5;
   const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
   // ¿La empresa de la base es la del cliente elegido? (evita guardar la base de otro cliente)
   const words = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")

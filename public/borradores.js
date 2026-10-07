@@ -234,7 +234,7 @@ function taxDraftAnnualRow(model,totals){
   });
   const control=declarationData(annual[0],"4T",taxDrafts.client,taxDraftYear());
   const status=control.submitted?["Presentado","pres"]:control.prepared?["Preparado","conf"]:["Pendiente","pend"];
-  return `<tr class="td-annual"><td><strong>Declaración anual · Modelo ${annual[0]}</strong><small>${escapeHtml(annual[1])}</small></td><td class="num" title="${model==="123"?"Rentas del año":"Perceptores distintos en el año"}">${ids.size}</td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num td-dim">—</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td></td></tr>`;
+  return `<tr class="td-annual" data-td-annual="${annual[0]}" tabindex="0" title="Ver el resumen anual"><td><strong><span class="td-caret">›</span> Declaración anual · Modelo ${annual[0]}</strong><small>${escapeHtml(annual[1])}</small></td><td class="num" title="${model==="123"?"Rentas del año":"Perceptores distintos en el año"}">${ids.size}</td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num td-dim">—</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td></td></tr>`;
 }
 function renderTaxDraftMain(){
   const box=document.querySelector("#tdMain");if(!box)return;
