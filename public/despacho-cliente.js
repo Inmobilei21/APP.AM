@@ -82,4 +82,4 @@
 })();
 
 // Modelo 347 en Borradores (archivo aparte).
-(()=>{const s=document.createElement("script");s.src="/m347.js?v=1";document.body.append(s)})();
+(()=>{for(const src of ["/m347.js?v=1","/m123.js?v=1"]){const s=document.createElement("script");s.src=src;document.body.append(s)}})();

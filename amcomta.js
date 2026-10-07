@@ -114,6 +114,25 @@ module.exports = function ({ dataDirectory }) {
     }
     const nominas = [...entries.values()].filter(entry => entry.retencion > 0.004 && entry.asiento !== "0" && !/APERTURA|CIERRE|REGULARIZ/i.test(entry.concepto)).map(entry => ({ ...entry, percepciones: Math.round(entry.percepciones * 100) / 100, retencion: Math.round(entry.retencion * 100) / 100, trabajadores: [...entry.trabajadores].map(([cuenta, nombre]) => ({ cuenta, nombre })) })).sort((a, b) => a.fecha.localeCompare(b.fecha));
     const trabajadores = rows("Trabajadores").map(row => ({ codigo: text(row.Codigo), nombre: text(row.Nombre), cuenta: text(row.Cuenta), nif: nif(row.Nif), clave: text(row.ClavePercepcion) })).filter(worker => worker.nombre);
+    // Modelo 123: asientos con abono a la cuenta 4751 de rendimientos del capital mobiliario (intereses,
+    // dividendos). Base = cargos del asiento (gasto financiero o dividendo a pagar); si no hay, ret. / 19 %.
+    const capitalAccounts = new Set(retentionAccounts.filter(code => /INTERES|CAPITAL|MOBILIARIO|DIVIDEND|RENDIM/i.test(accountNames.get(code) || "")));
+    const capitalEntries = new Map();
+    if (capitalAccounts.size) {
+      for (const row of rows("Movimientos")) {
+        const key = `${isoDay(row.Fecha)}|${text(row.Asiento)}|${text(row.Contabilidad)}`;
+        const entry = capitalEntries.get(key) || { fecha: isoDay(row.Fecha), asiento: text(row.Asiento), concepto: "", base: 0, retencion: 0, cuentas: new Map() };
+        const code = text(row.Cuenta), amount = money(row, "Importe Euro", "Importe"), debit = isTrue(row.Debe) || row.Debe === true;
+        if (!entry.concepto) entry.concepto = text(row["Ampliación"]);
+        if (capitalAccounts.has(code)) entry.retencion += debit ? -amount : amount;
+        else if (debit) { entry.base += amount; entry.cuentas.set(code, accountNames.get(code) || code); }
+        capitalEntries.set(key, entry);
+      }
+    }
+    const capital = [...capitalEntries.values()].filter(entry => entry.retencion > 0.004 && entry.asiento !== "0" && !/APERTURA|CIERRE|REGULARIZ/i.test(entry.concepto)).map(entry => {
+      const retencion = Math.round(entry.retencion * 100) / 100, base = Math.round((entry.base || retencion / 0.19) * 100) / 100;
+      return { fecha: entry.fecha, asiento: entry.asiento, concepto: entry.concepto, base, retencion, porcentaje: base ? Math.round(retencion / base * 10000) / 100 : 0, cuentas: [...entry.cuentas].map(([cuenta, nombre]) => ({ cuenta, nombre })) };
+    }).sort((a, b) => a.fecha.localeCompare(b.fecha));
     // Modelo 347: operaciones con cada cliente o proveedor por año y trimestre (fecha del asiento, IVA
     // incluido). No computan las facturas con retención de IRPF ni las de no residentes. Solo se
     // devuelven los terceros que superan 3.005,06 € en el año con la misma clave (A compras, B ventas).
@@ -141,12 +160,12 @@ module.exports = function ({ dataDirectory }) {
     }
     const terceros347 = [...groups.values()].filter(group => group.total > 3005.06).map(group => ({ ...group, facturas: group.facturas.sort((a, b) => a.fecha.localeCompare(b.fecha)) })).sort((a, b) => a.ejercicio - b.ejercicio || a.clave.localeCompare(b.clave) || a.nombre.localeCompare(b.nombre, "es"));
     const inicio = general["Fecha Inicio"] instanceof Date ? general["Fecha Inicio"] : null;
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347 };
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347, capital };
   }
 
   // Versión del resumen: al leer más datos de la base se sube y los resúmenes antiguos se
   // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
-  const VERSION = 3;
+  const VERSION = 4;
   const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
   // ¿La empresa de la base es la del cliente elegido? (evita guardar la base de otro cliente)
   const words = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")
