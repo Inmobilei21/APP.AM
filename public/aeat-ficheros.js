@@ -12,8 +12,16 @@ const AEAT_FILE_MODELS={
 const pad=(value,width)=>String(value).slice(0,width).padEnd(width," ");
 const num=(value,width,cents)=>{const n=Math.round(Math.abs(Number(value)||0)*(cents?100:1));return String(n).padStart(width,"0").slice(-width)};
 const clean=value=>[...String(value||"").toUpperCase()].map(c=>c==="Ñ"||c==="Ç"?c:c.normalize("NFD").replace(/[\u0300-\u036f]/g,"")).join("").replace(/[^A-Z0-9ÑÇ ,.\-&]/g," ").replace(/\s+/g," ").trim();
+// Los borradores del 115 confirmados con la primera versión guardaban «casillas» en vez de «boxes».
+function aeatBoxes(draft){
+  if(Array.isArray(draft.boxes)&&draft.boxes.some(box=>box.n))return draft.boxes;
+  if(draft.casillas&&typeof draft.casillas==="object")return Object.entries(draft.casillas).map(([n,value])=>({n,value}));
+  return[];
+}
 function aeatFile(draft){
   const spec=AEAT_FILE_MODELS[draft.model];if(!spec)throw new Error("Modelo sin fichero.");
+  draft={...draft,boxes:aeatBoxes(draft)};
+  if(!draft.boxes.length)throw new Error("El borrador no tiene casillas. Vuelve a confirmarlo y descarga el fichero.");
   const boxes=new Map((draft.boxes||[]).filter(box=>box.n).map(box=>[box.n,box]));
   const value=(n,width)=>{const box=boxes.get(n);return num(box?box.value:0,width,width===17)};
   const result=Number(boxes.get(spec.result)?.value)||0,nif=String(draft.cif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
@@ -30,7 +38,7 @@ function aeatFile(draft){
 }
 // Si hay importe y el cliente tiene IBAN en su ficha, se pregunta si se domicilia el pago.
 async function askIban(draft){
-  const result=Number((draft.boxes||[]).find(box=>box.n===AEAT_FILE_MODELS[draft.model]?.result)?.value)||0;if(!(result>0))return"";
+  const result=Number(aeatBoxes(draft).find(box=>box.n===AEAT_FILE_MODELS[draft.model]?.result)?.value)||0;if(!(result>0))return"";
   let client=null;try{client=(await getAllClientMetadata()).find(item=>item.name===draft.client||item.id===draft.client)}catch{}
   const iban=(client?.bank?.ibans||[]).find(Boolean)||"";
   if(!iban)return"";
@@ -58,7 +66,7 @@ document.addEventListener("click",event=>{
   const [model,period]=button.dataset.aeatFile.split("|");
   // Se usa el borrador confirmado si lo hay; si no, el cálculo actual.
   const saved=taxDraftControl(model,period).draft;
-  const draft=saved&&saved.model===model?saved:{...taxDraftBuild(model,period),client:taxDrafts.client};
+  const draft=saved&&saved.model===model&&aeatBoxes(saved).length?saved:{...taxDraftBuild(model,period),client:taxDrafts.client};
   downloadAeatFile({...draft,cif:draft.cif||taxDrafts.clientData?.cif||"",client:draft.client||taxDrafts.client});
 });
 // En el borrador confirmado (ojo), botón para descargar el fichero.
