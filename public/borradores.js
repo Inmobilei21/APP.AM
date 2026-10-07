@@ -105,7 +105,8 @@ async function loadTaxDraftDocuments(){
   const model=taxDrafts.model;
   if(!taxDrafts.clientData||!TAX_DRAFT_BUILDERS[model])return;
   const client=taxDrafts.client,year=taxDraftYear(),found=new Map();
-  try{await getDeclarationPdfs(true)}catch{}
+  let pdfs=[];try{pdfs=await getDeclarationPdfs(true)}catch{}
+  taxDrafts.docsFolder=pdfs.length>0;
   for(const period of ["1T","2T","3T","4T"]){
     // Se conservan los enlaces de los cuatro trimestres (antes cada uno anulaba el del anterior).
     try{const docs=await declarationDocumentsForClients([taxDrafts.clientData],model,"trimestral",period,year,{keepUrls:true});const doc=docs.get(client);if(doc)found.set(period,doc)}catch{}
@@ -205,7 +206,7 @@ function renderTaxDraftMain(){
     title=draft.title;totals.base+=draft.summary.base;totals.ret+=draft.summary.retencion;totals.control+=amount||0;
     const controlCell=amount===null||Number.isNaN(amount)?'<span class="td-dim">Sin anotar</span>':Math.abs(amount-draft.result)<0.005?`<span class="td-ok">✓</span> ${tdEur(amount)}`:`<span class="td-warn">⚠</span> ${tdEur(amount)}`;
     const status=control.submitted?["Presentado","pres"]:control.draft?["Borrador confirmado","conf"]:["Pendiente","pend"];
-    const doc=taxDrafts.documents.get(period),eye=doc?`<button type="button" class="td-decl" data-preview-document="${registerPreviewDocument(doc)}" title="Ver la declaración presentada (${escapeHtml(doc.name)})" aria-label="Ver la declaración presentada del ${period}">${tdEye}</button>`:`<button type="button" class="td-decl" disabled title="La declaración presentada aún no está en la carpeta de declaraciones" aria-label="Sin declaración presentada">${tdLock}</button>`;
+    const doc=taxDrafts.documents.get(period),eye=doc?`<button type="button" class="td-decl" data-preview-document="${registerPreviewDocument(doc)}" title="Ver la declaración presentada (${escapeHtml(doc.name)})" aria-label="Ver la declaración presentada del ${period}">${tdEye}</button>`:`<button type="button" class="td-decl" disabled title="${taxDrafts.docsFolder===false?"Este equipo no tiene conectada la carpeta de declaraciones":"La declaración presentada aún no está en la carpeta de declaraciones"}" aria-label="Sin declaración presentada">${tdLock}</button>`;
     const open=taxDrafts.open===period;
     return `<tr class="td-q${open?" open":""}" data-td-period="${period}" tabindex="0" aria-expanded="${open}"><td><span class="td-caret">›</span> ${period[0]}.º Trimestre</td><td class="num">${draft.summary.perceptores}</td><td class="num">${tdEur(draft.summary.base)}</td><td class="num"><b>${tdEur(draft.summary.retencion)}</b></td><td class="num">${controlCell}</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td class="center">${eye}</td></tr>${open?`<tr class="td-detail"><td colspan="7"><div class="td-card">${taxDraftDetail(draft,control)}</div></td></tr>`:""}`;
   }).join("");

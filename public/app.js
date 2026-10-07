@@ -2186,21 +2186,27 @@ async function declarationDocumentsForClients(clients,model,type,period,year,{ke
   const all=await getDeclarationPdfs(!keepUrls);
   if(!all.length)return new Map();
   const wanted=type==="trimestral"?`${String(period).replace(/\D/g,"")}T`:String(Number(String(period).replace(/\D/g,""))).padStart(2,"0");
-  const candidates=all.filter(doc=>{
-    if(!doc.normalized.includes(String(year)))return false;
-    if(!fiscalModelMatches(doc.normalized,model))return false;
+  const aliases=fiscalPeriodAliases(type,period).map(normalizeFiscalText);
+  const ofModel=all.filter(doc=>doc.normalized.includes(String(year))&&fiscalModelMatches(doc.normalized,model));
+  // Primero los PDF cuyo nombre indica claramente este periodo; si un cliente no tiene ninguno, se
+  // acepta como antes cualquier PDF que lo mencione, salvo que su nombre indique claramente otro periodo.
+  const exact=[],loose=[];
+  ofModel.forEach(doc=>{
     const periods=fiscalDocumentPeriods(doc,type);
-    return periods.includes(wanted)&&(periods.length===1||type!=="trimestral");
+    if(periods.includes(wanted)&&(periods.length===1||type!=="trimestral"))exact.push(doc);
+    else if(!(periods.length===1&&periods[0]!==wanted)&&aliases.some(alias=>doc.normalized.includes(alias)))loose.push(doc);
   });
   const result=new Map(),used=new Set();
   clients.forEach(client=>{
-    let best=null,bestScore=0;
-    candidates.forEach(doc=>{
-      if(used.has(doc.path))return;
-      const score=declarationClientScore(client.name,doc.normalized);
-      if(score>bestScore){best=doc;bestScore=score}
-    });
-    if(best&&bestScore>=0.6){result.set(client.name,best);used.add(best.path)}
+    for(const candidates of [exact,loose]){
+      let best=null,bestScore=0;
+      candidates.forEach(doc=>{
+        if(used.has(doc.path))return;
+        const score=declarationClientScore(client.name,doc.normalized);
+        if(score>bestScore){best=doc;bestScore=score}
+      });
+      if(best&&bestScore>=0.6){result.set(client.name,best);used.add(best.path);break}
+    }
   });
   for(const [client,doc] of result){
     try{const file=await doc.handle.getFile();doc.url=URL.createObjectURL(file);declarationObjectUrls.push(doc.url)}
