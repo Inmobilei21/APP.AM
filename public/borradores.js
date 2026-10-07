@@ -137,7 +137,7 @@ function renderTaxDraftMain(){
     const open=taxDrafts.open===period;
     return `<tr class="td-q${open?" open":""}" data-td-period="${period}" tabindex="0" aria-expanded="${open}"><td><span class="td-caret">›</span> ${period[0]}.º Trimestre</td><td class="num">${draft.people.length}</td><td class="num">${tdEur(draft.casillas["02"])}</td><td class="num"><b>${tdEur(draft.casillas["03"])}</b></td><td class="num">${controlCell}</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td class="center">${eye}</td></tr>${open?`<tr class="td-detail"><td colspan="7"><div class="td-card">${taxDraftDetail(draft,control)}</div></td></tr>`:""}`;
   }).join("");
-  box.innerHTML=`<div class="td-card-head"><span class="td-chip">115</span><strong>Retenciones de alquileres · trimestral · ${year}</strong></div>
+  box.innerHTML=`<div class="td-card-head"><span class="td-chip">115</span><strong>Retenciones de alquileres · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">Base</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr></tfoot></table></div>
     <p class="td-hint">Pulsa un trimestre para desplegar su borrador.</p>`;
