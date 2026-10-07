@@ -375,19 +375,88 @@ function closeTaxDraftSide(){document.querySelector("#tdShade")?.setAttribute("h
 document.addEventListener("keydown",event=>{if(event.key==="Escape"&&document.querySelector("#tdSide.on"))closeTaxDraftSide()});
 
 /* --- Borrador confirmado, visible desde Control de declaraciones hasta que esté la declaración real --- */
-function openConfirmedTaxDraft(key){
+/* --- Documento del borrador con el aspecto del impreso oficial (111 y 115) --- */
+const tdFormMoney=value=>{const number=Number(value)||0;if(!number)return"";const [int,dec]=Math.abs(number).toFixed(2).split(".");return(number<0?"−":"")+int.replace(/\B(?=(\d{3})+(?!\d))/g,".")+","+dec};
+function taxDraftFormHtml(draft,client={}){
+  const boxes=new Map((draft.boxes||[]).filter(box=>box.n).map(box=>[box.n,box]));
+  const val=n=>{const box=boxes.get(n);if(!box)return"";return box.kind==="count"?(Number(box.value)?String(box.value):""):tdFormMoney(box.value)};
+  const cell=(n,head)=>`<div class="af-cell">${head?`<small>${head}</small>`:""}<div class="af-box"><b>${n}</b><span>${escapeHtml(val(n))}</span></div></div>`;
+  const row=(label,ns,heads)=>`<div class="af-row"><span class="af-label">${label}</span>${ns.map((n,i)=>cell(n,heads[i])).join("")}</div>`;
+  const din=["N.º de perceptores","Importe de las percepciones","Importe de las retenciones"],esp=["N.º de perceptores","Valor percepciones en especie","Importe de los ingresos a cuenta"];
+  const address=client.registeredAddress||{},result=Number(boxes.get(draft.model==="111"?"30":"05")?.value)||0;
+  const nif=draft.cif||client.cif||"",name=draft.client||client.name||"";
+  const period=String(draft.period||"").replace(/^([1-4])T$/,"$1T");
+  const titles={"111":["Retenciones e ingresos a cuenta del IRPF","Rendimientos del trabajo y de actividades económicas, premios y determinadas ganancias patrimoniales e imputaciones de renta","Declaración - Documento de ingreso"],
+    "115":["Retenciones e ingresos a cuenta","Rentas o rendimientos procedentes del arrendamiento o subarrendamiento de inmuebles urbanos","Declaración - Documento de ingreso"]}[draft.model]||[`Modelo ${draft.model}`,"",""];
+  const ident=draft.model==="115"
+    ?`<div class="af-grid af-g2"><label><small>N.I.F.</small><span>${escapeHtml(nif)}</span></label><label><small>Apellidos y nombre, denominación o razón social</small><span>${escapeHtml(name)}</span></label></div>
+      <div class="af-grid af-g1"><label><small>Domicilio fiscal</small><span>${escapeHtml(address.address||"")}</span></label></div>
+      <div class="af-grid af-g3"><label><small>Municipio</small><span>${escapeHtml(address.municipality||"")}</span></label><label><small>Provincia</small><span>${escapeHtml(address.province||"")}</span></label><label><small>Código postal</small><span>${escapeHtml(address.postalCode||"")}</span></label></div>`
+    :`<div class="af-grid af-g2"><label><small>NIF</small><span>${escapeHtml(nif)}</span></label><label><small>Apellidos y nombre o razón social</small><span>${escapeHtml(name)}</span></label></div>`;
+  const liquid=draft.model==="111"
+    ?`<h5>I. Rendimientos del trabajo</h5>${row("Rendimientos dinerarios",["01","02","03"],din)}${row("Rendimientos en especie",["04","05","06"],esp)}
+      <h5>II. Rendimientos de actividades económicas</h5>${row("Rendimientos dinerarios",["07","08","09"],din)}${row("Rendimientos en especie",["10","11","12"],esp)}
+      <h5>III. Premios por la participación en juegos, concursos, rifas o combinaciones aleatorias</h5>${row("Premios en metálico",["13","14","15"],din)}${row("Premios en especie",["16","17","18"],esp)}
+      <h5>IV. Ganancias patrimoniales derivadas de los aprovechamientos forestales de los vecinos en montes públicos</h5>${row("Percepciones dinerarias",["19","20","21"],din)}${row("Percepciones en especie",["22","23","24"],esp)}
+      <h5>V. Contraprestaciones por la cesión de derechos de imagen</h5>${row("Contraprestaciones dinerarias o en especie",["25","26","27"],["N.º de perceptores","Contraprestaciones satisfechas","Importe de los ingresos a cuenta"])}
+      <div class="af-total"><h5>Total liquidación</h5>${row("Suma de retenciones e ingresos a cuenta ([03]+[06]+[09]+[12]+[15]+[18]+[21]+[24]+[27])",["28"],[""])}${row("A deducir (exclusivamente en caso de declaración complementaria)",["29"],[""])}${row("<strong>Resultado a ingresar ([28] − [29])</strong>",["30"],[""])}</div>`
+    :`<h5>Retenciones e ingresos a cuenta</h5>${row("N.º de perceptores",["01"],[""])}${row("Base de las retenciones e ingresos a cuenta",["02"],[""])}${row("Retenciones e ingresos a cuenta",["03"],[""])}${row("A deducir (exclusivamente en caso de declaración complementaria)",["04"],[""])}${row("<strong>Resultado a ingresar ([03] − [04])</strong>",["05"],[""])}`;
+  const check=on=>`<i class="af-check">${on?"X":""}</i>`;
+  return `<div class="aeat-form m${escapeHtml(draft.model)}"><div class="af-watermark">BORRADOR</div>
+    <div class="af-head"><div class="af-agency"><strong>Agencia Tributaria</strong><small>Documento preparado por Asesoría Molinero</small></div><div class="af-title"><strong>${escapeHtml(titles[0])}</strong><span>${escapeHtml(titles[1])}</span><em>${escapeHtml(titles[2])}</em></div><div class="af-model"><small>Modelo</small><b>${escapeHtml(draft.model)}</b></div></div>
+    <section class="af-sec"><div class="af-side">Declarante</div><div class="af-body af-ident"><div>${ident}</div><div class="af-devengo"><div class="af-side af-side-sm">Devengo</div><label><small>Ejercicio</small><span>${escapeHtml(draft.year||"")}</span></label><label><small>Período</small><span>${escapeHtml(period)}</span></label></div></div></section>
+    <section class="af-sec"><div class="af-side">Liquidación</div><div class="af-body">${liquid}</div></section>
+    <div class="af-split">
+      <section class="af-sec"><div class="af-side">Ingreso</div><div class="af-body"><div class="af-row"><span class="af-label">Importe del ingreso (casilla ${draft.model==="111"?"30":"05"})</span><div class="af-cell"><div class="af-box af-ingreso"><b>I</b><span>${escapeHtml(tdFormMoney(result))}</span></div></div></div><p class="af-line">Forma de pago: ${check(false)} En efectivo ${check(false)} E.C. adeudo en cuenta</p></div></section>
+      <section class="af-sec"><div class="af-side">${result?"Complementaria":"Negativa"}</div><div class="af-body">${result?`<p class="af-line">${check(false)} Declaración complementaria</p><p class="af-line"><small>N.º de justificante</small> ____________________</p>`:`<p class="af-line">${check(true)} Declaración negativa</p>`}</div></section>
+    </div>
+    <section class="af-sec"><div class="af-side">Firma</div><div class="af-body"><p class="af-line">En ______________________, a ${new Date(draft.confirmedAt||Date.now()).toLocaleDateString("es-ES",{day:"numeric",month:"long",year:"numeric"})}</p><p class="af-line">Firma:</p></div></section>
+    <p class="af-foot">Borrador preparado con los datos de la contabilidad${draft.confirmedBy?` · confirmado por ${escapeHtml(draft.confirmedBy)}`:""}. No válido para su presentación.</p></div>`;
+}
+const AEAT_FORM_CSS=`.aeat-form{position:relative;width:100%;max-width:820px;margin:0 auto;padding:18px;background:#fff;color:#1d2a44;font:12px/1.35 Arial,Helvetica,sans-serif;border:1px solid #c9d3e6;overflow:hidden}
+.aeat-form .af-watermark{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:110px;font-weight:900;letter-spacing:.08em;color:rgba(31,74,153,.06);pointer-events:none;white-space:nowrap}
+.aeat-form .af-head{display:grid;grid-template-columns:170px 1fr 92px;gap:10px;margin-bottom:10px}
+.aeat-form .af-agency{display:flex;flex-direction:column;justify-content:center;padding:8px 10px;border:1px solid #c9d3e6;border-radius:4px}.aeat-form .af-agency strong{font-size:16px;color:#123}.aeat-form .af-agency small{color:#6a7690;font-size:9.5px;margin-top:3px}
+.aeat-form .af-title{background:#1f4a99;color:#fff;border-radius:4px;padding:8px 12px;text-align:center;display:flex;flex-direction:column;gap:3px}.aeat-form .af-title strong{font-size:15px}.aeat-form .af-title span{font-size:10.5px}.aeat-form .af-title em{font-style:normal;font-weight:700;font-size:11.5px}
+.aeat-form .af-model{background:#b9c6de;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center}.aeat-form .af-model small{font-size:11px;font-weight:700}.aeat-form .af-model b{font-size:34px;line-height:1}
+.aeat-form .af-sec{display:grid;grid-template-columns:24px 1fr;border:1.5px solid #a9b8d6;border-radius:5px;margin-bottom:10px;background:rgba(255,255,255,.8)}
+.aeat-form .af-side{background:#b9c6de;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-weight:700;font-size:11px;padding:6px 0;color:#1d2a44}
+.aeat-form .af-body{padding:8px 10px;min-width:0}
+.aeat-form .af-ident{display:grid;grid-template-columns:1fr 210px;gap:10px}
+.aeat-form .af-devengo{display:grid;grid-template-columns:20px minmax(0,1fr) minmax(0,1fr);gap:6px;padding-right:6px;border:1px solid #a9b8d6;border-radius:4px;overflow:hidden;align-items:center}.aeat-form .af-side-sm{height:100%;font-size:9px}
+.aeat-form .af-grid{display:grid;gap:6px;margin-bottom:6px}.aeat-form .af-g1{grid-template-columns:1fr}.aeat-form .af-g2{grid-template-columns:150px 1fr}.aeat-form .af-g3{grid-template-columns:1fr 1fr 110px}
+.aeat-form label{display:flex;flex-direction:column;gap:2px;margin:0}.aeat-form label small{font-size:9px;color:#56627c}.aeat-form label span{display:block;min-height:22px;padding:3px 6px;border:1px solid #a9b8d6;border-radius:3px;font-weight:700;font-size:12.5px;background:#fff}
+.aeat-form h5{margin:8px 0 3px;font-size:11.5px;font-weight:700}
+.aeat-form .af-row{display:flex;align-items:flex-end;gap:8px;margin:2px 0 4px}.aeat-form .af-label{flex:1;font-size:11px;padding-bottom:5px;border-bottom:1px dotted #a9b8d6;min-width:0}
+.aeat-form .af-cell{width:150px;flex:none}.aeat-form .af-cell small{display:block;font-size:8.5px;color:#56627c;text-align:center;margin-bottom:1px}
+.aeat-form .af-box{display:flex;border:1px solid #6f81a8;border-radius:3px;height:24px;background:#fff}.aeat-form .af-box b{width:24px;display:grid;place-items:center;border-right:1px solid #6f81a8;font-size:10.5px;background:#eef2fa}.aeat-form .af-box span{flex:1;text-align:right;padding:3px 6px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
+.aeat-form .af-total{border-top:1.5px solid #a9b8d6;margin-top:8px;padding-top:2px}
+.aeat-form .af-split{display:grid;grid-template-columns:1.4fr 1fr;gap:10px}
+.aeat-form .af-ingreso b{font-family:Georgia,serif}
+.aeat-form .af-line{margin:6px 0;font-size:11.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.aeat-form .af-check{display:inline-grid;place-items:center;width:15px;height:15px;border:1px solid #6f81a8;font-style:normal;font-weight:700;font-size:11px}
+.aeat-form .af-foot{margin:6px 0 0;font-size:9.5px;color:#6a7690;text-align:center}
+@media(max-width:700px){.aeat-form .af-head{grid-template-columns:1fr 70px}.aeat-form .af-agency{display:none}.aeat-form .af-ident,.aeat-form .af-split{grid-template-columns:1fr}.aeat-form .af-cell{width:110px}}`;
+function printTaxDraftForm(html,title){
+  const win=window.open("","_blank");if(!win){alert("Permite las ventanas emergentes para imprimir el borrador.");return}
+  win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${AEAT_FORM_CSS}@page{size:A4;margin:10mm}body{margin:0;background:#fff}.aeat-form{border:0;max-width:none;padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>${html}<script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
+  win.document.close();
+}
+async function openConfirmedTaxDraft(key){
   let data={};try{data=JSON.parse(localStorage.getItem(key)||"{}")}catch{}
   const draft=data.draft;if(!draft)return;
   // Borradores del 115 confirmados con la primera versión (casillas sueltas).
   const boxes=draft.boxes||[["01","Número de perceptores","count"],["02","Base de las retenciones e ingresos a cuenta","money"],["03","Retenciones e ingresos a cuenta","money"],["04","A deducir (declaración complementaria)","money"],["05","Resultado a ingresar","money"]].map(([n,label,kind],index)=>({n,label,kind,value:draft.casillas?.[n]||0,cls:index===4?"total":""}));
+  const full={...draft,boxes};
+  let client={};try{client=(await getAllClientMetadata()).find(item=>item.name===draft.client||item.id===draft.client)||{}}catch{}
   const lists=draft.lists||{alquileres:draft.items||[]};
   document.querySelector("#tdDraftView")?.remove();
   const view=document.createElement("div");view.id="tdDraftView";view.className="td-modal";view.setAttribute("role","dialog");view.setAttribute("aria-modal","true");
   const listHtml=[lists.alquileres?`<h4>Facturas (${lists.alquileres.length})</h4><div data-td-list="alquileres">${taxDraftInvoiceTable(lists.alquileres,{person:"Arrendador"})}</div>`:"",lists.trabajo?`<h4>Nóminas (${lists.trabajo.length})</h4>${taxDraftNominaTable(lists.trabajo,false)}`:"",lists.profesionales?`<h4>Facturas de profesionales (${lists.profesionales.length})</h4><div data-td-list="profesionales">${taxDraftInvoiceTable(lists.profesionales,{person:"Profesional",especie:true})}</div>`:""].join("");
-  view.innerHTML=`<div class="td-modal-box"><header><div><span class="td-tag">Borrador confirmado</span><h3>Modelo ${escapeHtml(draft.model)} · ${escapeHtml(draft.period)} ${escapeHtml(draft.year)}</h3><p>${escapeHtml(draft.cif?draft.cif+" · ":"")}${escapeHtml(draft.client)} · confirmado el ${tdDate(draft.confirmedAt)}${draft.confirmedBy?` por ${escapeHtml(draft.confirmedBy)}`:""}</p></div><button type="button" class="td-close" aria-label="Cerrar">×</button></header>
-    <div class="td-modal-body"><p class="td-note">Es el borrador preparado en la app. Cuando la declaración presentada esté en la carpeta de declaraciones, se verá esa en su lugar.</p>
-    <div class="td-boxes">${taxDraftBoxes(boxes,false)}</div>${listHtml}</div></div>`;
+  const form=taxDraftFormHtml(full,client),title=`Borrador modelo ${draft.model} ${draft.period} ${draft.year} ${draft.client}`;
+  view.innerHTML=`<div class="td-modal-box td-form-modal"><header><div><span class="td-tag">Borrador confirmado</span><h3>Modelo ${escapeHtml(draft.model)} · ${escapeHtml(draft.period)} ${escapeHtml(draft.year)}</h3><p>${escapeHtml(draft.cif?draft.cif+" · ":"")}${escapeHtml(draft.client)} · confirmado el ${tdDate(draft.confirmedAt)}${draft.confirmedBy?` por ${escapeHtml(draft.confirmedBy)}`:""}</p></div><div class="td-form-actions"><button type="button" class="secondary-button" data-td-print>Imprimir / guardar PDF</button><button type="button" class="td-close" aria-label="Cerrar">×</button></div></header>
+    <div class="td-modal-body"><style>${AEAT_FORM_CSS}</style>${form}${listHtml?`<details class="td-form-annex"><summary>Detalle de la contabilidad</summary>${listHtml}</details>`:""}</div></div>`;
   document.body.append(view);
+  view.querySelector("[data-td-print]").addEventListener("click",()=>printTaxDraftForm(form,title));
   if(lists.alquileres)fillTaxDraftInvoiceFiles(view.querySelector('[data-td-list="alquileres"]'),draft.client,lists.alquileres);
   if(lists.profesionales)fillTaxDraftInvoiceFiles(view.querySelector('[data-td-list="profesionales"]'),draft.client,lists.profesionales);
   const close=()=>{view.remove();document.removeEventListener("keydown",onKey)},onKey=event=>{if(event.key==="Escape")close()};

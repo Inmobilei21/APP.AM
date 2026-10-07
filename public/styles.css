@@ -5631,8 +5631,10 @@ tr.td-detail>td{white-space:normal;padding:4px 14px 18px;background:#eef1ff;bord
 .td-modal{position:fixed;inset:0;background:rgba(14,24,53,.45);z-index:70;display:grid;place-items:center;padding:16px}
 .td-modal-box{background:#fff;border-radius:16px;width:min(820px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
 .td-modal-body{overflow:auto;padding:14px 20px 20px}.td-modal-body .td-boxes{padding:6px 0 12px}.td-modal-body h4{margin:8px 0}
-.declaration-document-actions button.draft{border:1px dashed #b9c3e8;border-radius:9px;background:#fff;color:var(--blue);padding:6px 8px;display:inline-flex;align-items:center;gap:5px;font:800 12px inherit;cursor:pointer;white-space:nowrap}
-.declaration-document-actions button.draft span{font-size:9px;background:#eef1ff;border-radius:4px;padding:2px 3px}
+.declaration-document-actions button.draft{border-style:dashed;border-color:#b9c3e8;background:#fafbff}
+.td-form-modal{width:min(900px,100%);max-height:94vh}.td-form-modal header{align-items:flex-start}.td-form-actions{display:flex;align-items:center;gap:10px}.td-form-actions .secondary-button{min-height:34px;padding:6px 14px;font-size:13px}
+.td-form-modal .td-modal-body{background:#eef1f6;padding:16px}
+.td-form-annex{margin-top:14px;background:#fff;border:1px solid #dfe4ee;border-radius:12px;padding:10px 14px}.td-form-annex summary{cursor:pointer;font-weight:800;color:var(--blue)}
 @media(max-width:1100px){.td-layout{grid-template-columns:1fr}.td-models{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.td-models h2{grid-column:1/-1}.td-model:first-of-type{border-top:1px solid #eef0f5}}
 /* Aviso de periodo cerrado a la derecha de los modelos, sin empujar la tabla hacia abajo */
 .tax-tabs-row{display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--line)}

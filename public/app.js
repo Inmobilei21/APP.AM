@@ -2216,7 +2216,7 @@ async function declarationDocumentsForClients(clients,model,type,period,year,{ke
 }
 function declarationDocumentMarkup(document,draftKey=""){
   // Sin la declaración en la carpeta, si hay un borrador confirmado se puede consultar hasta que llegue la real.
-  if(!document)return draftKey?`<div class="declaration-document-actions"><button type="button" class="draft" data-tax-draft="${escapeHtml(draftKey)}" title="Ver el borrador confirmado"><span>BORR.</span> Ver borrador</button></div>`:'<span class="declaration-document-missing">No encontrado</span>';
+  if(!document)return draftKey?`<div class="declaration-document-actions"><button type="button" class="draft" data-tax-draft="${escapeHtml(draftKey)}" title="Ver el borrador confirmado (aún no está la declaración presentada)"><span></span>Ver borrador</button></div>`:'<span class="declaration-document-missing">No encontrado</span>';
   const previewId=registerPreviewDocument(document);
   return `<div class="declaration-document-actions"><button type="button" data-preview-document="${previewId}" title="Vista preliminar de ${escapeHtml(document.name)}"><span>PDF</span> Ver documento</button></div>`;
 }
