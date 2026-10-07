@@ -2164,15 +2164,29 @@ function declarationClientScore(clientName,documentText){
   const matched=tokens.filter(token=>new RegExp(`(^| )${token}( |$)`).test(documentText)).length;
   return matched/tokens.length;
 }
-async function declarationDocumentsForClients(clients,model,type,period,year){
-  declarationObjectUrls.forEach(url=>URL.revokeObjectURL(url));declarationObjectUrls=[];
-  const all=await getDeclarationPdfs(true);
+// Periodo al que pertenece un PDF: manda el nombre del archivo y, si no lo indica, la carpeta.
+// Las marcas se buscan como palabra (o pegadas al modelo/año), para que «2T» no salga de «12T».
+function fiscalPeriodsIn(text,type){
+  const periods=type==="trimestral"?["1T","2T","3T","4T"]:["01","02","03","04","05","06","07","08","09","10","11","12"];
+  return periods.filter(period=>fiscalPeriodAliases(type,period).some(alias=>{
+    const escaped=normalizeFiscalText(alias).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+    return new RegExp(`(^|[^A-Z])${escaped}(?![A-Z])`).test(text);
+  }));
+}
+function fiscalDocumentPeriods(doc,type){
+  const fromName=fiscalPeriodsIn(normalizeFiscalText(doc.name.replace(/\.pdf$/i,"")),type);
+  return fromName.length?fromName:fiscalPeriodsIn(doc.normalized,type);
+}
+async function declarationDocumentsForClients(clients,model,type,period,year,{keepUrls=false}={}){
+  if(!keepUrls){declarationObjectUrls.forEach(url=>URL.revokeObjectURL(url));declarationObjectUrls=[]}
+  const all=await getDeclarationPdfs(!keepUrls);
   if(!all.length)return new Map();
-  const aliases=fiscalPeriodAliases(type,period);
+  const wanted=type==="trimestral"?`${String(period).replace(/\D/g,"")}T`:String(Number(String(period).replace(/\D/g,""))).padStart(2,"0");
   const candidates=all.filter(doc=>{
     if(!doc.normalized.includes(String(year)))return false;
     if(!fiscalModelMatches(doc.normalized,model))return false;
-    return aliases.some(alias=>doc.normalized.includes(normalizeFiscalText(alias)));
+    const periods=fiscalDocumentPeriods(doc,type);
+    return periods.includes(wanted)&&(periods.length===1||type!=="trimestral");
   });
   const result=new Map(),used=new Set();
   clients.forEach(client=>{
@@ -4632,13 +4646,19 @@ setInterval(refreshSuggestions,15000);
   }
   const programar=()=>{if(!pendiente)pendiente=requestAnimationFrame(apilar)};
   const previo=renderHomeActivityRail;
-  const clave=f=>f.dataset.homeOpenChat||f.textContent.trim().slice(0,80);
+  const clave=f=>f.dataset.homeOpenChat||f.textContent.trim().slice(0,80),crudo=new WeakMap();
   renderHomeActivityRail=function(){
     // Se refresca cada pocos segundos: se conserva el desplazamiento y la tarjeta abierta
     // y se recoloca sin animación para que no se mueva nada.
     const estado=[...document.querySelectorAll(LISTAS)].map(l=>({id:l.id,top:l.scrollTop,abierta:l.querySelector(".h4-abierta")?clave(l.querySelector(".h4-abierta")):null}));
     document.body.classList.add("h4-quieto");
+    // Si una lista no ha cambiado se dejan sus tarjetas tal cual: el refresco periódico no toca nada.
+    const antes=new Map([...document.querySelectorAll(".home-activity-rail .home-activity-list")].map(l=>[l,[...l.childNodes]]));
     const r=previo.apply(this,arguments);
+    document.querySelectorAll(".home-activity-rail .home-activity-list").forEach(l=>{
+      const html=l.innerHTML;
+      if(antes.has(l)&&crudo.get(l)===html)l.replaceChildren(...antes.get(l));else crudo.set(l,html);
+    });
     apilar();
     estado.forEach(e=>{const l=e.id&&document.getElementById(e.id);if(!l)return;
       if(e.abierta){const f=[...l.querySelectorAll(":scope>.home-activity-row")].find(x=>clave(x)===e.abierta);if(f){abierta=null;abrir(f)}}

@@ -877,7 +877,7 @@ http.createServer((req, res) => {
     const user = requireUser(req, res);if (!user) return;
     const client = cleanText(new URL(req.url, "http://localhost").searchParams.get("client"), 200);
     if (!client) return json(res, 400, { error: "Selecciona un cliente." });
-    if (req.method === "GET") return json(res, 200, amcomta.load(client) || { client, proveedores: [], gastos: [] });
+    if (req.method === "GET") return amcomta.load(client).then(record => json(res, 200, record || { client, proveedores: [], gastos: [] })).catch(() => json(res, 200, { client, proveedores: [], gastos: [] }));
     return readBuffer(req, 300 * 1024 * 1024)
       .then(buffer => amcomta.save(client, buffer, user))
       .then(record => json(res, 200, record))

@@ -105,8 +105,10 @@ async function loadTaxDraftDocuments(){
   const model=taxDrafts.model;
   if(!taxDrafts.clientData||!TAX_DRAFT_BUILDERS[model])return;
   const client=taxDrafts.client,year=taxDraftYear(),found=new Map();
+  try{await getDeclarationPdfs(true)}catch{}
   for(const period of ["1T","2T","3T","4T"]){
-    try{const docs=await declarationDocumentsForClients([taxDrafts.clientData],model,"trimestral",period,year);const doc=docs.get(client);if(doc)found.set(period,doc)}catch{}
+    // Se conservan los enlaces de los cuatro trimestres (antes cada uno anulaba el del anterior).
+    try{const docs=await declarationDocumentsForClients([taxDrafts.clientData],model,"trimestral",period,year,{keepUrls:true});const doc=docs.get(client);if(doc)found.set(period,doc)}catch{}
   }
   if(taxDrafts.client!==client||taxDrafts.model!==model)return;
   taxDrafts.documents=found;renderTaxDraftMain();
@@ -210,7 +212,7 @@ function renderTaxDraftMain(){
   box.innerHTML=`<div class="td-card-head"><span class="td-chip m${escapeHtml(model)}">${escapeHtml(model)}</span><strong>${escapeHtml(title)} · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">${model==="111"?"Percepciones":"Base"}</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr></tfoot></table></div>
-    ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Al actualizar la base (.MDB) se añadirán las nóminas.</p>':""}
+    ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Pulsa «Actualizar base (.MDB)» una sola vez para añadir los trabajadores; a partir de ahí la base queda guardada y se recalcula sola.</p>':""}
     <p class="td-hint">Pulsa un trimestre para desplegar su borrador.</p>`;
   box.querySelectorAll("tr.td-q").forEach(row=>{
     const toggle=event=>{if(event.target.closest(".td-decl"))return;const period=row.dataset.tdPeriod;taxDrafts.open=taxDrafts.open===period?"":period;renderTaxDraftMain()};

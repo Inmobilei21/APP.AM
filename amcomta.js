@@ -118,15 +118,29 @@ module.exports = function ({ dataDirectory }) {
     return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores };
   }
 
+  // Versión del resumen: al leer más datos de la base se sube y los resúmenes antiguos se
+  // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
+  const VERSION = 2;
+  const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
   async function save(client, buffer, user) {
     const summary = await summarize(buffer);
-    const record = { client, ...summary, actualizado: new Date().toISOString(), actualizadoPor: user?.name || "" };
+    const record = { client, ...summary, version: VERSION, actualizado: new Date().toISOString(), actualizadoPor: user?.name || "" };
     fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(mdbFor(client), buffer);
     fs.writeFileSync(fileFor(client), JSON.stringify(record));
     return record;
   }
-  function load(client) {
-    try { return JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch { return null; }
+  async function load(client) {
+    let record = null;
+    try { record = JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch { return null; }
+    if (record.version !== VERSION && fs.existsSync(mdbFor(client))) {
+      try {
+        const summary = await summarize(fs.readFileSync(mdbFor(client)));
+        record = { ...record, ...summary, version: VERSION };
+        fs.writeFileSync(fileFor(client), JSON.stringify(record));
+      } catch (error) { console.error("Recalcular base de AMCOMTA:", error.message); }
+    }
+    return record;
   }
   return { save, load, summarize };
 };
