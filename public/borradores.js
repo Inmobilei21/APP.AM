@@ -22,6 +22,8 @@ const tdDate=value=>value?String(value).slice(0,10).split("-").reverse().join("/
 const tdRound=value=>Math.round((Number(value)||0)*100)/100;
 
 function renderTaxDrafts(){
+  // Se adelanta la lista de declaraciones para que el ojo esté listo al elegir el cliente.
+  try{getDeclarationPdfs(false).catch(()=>{})}catch{}
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">ÁREA FISCAL</p><h1>Borradores</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="declarations-panel td-shell">
@@ -117,7 +119,7 @@ async function loadTaxDraftDocuments(){
   const model=taxDrafts.model;
   if(!taxDrafts.clientData||!TAX_DRAFT_BUILDERS[model])return;
   const client=taxDrafts.client,year=taxDraftYear(),found=new Map();
-  let pdfs=[],root=null;try{root=await getSavedHandle("declarations-folder");pdfs=await getDeclarationPdfs(true)}catch{}
+  let pdfs=[],root=null;try{root=await getSavedHandle("declarations-folder");pdfs=await getDeclarationPdfs(false)}catch{}
   taxDrafts.docsFolder=pdfs.length>0;
   taxDrafts.docsInfo={source:root?.remote?"servidor":root?"carpeta de este equipo":"sin conectar",total:pdfs.length,model:pdfs.filter(doc=>doc.normalized.includes(String(year))&&fiscalModelMatches(doc.normalized,model)).length};
   for(const period of ["1T","2T","3T","4T"]){

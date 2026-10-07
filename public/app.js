@@ -2146,14 +2146,28 @@ async function collectDeclarationPdfs(directory,path="",depth=0){
   }
   return documents;
 }
+// Lista de PDF de la carpeta de declaraciones. En el servidor se pide de una vez (/api/webdav/pdfs) y se
+// reutiliza unos minutos; los PDF no se descargan hasta que se abren.
+let declarationDocsAt=0,declarationDocsPending=null;
 async function getDeclarationPdfs(force=false){
   const root=await getSavedHandle("declarations-folder");
   if(!root||await root.queryPermission({mode:"read"})!=="granted")return[];
-  if(force||root!==declarationDocsRoot||!declarationDocsCache){
-    declarationDocsRoot=root;
-    declarationDocsCache=await collectDeclarationPdfs(root);
-  }
-  return declarationDocsCache;
+  const id=root.remote?`remote:${root.path}`:root;
+  const fresh=declarationDocsCache&&declarationDocsRoot===id&&Date.now()-declarationDocsAt<3*60*1000;
+  if(!force&&fresh)return declarationDocsCache;
+  if(declarationDocsPending&&declarationDocsPending.id===id)return declarationDocsPending.promise;
+  const promise=(async()=>{
+    let docs;
+    if(root.remote){
+      const response=await webdavResponse(`/api/webdav/pdfs?path=${encodeURIComponent(root.path)}${force?"&refresh=1":""}`,{cache:"no-store"});
+      const {files=[]}=await response.json();
+      docs=files.map(file=>({handle:new WebDavFileHandle(file.path,file.name),path:file.rel,name:file.name,normalized:normalizeFiscalText(file.rel)}));
+    }else docs=await collectDeclarationPdfs(root);
+    declarationDocsRoot=id;declarationDocsCache=docs;declarationDocsAt=Date.now();
+    return docs;
+  })();
+  declarationDocsPending={id,promise};
+  try{return await promise}finally{if(declarationDocsPending?.promise===promise)declarationDocsPending=null}
 }
 function declarationClientScore(clientName,documentText){
   const client=normalizeFiscalClient(clientName);
@@ -2183,7 +2197,7 @@ function fiscalDocumentPeriods(doc,type){
 }
 async function declarationDocumentsForClients(clients,model,type,period,year,{keepUrls=false}={}){
   if(!keepUrls){declarationObjectUrls.forEach(url=>URL.revokeObjectURL(url));declarationObjectUrls=[]}
-  const all=await getDeclarationPdfs(!keepUrls);
+  const all=await getDeclarationPdfs(false);
   if(!all.length)return new Map();
   const wanted=type==="trimestral"?`${String(period).replace(/\D/g,"")}T`:String(Number(String(period).replace(/\D/g,""))).padStart(2,"0");
   const aliases=fiscalPeriodAliases(type,period).map(normalizeFiscalText);
@@ -2208,10 +2222,7 @@ async function declarationDocumentsForClients(clients,model,type,period,year,{ke
       if(best&&bestScore>=0.6){result.set(client.name,best);used.add(best.path);break}
     }
   });
-  for(const [client,doc] of result){
-    try{const file=await doc.handle.getFile();doc.url=URL.createObjectURL(file);declarationObjectUrls.push(doc.url)}
-    catch{result.delete(client)}
-  }
+  // El PDF se descarga al abrirlo (vista previa con doc.handle), no al buscarlo.
   return result;
 }
 function declarationDocumentMarkup(document,draftKey=""){

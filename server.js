@@ -293,6 +293,26 @@ function xmlDecode(value = "") {
 function xmlValue(block, name) {
   return xmlDecode(block.match(new RegExp(`<(?:[^:>]+:)?${name}[^>]*>([\\s\\S]*?)<\\/(?:[^:>]+:)?${name}>`, "i"))?.[1] || "").trim();
 }
+const webdavPdfCache = new Map();
+async function listDavPdfs(rootPath) {
+  const files = [], queue = [{ path: rootPath, rel: "", depth: 0 }];
+  const join = (parent, name) => [parent, name].filter(Boolean).join("/");
+  async function visit(item) {
+    const response = await davRequest(item.path, { method: "PROPFIND", headers: { Depth: "1", "Content-Type": "application/xml" }, body: webdavProperties });
+    for (const entry of parseDavEntries(await response.text(), item.path)) {
+      const path = join(item.path, entry.name), rel = join(item.rel, entry.name);
+      if (entry.kind === "directory") { if (item.depth < 6) queue.push({ path, rel, depth: item.depth + 1 }); }
+      else if (/\.pdf$/i.test(entry.name)) files.push({ path, rel, name: entry.name, modified: entry.modified });
+    }
+  }
+  // Hasta 8 carpetas a la vez.
+  const running = new Set();
+  while (queue.length || running.size) {
+    while (queue.length && running.size < 8) { const task = visit(queue.shift()).catch(() => {}).finally(() => running.delete(task));running.add(task); }
+    if (running.size) await Promise.race(running);
+  }
+  return files;
+}
 function parseDavEntries(xml, requestedPath) {
   const requestedParts = cleanDavPath(requestedPath), requestedName = requestedParts.at(-1) || decodeURIComponent(webdavRoot.split("/").at(-1));
   const blocks = [...xml.matchAll(/<(?:[^:>]+:)?response\b[^>]*>([\s\S]*?)<\/(?:[^:>]+:)?response>/gi)].map(match => match[1]);
@@ -444,6 +464,16 @@ http.createServer((req, res) => {
       .then(async response => json(res, 200, { entries: parseDavEntries(await response.text(), davPath) }))
       .catch(error => json(res, error.status || 502, { error: error.message }));
   }
+  // Todos los PDF de una carpeta y sus subcarpetas en una sola petición (para buscar declaraciones).
+  // Se recorre en paralelo y se guarda unos minutos; «refresh=1» obliga a volver a leerla.
+  if (requestPath === "/api/webdav/pdfs" && req.method === "GET") {
+    if (!requireUser(req, res)) return;
+    const params = new URL(req.url, "http://localhost").searchParams, davPath = params.get("path") || "";
+    const cached = webdavPdfCache.get(davPath);
+    if (cached && !params.get("refresh") && Date.now() - cached.at < 5 * 60 * 1000) return json(res, 200, { files: cached.files, at: cached.at });
+    return listDavPdfs(davPath).then(files => { webdavPdfCache.set(davPath, { files, at: Date.now() }); json(res, 200, { files, at: Date.now() }); })
+      .catch(error => json(res, error.status || 502, { error: error.message }));
+  }
   if (requestPath === "/api/webdav/stat" && req.method === "GET") {
     if (!requireUser(req, res)) return;
     const davPath = new URL(req.url, "http://localhost").searchParams.get("path") || "";
@@ -468,6 +498,7 @@ http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": response.headers.get("content-type") || "application/octet-stream", "Content-Length": data.length, "Cache-Control": "private, no-store" });res.end(data);
     }).catch(error => json(res, error.status || 502, { error: error.message }));
   }
+  if (requestPath.startsWith("/api/webdav/") && ["PUT", "POST", "DELETE"].includes(req.method)) webdavPdfCache.clear();
   if (requestPath === "/api/webdav/file" && req.method === "PUT") {
     if (!requireUser(req, res)) return;
     const davPath = new URL(req.url, "http://localhost").searchParams.get("path") || "";

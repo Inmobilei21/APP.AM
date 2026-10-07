@@ -79,7 +79,7 @@ async function find347Document(){
     const all=await getDeclarationPdfs(false),name=taxDrafts.clientData?.name||client;
     let best=null,score=0;
     all.filter(doc=>doc.normalized.includes(String(year))&&fiscalModelMatches(doc.normalized,"347")).forEach(doc=>{const s=declarationClientScore(name,doc.normalized);if(s>score){best=doc;score=s}});
-    if(best&&score>=0.6){const file=await best.handle.getFile();best.url=URL.createObjectURL(file)}else best=null;
+    if(!(best&&score>=0.6))best=null;
     if(taxDrafts.client===client&&taxDrafts.model==="347"){taxDrafts.doc347=best;if(best)renderTaxDraftMain()}
   }catch{}
 }
