@@ -5435,3 +5435,59 @@ homeActivityEmpty=function(icon,title,text){
   new MutationObserver(revisar).observe(document.body,{attributes:true,attributeFilter:["class"]});
   document.addEventListener("touchend",()=>setTimeout(revisar,50),{passive:true,capture:true});
 })();
+
+/* Aviso «Servicio no contratado» como el de ProPymes, con la imagen de Asesoría Molinero:
+   ventana centrada con el logo, «Más información» abre un formulario (nombre, servicio,
+   correo y teléfono opcional) que llega a Álvaro como mensaje del cliente, y agradecimiento final. */
+(function(){
+  const ADVISOR="alvaro",LOGO="/splash-logo.png?v=3";
+  const EMAIL=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,PHONE=/^[+\d][\d\s().-]{5,19}$/;
+  function swap(root,selector,handler){const b=root.querySelector(selector);if(!b)return null;const nuevo=b.cloneNode(true);nuevo.addEventListener("click",handler);b.replaceWith(nuevo);return nuevo}
+  function showForm(overlay,service){
+    const body=overlay.querySelector(".client-unavailable-body"),eyebrow=overlay.querySelector(".client-unavailable-card>header small");if(!body)return;
+    if(eyebrow)eyebrow.textContent="Solicitar información";
+    body.classList.add("am-srv-body");
+    body.innerHTML=`<form class="am-srv-form" novalidate>
+      <div class="am-srv-intro"><h2>Más información</h2><p>Déjenos sus datos y le contamos, sin compromiso, cómo podemos ayudarle.</p></div>
+      <label><span>Nombre</span><input name="nombre" autocomplete="name" maxlength="80" required value="${escapeHtml(typeof clientPreviewName==="string"?clientPreviewName:"")}"></label>
+      <label><span>Servicio</span><input name="servicio" value="${escapeHtml(service)}" readonly tabindex="-1"></label>
+      <label><span>Correo electrónico <em>obligatorio</em></span><input name="correo" type="email" inputmode="email" autocomplete="email" maxlength="120" required placeholder="nombre@empresa.es"></label>
+      <label><span>Teléfono <em>opcional</em></span><input name="telefono" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="600 000 000"></label>
+      <p class="am-srv-error" role="alert" hidden></p>
+      <button class="client-unavailable-primary" type="submit">Enviar solicitud</button>
+      <button class="client-unavailable-secondary" type="button" data-am-srv-back>Volver</button>
+    </form>`;
+    const form=body.querySelector("form"),error=form.querySelector(".am-srv-error");
+    form.querySelector("[data-am-srv-back]").addEventListener("click",()=>window.openClientUnavailable(service));
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();
+      const value=key=>form.elements[key].value.trim(),nombre=value("nombre"),correo=value("correo"),telefono=value("telefono");
+      const problem=!nombre?["nombre","Escriba su nombre."]:!EMAIL.test(correo)?["correo","Escriba un correo electrónico válido."]:telefono&&!PHONE.test(telefono)?["telefono","Revise el teléfono o déjelo en blanco."]:null;
+      form.querySelectorAll("[aria-invalid]").forEach(input=>input.removeAttribute("aria-invalid"));
+      if(problem){form.elements[problem[0]].setAttribute("aria-invalid","true");form.elements[problem[0]].focus();error.textContent=problem[1];error.hidden=false;return}
+      error.hidden=true;const submit=form.querySelector("[type=submit]");submit.disabled=true;submit.textContent="Enviando…";
+      const text=`Solicitud de información · ${service} — Nombre: ${nombre} · Correo: ${correo} · Teléfono: ${telefono||"no indicado"}`;
+      try{await apiJson("/api/client-chat/messages",{method:"POST",body:JSON.stringify({client:clientPreviewName,recipientId:ADVISOR,text})});showThanks(overlay,service,correo)}
+      catch{submit.disabled=false;submit.textContent="Enviar solicitud";error.textContent="No se pudo enviar la solicitud. Inténtelo de nuevo o hable con un asesor.";error.hidden=false}
+    });
+    setTimeout(()=>form.elements[form.elements.nombre.value?"correo":"nombre"].focus(),60);
+  }
+  function showThanks(overlay,service,correo){
+    const body=overlay.querySelector(".client-unavailable-body");
+    body.innerHTML=`<div class="am-srv-done"><img src="${LOGO}" alt="Asesoría Molinero"><span aria-hidden="true">✓</span><h2>¡Muchas gracias por su mensaje!</h2>
+      <p>Hemos recibido su solicitud sobre <strong>${escapeHtml(service)}</strong>. Pronto le contactaremos en <strong>${escapeHtml(correo)}</strong>.</p>
+      <button class="client-unavailable-primary" type="button">Cerrar</button></div>`;
+    body.querySelector("button").addEventListener("click",()=>overlay.remove());body.querySelector("button").focus();
+  }
+  const base=window.openClientUnavailable;if(typeof base!=="function")return;
+  window.openClientUnavailable=function(service){
+    const result=base.apply(this,arguments);
+    if(document.body.classList.contains("pp-propymes"))return result;
+    const overlay=document.querySelector(".client-unavailable-overlay");if(!overlay)return result;
+    overlay.classList.add("am-srv");
+    const header=overlay.querySelector(".client-unavailable-card>header");
+    if(header&&!header.querySelector(".am-srv-logo"))header.insertAdjacentHTML("afterbegin",`<img class="am-srv-logo" src="${LOGO}" alt="Asesoría Molinero">`);
+    const more=swap(overlay,"[data-request-client-service]",()=>showForm(overlay,service));if(more)more.textContent="Más información";
+    return result;
+  };
+})();
