@@ -10,7 +10,7 @@ TAX_DRAFT_MODELS[M]={title:"Pago fraccionado IRPF · estimación directa",ready:
 if(typeof TD_COMPL_BOX!=="undefined")TD_COMPL_BOX[M]="18";
 const LIMITE_DIFICIL=2000,LIMITE_VIVIENDA=660.14;
 const num=v=>{if(typeof v==="number")return Number.isFinite(v)?v:0;const s=String(v??"").trim();if(!s)return 0;const n=Number(s.includes(",")?s.replace(/\./g,"").replace(",","."):s);return Number.isFinite(n)?n:0};
-const inputValue=v=>v===undefined||v===null||v===""?"":String(Number(v).toFixed(2)).replace(".",",");
+const inputValue=v=>{if(v===undefined||v===null||v==="")return"";const n=Number(v)||0,[i,d]=Math.abs(n).toFixed(2).split(".");return(n<0?"-":"")+i.replace(/\B(?=(\d{3})+(?!\d))/g,".")+","+d};
 const st=period=>taxDraftControl(M,period).m130||{};
 // Ajustes que se arrastran: si no se han tocado en este trimestre, valen los del trimestre anterior.
 function setting(period,field,def){for(let q=Number(period[0]);q>=1;q--){const v=st(`${q}T`)[field];if(v!==undefined&&v!=="")return v}return def}
@@ -32,13 +32,16 @@ function calc(period){
   const modalidad=setting(period,"modalidad","simplificada"),pct=num(setting(period,"pct",7)),variacion=tdRound(num(setting(period,"variacion",0)));
   const ing=cuentas("ingreso",q),gas=cuentas("gasto",q),ret=(taxDrafts.base?.retencionesSoportadas||[]).filter(item=>inYearTo(item.fecha,q));
   const prev=[];for(let i=1;i<q;i++)prev.push(calc(`${i}T`));
-  const ingresos=tdRound(ing.reduce((s,a)=>s+a.acum,0)),gastosContables=tdRound(gas.reduce((s,a)=>s+a.acum,0));
+  // Lo que sale de la documentación (contabilidad); si se escribe un importe a mano, manda el manual.
+  const manual=f=>m[f]!==undefined&&m[f]!==""&&m[f]!==null;
+  const auto={ingresos:tdRound(ing.reduce((s,a)=>s+a.acum,0)),gastos:tdRound(gas.reduce((s,a)=>s+a.acum,0)),ret:tdSum(ret,"retencion")};
+  const ingresos=manual("o01")?tdRound(num(m.o01)):auto.ingresos,gastosContables=manual("oGastos")?tdRound(num(m.oGastos)):auto.gastos;
   const totalGastos=tdRound(gastosContables+variacion),previo=tdRound(ingresos-totalGastos);
   const dificil=modalidad==="simplificada"?tdRound(Math.min(Math.max(0,previo)*pct/100,LIMITE_DIFICIL)):0;
   const c={};
   c["01"]=secI?ingresos:0;c["02"]=secI?tdRound(totalGastos+dificil):0;c["03"]=tdRound(c["01"]-c["02"]);c["04"]=c["03"]>0?tdRound(c["03"]*0.2):0;
   c["05"]=secI?Math.max(0,tdRound(prev.reduce((s,p)=>s+Math.max(0,p.c["07"]),0)-prev.reduce((s,p)=>s+p.c["16"],0))):0;
-  c["06"]=secI?tdSum(ret,"retencion"):0;c["07"]=tdRound(c["04"]-c["05"]-c["06"]);
+  c["06"]=secI?(manual("o06")?tdRound(num(m.o06)):auto.ret):0;c["07"]=tdRound(c["04"]-c["05"]-c["06"]);
   c["08"]=secII?tdRound(num(m.c08)):0;c["09"]=tdRound(c["08"]*0.02);c["10"]=secII?tdRound(num(m.c10)):0;c["11"]=tdRound(c["09"]-c["10"]);
   c["12"]=Math.max(0,tdRound((secI?c["07"]:0)+(secII?c["11"]:0)));c["13"]=tdRound(num(m.c13));c["14"]=tdRound(c["12"]-c["13"]);
   // Resultados negativos de trimestres anteriores aún sin compensar (con el máximo de la diferencia).
@@ -48,7 +51,7 @@ function calc(period){
   c["16"]=c["14"]>0?tdRound(Math.min(num(m.c16),topeVivienda,Math.max(0,c["14"]-c["15"]))):0;
   c["17"]=tdRound(c["14"]-c["15"]-c["16"]);
   const compl=tdCompl(M,period);c["18"]=compl.deducir;c["19"]=tdRound(c["17"]-c["18"]);
-  return{c,q,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
+  return{c,q,auto,manual,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
     pago:{forma:m.formaPago||(fisica()?"domiciliacion":"domiciliacion"),iban:m.iban??((taxDrafts.clientData?.bank?.ibans||[]).find(Boolean)||""),nrc:m.nrc||"",aDeducir:m.aDeducir===true}};
 }
 const LABELS={
@@ -73,7 +76,9 @@ const LABELS={
   "19":"Resultado de la autoliquidación ([17] − [18])"
 };
 const EYES={"01":"ing130","02":"gas130","03":"gas130","05":"prev130","06":"ret130","15":"prev130"};
-const INPUTS={"08":"c08","10":"c10","13":"c13","16":"c16"};
+const INPUTS={"01":"o01","06":"o06","08":"c08","10":"c10","13":"c13","16":"c16"};
+const AUTO={"01":"ingresos","06":"ret"};
+const sinBase=()=>!taxDrafts.base||taxDrafts.base.manual||!Array.isArray(taxDrafts.base.resultados);
 TAX_DRAFT_BUILDERS[M]=period=>{
   const r=calc(period),c=r.c;
   const box=n=>({n,label:LABELS[n],value:c[n],kind:"money",eye:EYES[n],cls:n==="19"?"total":""});
@@ -87,9 +92,10 @@ TAX_DRAFT_BUILDERS[M]=period=>{
     lists:{ret130:r.ret,ing130:r.ing,gas130:r.gas},
     checks:()=>{
       const out=[];
-      if(!Array.isArray(taxDrafts.base?.resultados))return['<div class="td-check warn">⚠ <div><b>La base es de una versión anterior</b>Vuelve a añadirla en la ficha del cliente para leer los saldos de ingresos y gastos.</div></div>'];
-      if(r.secI&&!r.ing.length)out.push('<div class="td-check warn">⚠ <div><b>Sin ingresos en el período</b>No hay saldos en las cuentas del grupo 7 hasta el final del trimestre.</div></div>');
-      if(r.secI&&r.ing.length)out.push(`<div class="td-check ok">✓ <div><b>Datos acumulados del 1 de enero al ${["31 de marzo","30 de junio","30 de septiembre","31 de diciembre"][r.q-1]}</b>${r.ing.length} cuentas de ingresos y ${r.gas.length} de gastos (incluidas amortizaciones).${r.modalidad==="simplificada"?` Gastos de difícil justificación: ${String(r.pct).replace(".",",")} % del rendimiento neto previo (máx. ${tdEur(LIMITE_DIFICIL)}).`:" Estimación directa normal: sin gastos de difícil justificación."}</div></div>`);
+      if(sinBase())out.push('<div class="td-check warn">⚠ <div><b>Sin contabilidad de AMCOMTA</b>Escribe a mano los ingresos (01), los gastos (ojo de la 02) y las retenciones (06). Si añades la base en la ficha del cliente, se rellenan solos.</div></div>');
+      else if(r.manual("o01")||r.manual("oGastos")||r.manual("o06"))out.push(`<div class="td-check warn">⚠ <div><b>Hay importes escritos a mano</b>${[r.manual("o01")?`ingresos ${tdEur(r.c["01"])} (documentación ${tdEur(r.auto.ingresos)})`:"",r.manual("oGastos")?`gastos ${tdEur(r.gastosContables)} (documentación ${tdEur(r.auto.gastos)})`:"",r.manual("o06")?`retenciones ${tdEur(r.c["06"])} (documentación ${tdEur(r.auto.ret)})`:""].filter(Boolean).join(" · ")}.</div></div>`);
+      if(r.secI&&!r.ing.length&&!sinBase()&&!r.manual("o01"))out.push('<div class="td-check warn">⚠ <div><b>Sin ingresos en el período</b>No hay saldos en las cuentas del grupo 7 hasta el final del trimestre.</div></div>');
+      if(r.secI&&r.ing.length&&!sinBase())out.push(`<div class="td-check ok">✓ <div><b>Datos acumulados del 1 de enero al ${["31 de marzo","30 de junio","30 de septiembre","31 de diciembre"][r.q-1]}</b>${r.ing.length} cuentas de ingresos y ${r.gas.length} de gastos (incluidas amortizaciones).${r.modalidad==="simplificada"?` Gastos de difícil justificación: ${String(r.pct).replace(".",",")} % del rendimiento neto previo (máx. ${tdEur(LIMITE_DIFICIL)}).`:" Estimación directa normal: sin gastos de difícil justificación."}</div></div>`);
       const pagos473=(taxDrafts.base?.pagosACuenta||[]).filter(item=>inYearTo(item.fecha,r.q)&&item.importe>0&&!/130|202|PAGO FRACC|MOD\.?\s?1[23]0/i.test(item.concepto));
       const total473=tdSum(pagos473,"importe");
       if(r.secI&&Math.abs(total473-r.c["06"])>=0.01&&total473)out.push(`<div class="td-check warn">⚠ <div><b>Revisa las retenciones soportadas</b>Facturas emitidas con retención: ${tdEur(r.c["06"])} · cargos en la 473 del período: ${tdEur(total473)}. Míralo con el ojo de la casilla 06.</div></div>`);
@@ -104,11 +110,12 @@ TAX_DRAFT_BUILDERS[M]=period=>{
 
 /* --- Casillas en pantalla: apartados I, II y III desplegables --- */
 const eyeBtn=(n,value)=>{const kind=EYES[n];if(!kind)return'<span class="td-eye off" aria-hidden="true"></span>';
-  return value||kind==="prev130"&&Number(taxDrafts.open?.[0])>1?`<button type="button" class="td-eye" data-td-eye="${kind}" title="Ver cómo se calcula la casilla ${n}" aria-label="Ver el detalle de la casilla ${n}">${tdEye}</button>`:`<span class="td-eye off" title="Sin datos en la casilla ${n}">${tdEyeOff}</span>`};
+  return value||kind==="gas130"||kind==="ing130"||kind==="prev130"&&Number(taxDrafts.open?.[0])>1?`<button type="button" class="td-eye" data-td-eye="${kind}" title="Ver cómo se calcula la casilla ${n}" aria-label="Ver el detalle de la casilla ${n}">${tdEye}</button>`:`<span class="td-eye off" title="Sin datos en la casilla ${n}">${tdEyeOff}</span>`};
 function line(r,n,editable){
   const v=r.c[n],field=INPUTS[n];
-  const value=field&&editable?`<input class="m130-in" data-m130="${field}" inputmode="decimal" value="${escapeHtml(inputValue(r.m[field]))}" placeholder="0,00">`:`<span class="tdg-v">${tdEur(v)}</span>`;
-  const hint=n==="16"&&editable?`<small class="m130-hint">Máx. 2 % de [03] (${tdEur(r.topeVivienda)} este trimestre)</small>`:n==="09"?`<small class="m130-hint">2 % de [08]</small>`:"";
+  const autoKey=AUTO[n],isManual=autoKey&&r.manual(field);
+  const value=field&&editable?`<input class="m130-in${autoKey?" auto":""}${isManual?" manual":""}" data-m130="${field}" inputmode="decimal" value="${escapeHtml(inputValue(r.m[field]))}" placeholder="${autoKey?escapeHtml(tdEur(r.auto[autoKey])):"0,00"}">`:`<span class="tdg-v">${tdEur(v)}</span>`;
+  const hint=autoKey&&editable?`<small class="m130-hint">${sinBase()?"Sin documentación: escríbelo a mano":isManual?`Importe manual · según la documentación: ${tdEur(r.auto[autoKey])} (bórralo para volver a usarla)`:"Sale de la documentación · puedes escribir otro importe"}</small>`:n==="02"&&editable?`<small class="m130-hint">Gastos y % de difícil justificación: pulsa el ojo${r.manual("oGastos")?" · gastos escritos a mano":""}</small>`:n==="16"&&editable?`<small class="m130-hint">Máx. 2 % de [03] (${tdEur(r.topeVivienda)} este trimestre)</small>`:n==="09"?`<small class="m130-hint">2 % de [08]</small>`:"";
   return `<div class="tdg-total m130-line${["07","11","19"].includes(n)?" result":""}${["17","12"].includes(n)?" strong":""}"><span class="tdg-label">${escapeHtml(LABELS[n])}${hint}</span><div class="tdg-cell${v||field?"":" zero"}"><span class="tdg-n">${n}</span><span class="tdg-cap"></span>${value}${editable?eyeBtn(n,v):""}</div></div>`;
 }
 function grid(r,editable=true){
@@ -157,10 +164,10 @@ function sideHtml(kind,draft){
     const row=(label,value,cls="",input="")=>`<div class="m130-calc-row ${cls}"><span>${label}</span>${input||`<b>${tdEur(value)}</b>`}</div>`;
     return `<div class="m130-calc">
       <label class="m130-mod"><span>Modalidad</span><select data-m130="modalidad"><option value="simplificada"${r.modalidad==="simplificada"?" selected":""}>Estimación directa simplificada</option><option value="normal"${r.modalidad==="normal"?" selected":""}>Estimación directa normal</option></select></label>
-      ${row(`Gastos (incluyendo amortizaciones) a ${FIN[q-1]}`,r.gastosContables)}
+      ${row(`Gastos (incluyendo amortizaciones) a ${FIN[q-1]}${sinBase()?"":` <small>· documentación: ${tdEur(r.auto.gastos)}</small>`}`,r.gastosContables,"edit",`<input data-m130="oGastos" inputmode="decimal" value="${escapeHtml(inputValue(r.m.oGastos))}" placeholder="${escapeHtml(tdEur(r.auto.gastos))}">`)}
       ${row("Variación en los gastos a declarar (+/−)",r.variacion,"edit",`<input data-m130="variacion" inputmode="decimal" value="${escapeHtml(inputValue(r.variacion))}" placeholder="0,00">`)}
       ${row("Total gastos a declarar del período",r.totalGastos,"sub")}
-      ${row(`Ingresos computables a ${FIN[q-1]} (casilla 01)`,r.ingresos)}
+      ${row(`Ingresos computables a ${FIN[q-1]} (casilla 01)${r.manual("o01")?" · a mano":""}`,r.ingresos)}
       ${row("Rendimiento neto previo",r.previo,"strong")}
       ${r.modalidad==="simplificada"?row(`Gastos de difícil justificación (<input class="m130-pct" data-m130="pct" inputmode="decimal" value="${escapeHtml(String(r.pct).replace(".",","))}"> % s/ rendimiento neto previo · lím. ${tdEur(LIMITE_DIFICIL)})`,r.dificil,"edit"):row("Gastos de difícil justificación (no se aplican en la modalidad normal)",0,"dim")}
       ${row("Gastos fiscalmente deducibles (casilla 02)",r.c["02"],"strong green")}
@@ -203,7 +210,11 @@ if(typeof openTaxDraftSide==="function"){const previous=openTaxDraftSide;openTax
   return r}}
 const previousMain=renderTaxDraftMain;
 renderTaxDraftMain=function(){
-  const r=previousMain.apply(this,arguments),box=document.querySelector("#tdMain");
+  // Sin base de contabilidad el 130 se puede hacer igualmente escribiendo los importes a mano.
+  const original=taxDrafts.base,vacia=taxDrafts.model===M&&taxDrafts.client&&!taxDrafts.loading&&(!original||!Array.isArray(original.retencionesIrpf));
+  if(vacia)taxDrafts.base={manual:true,resultados:[],retencionesIrpf:[],retencionesSoportadas:[],pagosACuenta:[]};
+  let r;try{r=previousMain.apply(this,arguments)}finally{if(vacia)taxDrafts.base=original}
+  const box=document.querySelector("#tdMain");
   if(box&&taxDrafts.model===M&&box.querySelector(".td-table")){
     const th=box.querySelectorAll(".td-table thead th");if(th.length>=4){th[1].textContent="Ingresos acum.";th[2].textContent="Rend. neto acum.";th[3].textContent="Resultado"}
     const foot=box.querySelector(".td-table tfoot tr td:nth-child(3)");if(foot)foot.textContent=tdEur(calc("4T").c["03"]);
@@ -221,6 +232,60 @@ if(typeof confirmTaxDraft==="function"){const previous=confirmTaxDraft;confirmTa
   if(model===M&&period){const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);
     if(data.draft){const k=calc(period);data.draft.pago=k.pago;data.draft.personType=taxDrafts.clientData?.personType||"";data.draft.calculo={modalidad:k.modalidad,pct:k.pct,variacion:k.variacion,gastosContables:k.gastosContables,previo:k.previo,dificil:k.dificil,secI:k.secI,secII:k.secII};delete data.draft.lists.ing130;delete data.draft.lists.gas130;localStorage.setItem(key,JSON.stringify(data))}}
   return r}}
+
+/* --- Fichero para importar en la sede de la AEAT (diseño de registro DR130, página de 600 posiciones) --- */
+const fpad=(value,width)=>String(value??"").slice(0,width).padEnd(width," ");
+const fclean=value=>[...String(value||"").toUpperCase()].map(c=>c==="Ñ"||c==="Ç"?c:c.normalize("NFD").replace(/[̀-ͯ]/g,"")).join("").replace(/[^A-Z0-9ÑÇ ]/g," ").replace(/\s+/g," ").trim();
+// Numéricos con signo: 15 enteros + 2 decimales, ceros a la izquierda y «N» en la primera posición si es negativo.
+const fnum=value=>{const cents=Math.round((Number(value)||0)*100),digits=String(Math.abs(cents)).padStart(17,"0").slice(-17);return cents<0?"N"+digits.slice(1):digits};
+function aeat130(draft){
+  const boxes=new Map((draft.boxes||[]).filter(box=>box.n).map(box=>[box.n,Number(box.value)||0]));
+  const nif=String(draft.cif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(nif.length!==9)throw new Error("Falta el NIF del cliente (ficha del cliente).");
+  const year=String(draft.year||""),period=String(draft.period||"");
+  if(!/^\d{4}$/.test(year)||!/^[1-4]T$/.test(period))throw new Error("Ejercicio o período no válido.");
+  // Persona física: «Apellidos, Nombre» → apellidos (60) y nombre (20).
+  const [apellidos,nombre=""]=String(draft.client||"").split(",").map(part=>part.trim());
+  const result=boxes.get("19")||0,pago=draft.pago||{},iban=String(pago.iban||"").replace(/\s+/g,"").toUpperCase();
+  if(result>0&&pago.forma==="domiciliacion"&&!/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/.test(iban))throw new Error("Falta el IBAN para domiciliar el pago.");
+  // Tipo: U domiciliación, I ingreso (adeudo en cuenta o efectivo), B a deducir, N negativa.
+  const type=result>0?(pago.forma==="domiciliacion"?"U":"I"):result<0&&pago.aDeducir?"B":"N";
+  const compl=draft.complementaria||{};
+  let page=" "+type+fpad(nif,9)+fpad(fclean(apellidos),60)+fpad(fclean(nombre),20)+year+period
+    +["01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19"].map(n=>fnum(boxes.get(n))).join("")
+    +(compl.activa?"X"+fpad(String(compl.justificante||"").replace(/\D/g,""),13):fpad("",14))
+    +fpad(type==="U"?iban:"",34)+fpad("",96)+fpad("",13);
+  if(page.length!==577)throw new Error("Error interno al montar el fichero del 130.");
+  const head=`T1300${year}${period}0000`,aux=fpad(fpad("",70)+"AM01"+fpad("",4)+"B72758998",300);
+  return `<${head}><AUX>${aux}</AUX><T13001000>${page}</T13001000></${head}>`;
+}
+function download130(draft){
+  try{
+    const text=aeat130(draft),bytes=new Uint8Array([...text].map(ch=>{const c=ch.charCodeAt(0);return c<256?c:32}));
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bytes],{type:"application/octet-stream"}));
+    a.download=`${String(draft.cif||"").toUpperCase()}_130_${draft.year}_${draft.period}.130`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  }catch(error){alert(error.message)}
+}
+window.aeat130=aeat130;
+function currentDraft(period){
+  const saved=taxDraftControl(M,period).draft;
+  if(saved&&saved.model===M&&Array.isArray(saved.boxes))return{...saved,complementaria:tdCompl(M,period),cif:saved.cif||taxDrafts.clientData?.cif||""};
+  const d=taxDraftBuild(M,period);return{...d,client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",pago:d.calc.pago};
+}
+if(typeof taxDraftDetail==="function"){const previous=taxDraftDetail;taxDraftDetail=function(draft){const html=previous.apply(this,arguments);
+  return draft.model===M?html.replace('<button type="button" class="secondary-button" data-td-copy>',`<button type="button" class="secondary-button" data-m130-file="${escapeHtml(draft.period)}" title="Fichero para importar en la sede de la AEAT (presentación mediante fichero)">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy>`):html}}
+document.addEventListener("click",event=>{const button=event.target.closest("[data-m130-file]");if(!button)return;event.preventDefault();download130(currentDraft(button.dataset.m130File))});
+if(typeof openConfirmedTaxDraft==="function"){
+  const previousOpen=openConfirmedTaxDraft;
+  openConfirmedTaxDraft=async function(key){
+    await previousOpen.apply(this,arguments);
+    let data={};try{data=JSON.parse(localStorage.getItem(key)||"{}")}catch{}
+    const draft=data.draft,actions=document.querySelector("#tdDraftView .td-form-actions");
+    if(!draft||draft.model!==M||!actions||actions.querySelector("[data-m130-download]"))return;
+    const button=document.createElement("button");button.type="button";button.className="secondary-button";button.dataset.m130Download="1";button.textContent="Fichero AEAT";
+    button.addEventListener("click",()=>download130({...draft,cif:draft.cif||taxDrafts.clientData?.cif||""}));actions.prepend(button);
+  };
+}
 
 /* --- Borrador con el aspecto del impreso del 130 --- */
 if(typeof taxDraftFormHtml==="function"){
@@ -266,6 +331,8 @@ if(typeof taxDraftFormHtml==="function"){
 .m130-body{padding:8px 12px 10px}.m130-body .td-note{margin:4px 2px}
 .m130 .m130-line .tdg-label small.m130-hint{display:block;font-weight:500;color:#69748a;font-size:11px}
 .m130 .m130-line.strong .tdg-label{font-weight:800}
+.m130-in.auto::placeholder{color:#1d2a44;opacity:1}.m130-in.auto{background:#fff}.m130-in.manual{background:#fff4e5;border-color:#f0b35a}
+.m130-calc-row small{font-weight:500;color:#69748a}
 .m130-in{width:100%;max-width:150px;height:30px;border:1px solid #c9d3ea;border-radius:7px;padding:2px 8px;text-align:right;font:inherit;font-size:13px;font-weight:700;background:#fffef5;justify-self:end}
 .m130-pago{border:1px solid #e3e7ef;border-radius:12px;padding:12px 14px;margin:4px 20px 10px;background:#fff;display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px}
 .m130-pago h6{width:100%;margin:0;font-size:12.5px;color:#1f4a99;text-transform:uppercase;letter-spacing:.04em}
