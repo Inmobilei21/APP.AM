@@ -154,7 +154,7 @@ function pagePago(r){
 function grid(r){
   const tab=PAGES.some(p=>p[0]===taxDrafts.m303Tab)?taxDrafts.m303Tab:"dev";
   const body={ident:pageIdent,dev:pageDev,ded:pageDed,info:pageInfo,res:pageRes,pago:pagePago}[tab](r);
-  return `<div class="m303"><nav class="m303-tabs">${PAGES.map(([k,l])=>`<button type="button" class="${k===tab?"on":""}" data-m303-tab="${k}">${l}${k==="res"?`<small>${tdEur(r.c["71"])}</small>`:k==="dev"?`<small>${tdEur(r.c["27"])}</small>`:k==="ded"?`<small>${tdEur(r.c["45"])}</small>`:""}</button>`).join("")}</nav><div class="m303-page">${body}</div></div>`;
+  return `<div class="m303-wrap"><nav class="m303-tabs">${PAGES.map(([k,l])=>`<button type="button" class="${k===tab?"on":""}" data-m303-tab="${k}">${l}${k==="res"?`<small>${tdEur(r.c["71"])}</small>`:k==="dev"?`<small>${tdEur(r.c["27"])}</small>`:k==="ded"?`<small>${tdEur(r.c["45"])}</small>`:""}</button>`).join("")}</nav><div class="m303-page">${body}</div></div>`;
 }
 if(typeof taxDraftBoxes==="function"){const previous=taxDraftBoxes;taxDraftBoxes=function(boxes,withEyes=true,model=""){
   if(model===M&&taxDrafts.model===M&&/^\dT$/.test(taxDrafts.open||""))return grid(calc(taxDrafts.open));return previous.apply(this,arguments)}}
@@ -261,7 +261,7 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
   if(draft?.model===M&&draft.m303&&actions&&!actions.querySelector("[data-m303-download]")){const b=document.createElement("button");b.type="button";b.className="secondary-button";b.dataset.m303Download="1";b.textContent="Fichero AEAT";b.addEventListener("click",()=>download303({...draft,cif:draft.cif||taxDrafts.clientData?.cif||""}));actions.prepend(b)}
 }}
 (function(){const style=document.createElement("style");style.textContent=`
-.m303{margin:0 20px 10px}.m303-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 10px;position:sticky;top:0;z-index:2;background:inherit}.m303-tabs::-webkit-scrollbar{display:none}
+.m303-wrap{margin:0 20px 10px}.m303-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 10px;position:sticky;top:0;z-index:2;background:inherit}.m303-tabs::-webkit-scrollbar{display:none}
 .m303-tabs button{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid #d8deea;border-radius:12px;background:#fff;padding:7px 14px;font:inherit;font-size:13px;font-weight:700;color:#1d2a44;cursor:pointer}
 .m303-tabs button small{font-size:11px;font-weight:600;color:#69748a;font-variant-numeric:tabular-nums}.m303-tabs button.on{background:#14279b;border-color:#14279b;color:#fff}.m303-tabs button.on small{color:#cfd8ff}
 .m303-page{border:1px solid #e3e7ef;border-radius:14px;background:#fff;padding:8px 12px 12px;overflow-x:auto}
@@ -280,7 +280,7 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
 .m303-pago .td-cf{flex:1 1 280px}.m303-pago .td-cf.short{flex:0 1 160px}.m303-pago select,.m303-pago input{width:100%;height:36px;border:1px solid #c9d3ea;border-radius:9px;padding:0 8px;font:inherit;font-size:13px;font-weight:600}.m303-pago .m303-hint{width:100%}
 .m303-t{table-layout:fixed}.m303-t .m303-l{min-width:0;width:40%;white-space:normal}.m303-cell{min-width:0}.m303-t td:not(.m303-l){width:auto}
 .m303-t tfoot tr{display:table-row!important}.m303-t td,.m303-t th{white-space:normal}
-@media(max-width:760px){.m303{margin:0 4px 10px}.m303-page{padding:6px 8px 10px}
+@media(max-width:760px){.m303-wrap{margin:0 4px 10px}.m303-page{padding:6px 8px 10px}
   .m303-t,.m303-t tbody,.m303-t tfoot{display:block!important;width:100%}.m303-t thead{display:none!important}
   .m303-t tr,.m303-t tfoot tr{display:grid!important;grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 0;border-top:1px solid #eef0f5}
   .m303-t td{display:block!important;padding:0!important;border:0!important;width:auto!important;background:transparent}
