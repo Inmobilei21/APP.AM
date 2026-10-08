@@ -83,7 +83,8 @@ function renderTaxDraft347(box){
   find("[data-m347-det]").forEach(input=>input.addEventListener("change",()=>{const key=input.dataset.key,field=input.dataset.m347Det;m347Save(m=>{const d=m.detalle[key]=m.detalle[key]||{};d[field]=input.type==="checkbox"?input.checked:(field==="nif"||field.startsWith("nif")?input.value.trim().toUpperCase():input.value.trim())});renderTaxDraftMain()}));
   find("[data-m347-inm]").forEach(input=>input.addEventListener("change",()=>{const key=input.dataset.key,q=Number(input.dataset.m347Inm);m347Save(m=>{const d=m.detalle[key]=m.detalle[key]||{};d.inmuebles=d.inmuebles||["","","",""];d.inmuebles[q]=input.value.trim()});renderTaxDraftMain()}));
   find("[data-m347-contacto]").forEach(input=>input.addEventListener("change",()=>{const contact={...m347Contact(),[input.dataset.m347Contacto]:input.value.trim()};m347Save(m=>{m.contacto=contact});try{localStorage.setItem(M347_CONTACT_KEY,JSON.stringify(contact))}catch{}}));
-  find("[data-m347-open]").forEach(button=>button.addEventListener("click",()=>{const key=button.dataset.m347Open;taxDrafts.open347=taxDrafts.open347===key?"":key;renderTaxDraftMain()}));
+  // Se despliega al pulsar en cualquier parte de la línea del declarado (salvo en sus casillas y desplegables).
+  find("tr[data-m347-row]").forEach(row=>{row.style.cursor="pointer";row.addEventListener("click",event=>{if(event.target.closest("input,select,label,a"))return;const key=row.dataset.m347Row;taxDrafts.open347=taxDrafts.open347===key?"":key;renderTaxDraftMain()})});
   box.querySelector("[data-m347-confirm]")?.addEventListener("click",confirm347);
   box.querySelector("[data-m347-view]")?.addEventListener("click",()=>openConfirmed347(m347Draft(),false));
   box.querySelector("[data-m347-download]")?.addEventListener("click",()=>download347Client(m347Draft()));
@@ -190,7 +191,9 @@ async function download347Client(draft){
 }
 function download347Csv(draft){
   const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,num=v=>(Number(v)||0).toFixed(2).replace(".",",");
-  const lines=[["NIF","Nombre","Provincia","País","Clave","1T","2T","3T","4T","Total anual"].map(cell).join(";"),...draft.declarados.map(d=>[cell(d.nif),cell(d.nombre),cell(d.provincia),cell(d.pais),cell(d.clave),...d.trimestres.map(num),num(d.total)].join(";"))];
+  const si=v=>v?"X":"",inm=d=>(d.inmuebles||[0,0,0,0]);
+  const lines=[["NIF declarado","NIF operador comunitario","NIF representante legal","Nombre","Provincia","País","Clave","Operación seguro","Arrendamiento local negocio","IVA de caja","Inversión sujeto pasivo","Depósito distinto del aduanero","1T","2T","3T","4T","Importe anual","Inmuebles 1T","Inmuebles 2T","Inmuebles 3T","Inmuebles 4T","Inmuebles anual","Criterio de caja anual","BDNS","Metálico","Ejercicio metálico"].map(cell).join(";"),
+    ...draft.declarados.map(d=>[cell(d.nif),cell(d.nifComunitario),cell(d.nifRepresentante),cell(d.nombre),cell(d.provincia),cell(d.pais),cell(d.clave),cell(si(d.seguro)),cell(si(d.arrendamiento)),cell(si(d.ivaCaja)),cell(si(d.inversion)),cell(si(d.deposito)),...d.trimestres.map(num),num(d.total),...inm(d).map(num),num(d.inmueblesAnual),num(d.ivaCajaAnual),cell(d.bdns),num(d.metalico),cell(d.ejercicioMetalico)].join(";"))];
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");
   a.href=URL.createObjectURL(blob);a.download=`Modelo 347 ${draft.year} ${draft.client}.csv`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
