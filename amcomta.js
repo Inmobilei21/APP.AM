@@ -162,12 +162,48 @@ module.exports = function ({ dataDirectory }) {
     }
     const terceros347 = [...groups.values()].filter(group => group.total > 3005.06).map(group => ({ ...group, facturas: group.facturas.sort((a, b) => a.fecha.localeCompare(b.fecha)) })).sort((a, b) => a.ejercicio - b.ejercicio || a.clave.localeCompare(b.clave) || a.nombre.localeCompare(b.nombre, "es"));
     const inicio = general["Fecha Inicio"] instanceof Date ? general["Fecha Inicio"] : null;
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347, capital };
+    // Modelo 130: saldo de cada mes de las cuentas de gastos (grupo 6) e ingresos (grupo 7) y cargos a la 473,
+    // sin los asientos de apertura, regularización (contra la 129) ni cierre.
+    const pygEntries = new Map();
+    for (const row of rows("Movimientos")) {
+      const code = text(row.Cuenta);
+      if (!/^[67]/.test(code) && !code.startsWith("129") && !code.startsWith("473")) continue;
+      const fecha = isoDay(row.Fecha);if (!fecha) continue;
+      const key = `${fecha}|${text(row.Asiento)}|${text(row.Contabilidad)}`;
+      const entry = pygEntries.get(key) || { fecha, skip: text(row.Asiento) === "0", lines: [] };
+      if (code.startsWith("129") || /APERTURA|CIERRE|REGULARIZ/i.test(text(row["Ampliación"]))) entry.skip = true;
+      entry.lines.push({ code, amount: money(row, "Importe Euro", "Importe"), debit: isTrue(row.Debe) || row.Debe === true, concepto: text(row["Ampliación"]) });
+      pygEntries.set(key, entry);
+    }
+    const years = new Map();pygEntries.forEach(entry => { const y = entry.fecha.slice(0, 4);years.set(y, (years.get(y) || 0) + 1); });
+    const pygYear = String(inicio ? inicio.getUTCFullYear() : [...years].sort((a, b) => b[1] - a[1])[0]?.[0] || "");
+    const pygAccounts = new Map(), pagosACuenta = [];
+    for (const entry of pygEntries.values()) {
+      if (entry.skip || entry.fecha.slice(0, 4) !== pygYear) continue;
+      const month = Number(entry.fecha.slice(5, 7)) - 1;
+      for (const line of entry.lines) {
+        if (line.code.startsWith("473")) { if (line.amount) pagosACuenta.push({ fecha: entry.fecha, cuenta: line.code, concepto: line.concepto, importe: Math.round((line.debit ? line.amount : -line.amount) * 100) / 100 });continue; }
+        const income = line.code.startsWith("7"), account = pygAccounts.get(line.code) || { cuenta: line.code, nombre: accountNames.get(line.code) || "", tipo: income ? "ingreso" : "gasto", meses: Array(12).fill(0) };
+        account.meses[month] += (line.debit ? 1 : -1) * (income ? -1 : 1) * line.amount;
+        pygAccounts.set(line.code, account);
+      }
+    }
+    const resultados = [...pygAccounts.values()].map(account => ({ ...account, meses: account.meses.map(value => Math.round(value * 100) / 100) })).filter(account => account.meses.some(Boolean)).sort((a, b) => a.cuenta.localeCompare(b.cuenta));
+    // Retenciones que le han practicado al cliente en sus facturas emitidas (casilla 06 del 130).
+    const retencionesSoportadas = [];
+    for (const row of rows("Facturas")) {
+      if (!(isTrue(row.Emitida) || row.Emitida === true)) continue;
+      const retencion = money(row, "IRPF Euro", "IRPF");if (!retencion) continue;
+      const cuenta = text(row.Cuenta), record = records.get(cuenta) || {};
+      retencionesSoportadas.push({ fecha: isoDay(row.Fecha), fechaFactura: isoDay(row["Fecha Factura"]) || isoDay(row.Fecha), numero: text(row["Número Factura"]), cuenta, nombre: text(row.Nombre) || record.nombre || accountNames.get(cuenta) || "", nif: nif(row.Cif) || record.nif || "", base: money(row, "Base IRPF Euro", "Base IRPF"), porcentaje: Number(row["% IRPF"]) || 0, retencion });
+    }
+    retencionesSoportadas.sort((a, b) => a.fecha.localeCompare(b.fecha));
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347, capital, resultados, resultadosEjercicio: pygYear, retencionesSoportadas, pagosACuenta };
   }
 
   // Versión del resumen: al leer más datos de la base se sube y los resúmenes antiguos se
   // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
-  const VERSION = 5;
+  const VERSION = 6;
   const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
   // ¿La empresa de la base es la del cliente elegido? (evita guardar la base de otro cliente)
   const words = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")
