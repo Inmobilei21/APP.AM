@@ -46,13 +46,52 @@ const CONTROL_PAGO={U:"Domicil.",I:"N.R.C.",IP:"N.R.C.","RD-APL":"Aplaz.","IP-AP
 function clientIbans(){const bank=taxDrafts.clientData?.bank||{},list=(bank.ibans||[]).map(i=>String(i).replace(/\s+/g,"").toUpperCase()).filter(Boolean),pref=String(bank.ibanPreferido||"").replace(/\s+/g,"").toUpperCase();
   return{list:pref&&list.includes(pref)?[pref,...list.filter(i=>i!==pref)]:list,pref:list.includes(pref)?pref:""}}
 
+/* --- IVA devengado desde la contabilidad (facturas emitidas de AMCOMTA) o, si no hay, desde las facturas guardadas --- */
+const libros={key:"",data:null,loading:""};
+window.addEventListener("app-am-libros",()=>{libros.key="";libros.data=null});
+function libro(){
+  if(!taxDrafts.client)return null;const key=`${taxDrafts.client}|${taxDraftYear()}`;if(libros.key===key)return libros.data;
+  if(libros.loading!==key){libros.loading=key;apiJson(`/api/libros?client=${encodeURIComponent(taxDrafts.client)}&year=${taxDraftYear()}`).catch(()=>({emitidas:[],recibidas:[]}))
+    .then(data=>{if(libros.loading!==key)return;libros.key=key;libros.data=data;libros.loading="";if(taxDrafts.model===M)renderTaxDraftMain()})}
+  return null;
+}
+function ivaLines(q){
+  const year=String(taxDraftYear()),inQ=fecha=>String(fecha).slice(0,4)===year&&Math.ceil(Number(String(fecha).slice(5,7))/3)===q;
+  const base=taxDrafts.base;
+  if(base&&!base.manual&&Array.isArray(base.ivaEmitidas))return{fuente:"contabilidad",lines:base.ivaEmitidas.filter(x=>inQ(x[0])).map(([fecha,numero,nombre,b,tipo,cuota,recTipo,recargo])=>({fecha,numero,nombre,base:b,tipo,cuota,recTipo,recargo}))};
+  const book=libro();
+  if(book?.emitidas?.length)return{fuente:"facturas",lines:book.emitidas.filter(x=>inQ(x.fecha)).flatMap(x=>(x.lineas?.length?x.lineas:[{base:x.base,tipo:0,cuota:x.cuota}]).map(l=>({fecha:x.fecha,numero:x.numero,nombre:x.nombre,base:l.base,tipo:l.tipo,cuota:l.cuota,recTipo:0,recargo:0})))};
+  return{fuente:"manual",lines:[]};
+}
+// Reparte las líneas en las casillas: bases positivas por tipo (4, 10 y 21 %, y los demás tipos en 150, 165 y 153);
+// todas las bases negativas, sea cual sea el tipo, en 14 y 15 (y las del recargo en 25 y 26). Las del 0 % no van.
+const FIXED={4:["01","03"],10:["04","06"],21:["07","09"]},OTHER=[["150","151","152"],["165","166","167"],["153","154","155"]];
+const RECARGO={5.2:["22","24"],1.4:["19","21"],0.5:["168","170"],1.75:["156","158"]};
+function ivaAuto(lines){
+  const auto={},add=(n,v)=>{auto[n]=tdRound((auto[n]||0)+v)},slot={},cero=[];
+  const others=[...new Set(lines.filter(l=>l.base>0&&l.tipo&&!FIXED[l.tipo]).map(l=>l.tipo))].sort((a,b)=>a-b);
+  others.forEach((tipo,i)=>{const g=OTHER[Math.min(i,OTHER.length-1)];auto[g[1]]=tipo});
+  for(const l of lines){
+    if(l.base<0){add("14",l.base);add("15",l.cuota);l.casilla="14";if(l.recargo){add("25",l.base);add("26",l.recargo)}continue}
+    if(!l.tipo){cero.push(l);l.casilla="0 %";continue}
+    const g=FIXED[l.tipo]||OTHER[Math.min(others.indexOf(l.tipo),OTHER.length-1)].filter((_,i)=>i!==1);
+    add(g[0],l.base);add(g[1],l.cuota);l.casilla=g[0];
+    if(l.recargo){const rg=RECARGO[l.recTipo]||["16","18"];if(!RECARGO[l.recTipo])auto["17"]=l.recTipo;add(rg[0],l.base);add(rg[1],l.recargo);l.casilla+=` · ${rg[0]}`}
+  }
+  return{auto,cero};
+}
+
 /* --- Cálculo --- */
 function calc(period){
   const m=st(period),v=m.v,q=Number(period[0]),c={};
   const val=n=>num(v[n]);
+  const src=ivaLines(q),{auto:ia,cero}=ivaAuto(src.lines);
   for(const [,b,t,cu,rate] of DEV){
-    if(b)c[b]=val(b);if(t)c[t]=rate!==null&&rate!==undefined?rate:val(t);
-    const r=rate!==null&&rate!==undefined?rate:(t?val(t):0),auto=b&&r?tdRound(c[b]*r/100):0;
+    if(b){c["auto"+b]=ia[b]||0;c[b]=has(v[b])?tdRound(val(b)):c["auto"+b]}
+    if(t){c["auto"+t]=ia[t]||0;c[t]=rate!==null&&rate!==undefined?rate:has(v[t])?val(t):c["auto"+t]}
+    const r=rate!==null&&rate!==undefined?rate:(t?c[t]:0),computed=b&&r?tdRound(c[b]*r/100):0;
+    // Cuota: la escrita; si la base es de la contabilidad, la cuota de la contabilidad; si no, base × tipo.
+    const auto=b&&has(v[b])?computed:ia[cu]!==undefined?ia[cu]:computed;
     c[cu]=has(v[cu])?tdRound(val(cu)):auto;c["auto"+cu]=auto;
   }
   c["27"]=tdRound(["152","167","03","155","06","09","11","13","15","158","170","18","21","24","26"].reduce((s,n)=>s+c[n],0));
@@ -71,7 +110,7 @@ function calc(period){
   const list=c["71"]>0?TIPOS_INGRESO:c["71"]<0?TIPOS_NEG:TIPOS_CERO,{list:ibans,pref}=clientIbans();
   const tipo=list.some(t=>t[0]===m.tipo)?m.tipo:list===TIPOS_INGRESO?(ibans.length?"U":"I"):list[0][0];
   const code=list.find(t=>t[0]===tipo)[2];
-  return{c,m,q,tipo,code,tipos:list,iban:m.iban??(pref||ibans[0]||""),swift:m.swift||"",sinActividad:m.sinActividad===true,rect:m.rect===true};
+  return{c,m,q,src,cero,tipo,code,tipos:list,iban:m.iban??(pref||ibans[0]||""),swift:m.swift||"",sinActividad:m.sinActividad===true,rect:m.rect===true};
 }
 const LABEL={"27":"Total cuota devengada","45":"Total a deducir","46":"Resultado régimen general (27 − 45)","64":"Suma de resultados (46 + 58 + 76)","65":"% atribuible a la Administración del Estado","66":"Atribuible a la Administración del Estado",
   "77":"IVA a la importación liquidado por la Aduana pendiente de ingreso","110":"Cuotas a compensar pendientes de periodos anteriores","78":"Cuotas a compensar de periodos anteriores aplicadas en este periodo","87":"Cuotas a compensar de periodos previos pendientes para periodos posteriores (110 − 78)",
@@ -87,7 +126,9 @@ TAX_DRAFT_BUILDERS[M]=period=>{
   return{title:"IVA · autoliquidación",boxes,result:c["71"],calc:r,summary:{perceptores:tdEur(c["27"]),base:c["45"],retencion:c["71"]},lists:{},
     checks:()=>{
       const out=[];
-      if(!Object.keys(r.m.v).length)out.push('<div class="td-check warn">⚠ <div><b>Sin datos</b>De momento el 303 se rellena a mano: abre cada página con los botones de arriba.</div></div>');
+      if(r.src.fuente!=="manual")out.push(`<div class="td-check ok">✓ <div><b>IVA devengado de ${r.src.fuente==="contabilidad"?"la contabilidad":"las facturas guardadas"}</b>${r.src.lines.length} líneas de facturas emitidas del trimestre${c["14"]?` · bases negativas en la casilla 14: ${tdEur(c["14"])}`:""}.</div></div>`);
+      if(r.cero.length)out.push(`<div class="td-check warn">⚠ <div><b>${r.cero.length} línea${r.cero.length===1?"":"s"} al 0 % no van al IVA devengado</b>Base ${tdEur(tdSum(r.cero,"base"))}: si son entregas intracomunitarias o exportaciones, anótalas en «Información adicional» (59 o 60).</div></div>`);
+      if(!Object.keys(r.m.v).length&&r.src.fuente==="manual")out.push('<div class="td-check warn">⚠ <div><b>Sin datos</b>De momento el 303 se rellena a mano: abre cada página con los botones de arriba.</div></div>');
       if(c["71"]<0&&r.tipo==="D"&&r.q!==4&&!r.m.f.redeme)out.push('<div class="td-check warn">⚠ <div><b>Devolución fuera del 4T</b>Solo se puede pedir la devolución en el último periodo, salvo inscritos en el REDEME. Lo habitual es «A compensar».</div></div>');
       if((r.code==="U"||r.code==="D")&&!r.iban)out.push('<div class="td-check warn">⚠ <div><b>Falta la cuenta</b>Elige el IBAN en la página «Forma de pago» o añádelo en la ficha del cliente.</div></div>');
       if(r.code==="X"&&!r.swift)out.push('<div class="td-check warn">⚠ <div><b>Falta el código SWIFT-BIC</b>Hace falta para la devolución a una cuenta del extranjero.</div></div>');
@@ -98,18 +139,27 @@ TAX_DRAFT_BUILDERS[M]=period=>{
     }};
 };
 
+/* --- Ojo: líneas de facturas emitidas que componen el IVA devengado --- */
+if(typeof TAX_DRAFT_SIDE!=="undefined")TAX_DRAFT_SIDE.iva303={title:draft=>`IVA devengado · ${draft.calc.src.lines.length} líneas`,sub:"Facturas emitidas del trimestre y la casilla en la que va cada línea. Las bases negativas (abonos) van en la 14."};
+if(typeof taxDraftLists==="function"){const previous=taxDraftLists;taxDraftLists=function(kind,draft){
+  if(kind!=="iva303")return previous.apply(this,arguments);
+  const lines=draft.calc.src.lines,groups=new Map();lines.forEach(l=>{const k=l.casilla||"—";if(!groups.has(k))groups.set(k,[]);groups.get(k).push(l)});
+  const order=["01","04","07","150","165","153","14","0 %"],keys=[...groups.keys()].sort((a,b)=>(order.indexOf(a.split(" ")[0])+99)%99-(order.indexOf(b.split(" ")[0])+99)%99);
+  return keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">Casilla ${escapeHtml(k)} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota ${tdEur(tdSum(list,"cuota"))}</h4><table class="td-list"><thead><tr><th>Fecha</th><th>Factura</th><th>Cliente</th><th class="num">Base</th><th class="num">%</th><th class="num">Cuota</th>${list.some(l=>l.recargo)?'<th class="num">Recargo</th>':""}</tr></thead><tbody>${list.map(l=>`<tr><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}</td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td>${list.some(x=>x.recargo)?`<td class="num">${l.recargo?tdEur(l.recargo):""}</td>`:""}</tr>`).join("")}</tbody></table>`}).join("");
+}}
+
 /* --- Pantalla: una página del modelo cada vez --- */
 const PAGES=[["ident","Identificación"],["dev","IVA devengado"],["ded","IVA deducible"],["info","Información adicional"],["res","Resultado"],["pago","Forma de pago"]];
-function moneyInput(n,r,{auto,signed}={}){const v=r.m.v[n];return `<input class="m303-in${has(v)&&auto!==undefined?" manual":""}" data-m303="${n}" inputmode="decimal" value="${escapeHtml(inputValue(v))}" placeholder="${auto!==undefined?escapeHtml(inputValue(auto)||"0,00"):"0,00"}" title="${signed?"Admite importes negativos":""}">`}
+function moneyInput(n,r,{auto,signed}={}){const v=r.m.v[n];return `<input class="m303-in${has(v)&&auto!==undefined?" manual":""}${!has(v)&&auto?" has-auto":""}" data-m303="${n}" inputmode="decimal" value="${escapeHtml(inputValue(v))}" placeholder="${auto!==undefined?escapeHtml(inputValue(auto)||"0,00"):"0,00"}" title="${signed?"Admite importes negativos":""}">`}
 const cell=(n,content)=>`<div class="m303-cell"><span class="m303-n">${n}</span>${content}</div>`;
 const out=v=>`<span class="m303-out">${tdEur(v)}</span>`;
 function pageDev(r){
   const c=r.c;
-  return `<table class="m303-t c3"><thead><tr><th></th><th>Base imponible</th><th>Tipo %</th><th>Cuota</th></tr></thead><tbody>${DEV.map(([label,b,t,cu,rate,signed],i)=>`<tr${label&&i?' class="m303-sep"':""}><td class="m303-l">${escapeHtml(label)}</td>
-    <td>${b?cell(b,moneyInput(b,r,{signed})):""}</td><td>${t?cell(t,rate!==null&&rate!==undefined?`<span class="m303-out">${String(rate).replace(".",",")}</span>`:`<input class="m303-in short" data-m303="${t}" inputmode="decimal" value="${escapeHtml(has(r.m.v[t])?String(r.m.v[t]).replace(".",","):"")}" placeholder="%">`):""}</td>
+  return `${r.src.lines.length?`<div class="m303-src"><button type="button" class="m303-eyebtn" data-m303-eye="dev">${tdEye}<span>Ver las ${r.src.lines.length} líneas de facturas emitidas</span></button></div>`:""}<table class="m303-t c3"><thead><tr><th></th><th>Base imponible</th><th>Tipo %</th><th>Cuota</th></tr></thead><tbody>${DEV.map(([label,b,t,cu,rate,signed],i)=>`<tr${label&&i?' class="m303-sep"':""}><td class="m303-l">${escapeHtml(label)}</td>
+    <td>${b?cell(b,moneyInput(b,r,{signed,auto:c["auto"+b]})):""}</td><td>${t?cell(t,rate!==null&&rate!==undefined?`<span class="m303-out">${String(rate).replace(".",",")}</span>`:`<input class="m303-in short${has(r.m.v[t])?" manual":""}" data-m303="${t}" inputmode="decimal" value="${escapeHtml(has(r.m.v[t])?String(r.m.v[t]).replace(".",","):"")}" placeholder="${c["auto"+t]?String(c["auto"+t]).replace(".",","):"%"}">`):""}</td>
     <td>${cell(cu,moneyInput(cu,r,{auto:c["auto"+cu],signed}))}</td></tr>`).join("")}</tbody>
     <tfoot><tr><td class="m303-l" colspan="3"><b>${LABEL["27"]}</b> <small>(152 + 167 + 03 + 155 + 06 + 09 + 11 + 13 + 15 + 158 + 170 + 18 + 21 + 24 + 26)</small></td><td>${cell("27",out(c["27"]))}</td></tr></tfoot></table>
-    <p class="m303-hint">La cuota se calcula con el tipo de la casilla; si escribes otra, manda la tuya (en naranja).</p>`;
+    <p class="m303-hint">${r.src.fuente==="contabilidad"?`Bases y cuotas de las ${r.src.lines.length} líneas de facturas emitidas del trimestre en la contabilidad.`:r.src.fuente==="facturas"?`Bases y cuotas de las facturas emitidas guardadas del trimestre (${r.src.lines.length} líneas).`:"Sin facturas emitidas: escribe los importes a mano."} Las bases negativas van en 14 y 15. Si escribes otro importe, manda el tuyo (en naranja).</p>`;
 }
 function pageDed(r){
   const c=r.c;
@@ -176,6 +226,7 @@ function syncControl(period){
 }
 function bind(card,period){
   const rerender=()=>renderTaxDraftMain();
+  card.querySelector("[data-m303-eye]")?.addEventListener("click",()=>openTaxDraftSide("iva303",taxDraftBuild(M,period)));
   card.querySelectorAll("[data-m303-tab]").forEach(b=>b.addEventListener("click",()=>{taxDrafts.m303Tab=b.dataset.m303Tab;rerender()}));
   card.querySelectorAll("[data-m303]").forEach(input=>input.addEventListener("change",()=>{const n=input.dataset.m303,raw=input.value.trim();save(period,m=>{if(raw==="")delete m.v[n];else m.v[n]=num(raw)});rerender()}));
   card.querySelectorAll("[data-m303date]").forEach(input=>input.addEventListener("change",()=>{const i=Number(input.dataset.m303date);save(period,m=>{const parts=[m.f.concDia||"",m.f.concMes||"",m.f.concAnio||""];parts[i]=input.value.replace(/\D/g,"");[m.f.concDia,m.f.concMes,m.f.concAnio]=parts;
@@ -286,6 +337,7 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
 .m303-in{flex:1;min-width:0;width:100%;height:32px;border:0;padding:0 9px;text-align:right;font:inherit;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;background:transparent}.m303-in::placeholder{color:#8a93a6;font-weight:600}.m303-in.manual{background:#fff4e5}
 .m303-in.short{max-width:80px}.m303-out{flex:1;text-align:right;padding:0 10px;font-weight:800;font-variant-numeric:tabular-nums;line-height:32px}
 .m303-hint{margin:6px 2px;font-size:12px;color:#69748a}
+.m303-src{display:flex;justify-content:flex-end;margin:0 10px 4px}.m303-eyebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid #8ea3cf;background:#fff;color:#163b8c;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.m303-eyebtn:hover{background:#f4f6ff}
 .m303-ident{display:grid;gap:8px;padding:4px}.m303-ident h6{margin:8px 0 0;font-size:12px;color:#14279b;text-transform:uppercase;letter-spacing:.04em}
 .m303-check{display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;line-height:1.35}.m303-check input{margin-top:2px;accent-color:#14279b}
 .m303-boxes{display:grid;gap:10px;margin-top:6px}.m303-rect{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end;border:1px solid #e3e7ef;border-radius:12px;padding:10px 12px;background:#fafbfd}.m303-rect.on{background:#f3f6ff;border-color:#c9d2ef}.m303-rect .m303-check{width:100%}
@@ -315,7 +367,7 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
 .m303-cell{border:0;border-radius:0;background:transparent;gap:4px;overflow:visible}
 .m303-n{width:auto;min-width:26px;padding:0 3px;background:#fff;border:1px solid #163b8c;color:#163b8c;font-size:10px;height:18px;align-self:center;border-radius:1px}
 .m303-in,.m303-out{height:24px;line-height:24px;background:#fff;border:0;border-left:1px solid #163b8c;border-bottom:1px solid #163b8c;border-radius:0;font-size:12.5px}
-.m303-in{padding:0 6px}.m303-in::placeholder{color:#7d879b;font-weight:500}.m303-in.manual{background:#fff1d6}.m303-in:focus{outline:2px solid #ffc94d;outline-offset:0}
+.m303-in{padding:0 6px}.m303-in::placeholder{color:#7d879b;font-weight:500}.m303-in.manual{background:#fff1d6}.m303-in.has-auto::placeholder{color:#0f2a6b;font-weight:800;opacity:1}.m303-in:focus{outline:2px solid #ffc94d;outline-offset:0}
 .m303-out{padding:0 8px;font-weight:800}
 .m303-t tfoot td{border-top:1px solid #163b8c}.m303-t tr.m303-res td{background:#dde5f6}.m303-t tr.m303-res .m303-out{color:#0f2a6b}
 .m303-ident,.m303-pago,.m303-boxes{margin:0 10px}.m303-hint{margin:4px 12px}
