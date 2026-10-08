@@ -161,7 +161,8 @@ function tdComplBlock(draft){
 function saveTaxDraftCompl(model,period,field,value){
   const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
   const c={...(data.complementaria||{})};
-  if(field==="activa")c.activa=value;else if(field==="deducir")c.deducir=String(value).trim()?Number(String(value).replace(/\./g,"").replace(",","."))||0:"";else c.justificante=String(value).replace(/\D/g,"").slice(0,13);
+  // Al desactivarla se borran el importe a deducir y el justificante.
+  if(field==="activa"){c.activa=value;if(!value){c.deducir="";c.justificante=""}}else if(field==="deducir")c.deducir=String(value).trim()?Number(String(value).replace(/\./g,"").replace(",","."))||0:"";else c.justificante=String(value).replace(/\D/g,"").slice(0,13);
   data.complementaria=c;localStorage.setItem(key,JSON.stringify(data));renderTaxDraftMain();
 }
 function toggleTaxDraftIncluir(model,period,id,checked){
