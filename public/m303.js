@@ -153,7 +153,8 @@ function pagePago(r){
 }
 function grid(r){
   const tab=PAGES.some(p=>p[0]===taxDrafts.m303Tab)?taxDrafts.m303Tab:"dev";
-  const body={ident:pageIdent,dev:pageDev,ded:pageDed,info:pageInfo,res:pageRes,pago:pagePago}[tab](r);
+  const SEC={ident:["Identificación (1)","Devengo (2) · ejercicio "+taxDraftYear()+" · período "+(r.q?r.q+"T":"")],dev:["Liquidación (3)","Régimen general · IVA devengado"],ded:["Liquidación (3)","Régimen general · IVA deducible"],info:["Información adicional",""],res:["Resultado","Sin actividad (4) · Rectificativa (5)"],pago:["Compensación (6) · Ingreso (7) · Devolución (8)",""]}[tab];
+  const body=`<div class="m303-sec"><span>${escapeHtml(SEC[0])}</span>${SEC[1]?`<em>${escapeHtml(SEC[1])}</em>`:""}</div>`+{ident:pageIdent,dev:pageDev,ded:pageDed,info:pageInfo,res:pageRes,pago:pagePago}[tab](r);
   return `<div class="m303-wrap"><nav class="m303-tabs">${PAGES.map(([k,l])=>`<button type="button" class="${k===tab?"on":""}" data-m303-tab="${k}">${l}${k==="res"?`<small>${tdEur(r.c["71"])}</small>`:k==="dev"?`<small>${tdEur(r.c["27"])}</small>`:k==="ded"?`<small>${tdEur(r.c["45"])}</small>`:""}</button>`).join("")}</nav><div class="m303-page">${body}</div></div>`;
 }
 if(typeof taxDraftBoxes==="function"){const previous=taxDraftBoxes;taxDraftBoxes=function(boxes,withEyes=true,model=""){
@@ -287,5 +288,25 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
   .m303-t td.m303-l{grid-column:1/-1;font-size:12.5px}.m303-t td.m303-l:empty{display:none!important}
   .m303-t.c2 tr{grid-template-columns:repeat(2,minmax(0,1fr))}.m303-t.c3 tr{grid-template-columns:minmax(0,1.1fr) minmax(0,.8fr) minmax(0,1.1fr)}.m303-t tfoot td:not(.m303-l){grid-column:1/-1}.m303-out{padding:0 6px;font-size:14px}
   .m303-n{width:30px;font-size:10.5px}.m303-in{height:38px;font-size:14px;padding:0 6px}.m303-out{line-height:38px}}`;document.head.append(style)})();
+(function(){const style=document.createElement("style");style.textContent=`
+/* Aspecto del impreso de la AEAT */
+.m303-tabs{gap:4px;padding:0 0 8px}
+.m303-tabs button{flex:1 1 auto;flex-direction:row;align-items:center;gap:10px;min-width:0;white-space:nowrap;justify-content:space-between;padding:5px 14px;border-radius:8px 8px 0 0;border-bottom:3px solid #d8deea;font-size:12.5px;line-height:1.2}
+.m303-tabs button small{font-size:11.5px}.m303-tabs button.on{border-bottom-color:#0f2a6b;background:#163b8c}
+.m303-page{border:1.5px solid #8ea3cf;border-radius:4px;background:#eef2fb;padding:0 0 10px}
+.m303-sec{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 6px}.m303-sec span{background:#163b8c;color:#fff;font-size:12px;font-weight:800;padding:4px 18px 4px 10px;border-radius:0 0 12px 0}.m303-sec em{font-style:normal;font-size:12px;font-weight:700;color:#163b8c}
+.m303-t{margin:0 10px 6px;width:calc(100% - 20px)}.m303-t th{font-size:10.5px;text-transform:none;letter-spacing:0;color:#1d2a44;font-weight:600;padding:2px 6px}
+.m303-t td{padding:2px 6px}.m303-t tr.m303-sep td{border-top:0;padding-top:2px}
+.m303-l{font-size:12px;background-image:linear-gradient(to right,#8ea3cf 35%,transparent 0);background-size:5px 1px;background-repeat:repeat-x;background-position:0 78%}
+.m303-l:empty{background:none}.m303-t.c1 .m303-l{width:68%}.m303-t.c1 .m303-cell{max-width:320px;margin-left:auto}
+.m303-cell{border:0;border-radius:0;background:transparent;gap:4px;overflow:visible}
+.m303-n{width:auto;min-width:26px;padding:0 3px;background:#fff;border:1px solid #163b8c;color:#163b8c;font-size:10px;height:18px;align-self:center;border-radius:1px}
+.m303-in,.m303-out{height:24px;line-height:24px;background:#fff;border:0;border-left:1px solid #163b8c;border-bottom:1px solid #163b8c;border-radius:0;font-size:12.5px}
+.m303-in{padding:0 6px}.m303-in::placeholder{color:#7d879b;font-weight:500}.m303-in.manual{background:#fff1d6}.m303-in:focus{outline:2px solid #ffc94d;outline-offset:0}
+.m303-out{padding:0 8px;font-weight:800}
+.m303-t tfoot td{border-top:1px solid #163b8c}.m303-t tr.m303-res td{background:#dde5f6}.m303-t tr.m303-res .m303-out{color:#0f2a6b}
+.m303-ident,.m303-pago,.m303-boxes{margin:0 10px}.m303-hint{margin:4px 12px}
+.m303-rect{background:#fff;border-color:#8ea3cf;border-radius:4px}.m303-rect.on{background:#f6f8ff}
+@media(max-width:760px){.m303-tabs button{min-width:130px}.m303-t{margin:0 6px 6px;width:calc(100% - 12px)}.m303-l{background:none}.m303-in{height:32px}.m303-out{line-height:32px;height:32px}}`;document.head.append(style)})();
 if(document.querySelector("#tdModels")&&taxDrafts.client){renderTaxDraftModels();renderTaxDraftMain()}
 })();
