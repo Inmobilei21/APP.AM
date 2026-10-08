@@ -10,7 +10,7 @@ TAX_DRAFT_BUILDERS["123"]=period=>{
   const todas=tdCarry("123",period,taxDrafts.base?.capital,rentaId).map(entry=>({...entry,dividendo:dividendos.has(entry.id)}));
   const rentas=todas.filter(entry=>entry.incluir),div=rentas.filter(entry=>entry.dividendo),resto=rentas.filter(entry=>!entry.dividendo);
   const c={"01":div.length,"02":resto.length,"03":rentas.length,"04":tdSum(div,"base"),"05":tdSum(resto,"base"),"06":tdSum(rentas,"base"),"07":tdSum(div,"retencion"),"08":tdSum(resto,"retencion"),"09":tdSum(rentas,"retencion"),"10":0,"11":0};
-  const total=tdRound(c["09"]+c["11"]);
+  const total=tdRound(c["09"]+c["11"]),compl=tdCompl("123",period);
   const box=(n,label,kind,cls)=>({n,label,value:c[n],kind,eye:"capital",cls});
   return{
     title:"Rendimientos del capital mobiliario",
@@ -25,10 +25,10 @@ TAX_DRAFT_BUILDERS["123"]=period=>{
       {n:"10",label:"Periodificación (ingresos de ejercicios anteriores)",value:0,kind:"money"},
       {n:"11",label:"Regularización",value:0,kind:"money"},
       {n:"12",label:"Suma de retenciones e ingresos a cuenta y regularización ([09] + [11])",value:total,kind:"money",eye:"capital"},
-      {n:"13",label:"A deducir (exclusivamente en caso de autoliquidación complementaria)",value:0,kind:"money"},
-      {n:"14",label:"Resultado a ingresar ([12] − [13])",value:total,kind:"money",eye:"capital",cls:"total"}
+      {n:"13",label:"A deducir (exclusivamente en caso de autoliquidación complementaria)",value:compl.deducir,kind:"money"},
+      {n:"14",label:"Resultado a ingresar ([12] − [13])",value:tdRound(total-compl.deducir),kind:"money",eye:"capital",cls:"total"}
     ],
-    result:total,summary:{perceptores:rentas.length,base:c["06"],retencion:c["09"]},
+    complementaria:compl,result:tdRound(total-compl.deducir),summary:{perceptores:rentas.length,base:c["06"],retencion:c["09"]},
     lists:{capital:todas},
     checks:()=>{
       if(!(taxDrafts.base?.capital||[]).length)return['<div class="td-check warn">⚠ <div><b>Sin cuenta de retenciones del capital mobiliario</b>No hay asientos con abono a una cuenta 4751 de intereses o capital mobiliario. Si el cliente no paga intereses ni dividendos, no hay nada que declarar.</div></div>'];

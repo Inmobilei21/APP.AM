@@ -148,6 +148,22 @@ function tdCarry(model,period,list,idFn){
     return{...item,id,origen:q0<q?`${q0}T`:"",incluir:!excl[q].has(id)};
   }).filter(Boolean);
 }
+// Declaración complementaria: activa la casilla «a deducir» (04 en el 115, 29 en el 111, 13 en el 123) y el nº de justificante.
+function tdCompl(model,period){const c=taxDraftControl(model,period).complementaria||{};return{activa:!!c.activa,deducir:c.activa?tdRound(Number(c.deducir)||0):0,justificante:c.activa?String(c.justificante||""):""}}
+const TD_COMPL_BOX={"115":"04","111":"29","123":"13"};
+function tdComplBlock(draft){
+  const n=TD_COMPL_BOX[draft.model];if(!n)return"";
+  const c=tdCompl(draft.model,draft.period),raw=taxDraftControl(draft.model,draft.period).complementaria||{};
+  return `<div class="td-compl${c.activa?" on":""}"><label class="td-switch"><input type="checkbox" data-td-compl="activa"${c.activa?" checked":""}><i></i><span>Declaración complementaria</span></label>
+    <label class="td-cf"><small>[${n}] A deducir · resultado de la declaración anterior</small><input data-td-compl="deducir" inputmode="decimal" value="${escapeHtml(raw.deducir===""||raw.deducir===undefined?"":Number(raw.deducir).toFixed(2).replace(".",","))}" placeholder="0,00"${c.activa?"":" disabled"}></label>
+    <label class="td-cf"><small>Nº de justificante de la declaración anterior</small><input data-td-compl="justificante" maxlength="13" inputmode="numeric" value="${escapeHtml(raw.justificante??"")}"${c.activa?"":" disabled"}></label></div>`;
+}
+function saveTaxDraftCompl(model,period,field,value){
+  const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
+  const c={...(data.complementaria||{})};
+  if(field==="activa")c.activa=value;else if(field==="deducir")c.deducir=String(value).trim()?Number(String(value).replace(/\./g,"").replace(",","."))||0:"";else c.justificante=String(value).replace(/\D/g,"").slice(0,13);
+  data.complementaria=c;localStorage.setItem(key,JSON.stringify(data));renderTaxDraftMain();
+}
 function toggleTaxDraftIncluir(model,period,id,checked){
   const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
   const list=new Set(data.excluidos||[]);if(checked)list.delete(id);else list.add(id);
@@ -165,17 +181,17 @@ const TAX_DRAFT_BUILDERS={
   "115":period=>{
     const all=tdCarry("115",period,(taxDrafts.base?.retencionesIrpf||[]).filter(item=>item.tipo==="alquiler"),taxDraftItemId),items=all.filter(item=>item.incluir);
     const base=tdSum(items,"base"),ret=tdSum(items,"retencion");
-    const people=[...new Map(items.map(item=>[item.nif||item.cuenta,item])).values()];
+    const people=[...new Map(items.map(item=>[item.nif||item.cuenta,item])).values()],compl=tdCompl("115",period);
     return{
       title:"Retenciones de alquileres",
       boxes:[
         {n:"01",label:"Número de perceptores",value:people.length,kind:"count",eye:"people"},
         {n:"02",label:"Base de las retenciones e ingresos a cuenta",value:base,kind:"money",eye:"alquileres"},
         {n:"03",label:"Retenciones e ingresos a cuenta",value:ret,kind:"money",eye:"alquileres"},
-        {n:"04",label:"A deducir (exclusivamente en caso de declaración complementaria)",value:0,kind:"money"},
-        {n:"05",label:"Resultado a ingresar ([03] − [04])",value:ret,kind:"money",eye:"alquileres",cls:"total"}
+        {n:"04",label:"A deducir (exclusivamente en caso de declaración complementaria)",value:compl.deducir,kind:"money"},
+        {n:"05",label:"Resultado a ingresar ([03] − [04])",value:tdRound(ret-compl.deducir),kind:"money",eye:"alquileres",cls:"total"}
       ],
-      result:ret,summary:{perceptores:people.length,base,retencion:ret},
+      complementaria:compl,result:tdRound(ret-compl.deducir),summary:{perceptores:people.length,base,retencion:ret},
       lists:{alquileres:all},people,
       checks:()=>{
         const rates=[...new Set(items.map(item=>item.porcentaje))];
@@ -194,7 +210,7 @@ const TAX_DRAFT_BUILDERS={
     const tD=nominas.filter(entry=>!entry.especie),tE=nominas.filter(entry=>entry.especie),pD=profesionales.filter(item=>!item.especie),pE=profesionales.filter(item=>item.especie);
     const c={"01":workers(tD),"02":tdSum(tD,"percepciones"),"03":tdSum(tD,"retencion"),"04":workers(tE),"05":tdSum(tE,"percepciones"),"06":tdSum(tE,"retencion"),
       "07":people(pD),"08":tdSum(pD,"base"),"09":tdSum(pD,"retencion"),"10":people(pE),"11":tdSum(pE,"base"),"12":tdSum(pE,"retencion")};
-    const total=tdRound(c["03"]+c["06"]+c["09"]+c["12"]);
+    const total=tdRound(c["03"]+c["06"]+c["09"]+c["12"]),compl=tdCompl("111",period);
     const box=(n,label,kind,eye)=>({n,label,value:c[n],kind,eye});
     const allWorkers=new Set(nominas.flatMap(entry=>entry.trabajadores.map(worker=>worker.cuenta))).size;
     return{
@@ -212,10 +228,10 @@ const TAX_DRAFT_BUILDERS={
         {n:"13-27",label:"Sin importes en la contabilidad",value:0,kind:"money",cls:"muted"},
         {heading:"Total liquidación"},
         {n:"28",label:"Suma de retenciones e ingresos a cuenta",value:total,kind:"money",eye:"todo"},
-        {n:"29",label:"A deducir (exclusivamente en caso de declaración complementaria)",value:0,kind:"money"},
-        {n:"30",label:"Resultado a ingresar ([28] − [29])",value:total,kind:"money",eye:"todo",cls:"total"}
+        {n:"29",label:"A deducir (exclusivamente en caso de declaración complementaria)",value:compl.deducir,kind:"money"},
+        {n:"30",label:"Resultado a ingresar ([28] − [29])",value:tdRound(total-compl.deducir),kind:"money",eye:"todo",cls:"total"}
       ],
-      result:total,summary:{perceptores:allWorkers+people(profesionales),base:tdRound(c["02"]+c["05"]+c["08"]+c["11"]),retencion:total},
+      complementaria:compl,result:tdRound(total-compl.deducir),summary:{perceptores:allWorkers+people(profesionales),base:tdRound(c["02"]+c["05"]+c["08"]+c["11"]),retencion:total},
       lists:{trabajo:nominasAll,profesionales:profesionalesAll},
       checks:()=>{
         const out=[];
@@ -290,6 +306,7 @@ function renderTaxDraftMain(){
     row.addEventListener("click",toggle);row.addEventListener("keydown",event=>{if(event.key==="Enter")toggle(event)});
   });
   box.querySelectorAll("[data-td-eye]").forEach(button=>button.addEventListener("click",()=>openTaxDraftSide(button.dataset.tdEye,taxDraftBuild(model,taxDrafts.open))));
+  box.querySelectorAll("[data-td-compl]").forEach(input=>input.addEventListener("change",()=>saveTaxDraftCompl(model,taxDrafts.open,input.dataset.tdCompl,input.type==="checkbox"?input.checked:input.value)));
   box.querySelector("[data-td-copy]")?.addEventListener("click",copyTaxDraftBoxes);
   box.querySelector("[data-td-confirm]")?.addEventListener("click",confirmTaxDraft);
 }
@@ -313,8 +330,17 @@ function taxDraft111Grid(boxes,withEyes){
     <details class="tdg-more"${rest?" open":""}><summary>III a V · Premios, aprovechamientos forestales y derechos de imagen (casillas 13 a 27)${rest?"":" · sin importes"}</summary>${others}</details>
     <section class="tdg-sec tdg-tot"><h6>Total liquidación</h6>${total("28")}${total("29")}${total("30")}</section></div>`;
 }
+// Modelo 115 con el mismo aspecto: una columna de casillas con su ojo.
+function taxDraft115Grid(boxes,withEyes){
+  const map=new Map(boxes.filter(box=>box.n).map(box=>[box.n,box]));
+  const line=n=>{const box=map.get(n)||{n,value:0},v=Number(box.value)||0;
+    const eye=!withEyes?"":box.eye&&v?`<button type="button" class="td-eye" data-td-eye="${box.eye}" title="Ver lo que compone la casilla ${n}">${tdEye}</button>`:`<span class="td-eye off" title="Sin datos en la casilla ${n}">${tdEyeOff}</span>`;
+    return `<div class="tdg-total${n==="05"?" result":""}"><span class="tdg-label">${escapeHtml(box.label||"")}</span><div class="tdg-cell${v?"":" zero"}"><span class="tdg-n">${n}</span><span class="tdg-cap"></span><span class="tdg-v">${box.kind==="count"?(v||"0"):tdEur(v)}</span>${eye}</div></div>`};
+  return `<div class="tdg"><section class="tdg-sec tdg-tot"><h6>Retenciones e ingresos a cuenta</h6>${line("01")}${line("02")}${line("03")}${line("04")}${line("05")}</section></div>`;
+}
 function taxDraftBoxes(boxes,withEyes=true,model=""){
   if(model==="111")return taxDraft111Grid(boxes,withEyes);
+  if(model==="115")return taxDraft115Grid(boxes,withEyes);
   return boxes.map(box=>box.heading?`<p class="td-heading">${escapeHtml(box.heading)}</p>`:`<div class="td-box ${box.cls||""}"><span class="td-n">${escapeHtml(box.n)}</span><span class="td-label">${escapeHtml(box.label)}</span><span class="td-value">${tdValue(box)}</span>${withEyes&&box.eye?`<button type="button" class="td-eye" data-td-eye="${box.eye}" title="Ver lo que compone esta casilla" aria-label="Ver el detalle de la casilla ${escapeHtml(box.n)}">${tdEye}</button>`:'<span></span>'}</div>`).join("");
 }
 function taxDraftSignature(draft){return JSON.stringify(draft.boxes.filter(box=>!box.heading).map(box=>[box.n,box.value]))}
@@ -333,7 +359,7 @@ function taxDraftDetail(draft,control){
   const changed=confirmed&&(confirmed.signature?confirmed.signature!==taxDraftSignature(draft):Math.abs((Number(confirmed.result??confirmed.casillas?.["05"])||0)-result)>=0.005);
   const confirmNote=confirmed?`<p class="td-confirmed">${changed?"⚠ El borrador ha cambiado desde que se confirmó: ":"✓ "}Confirmado el ${tdDate(confirmed.confirmedAt)}${confirmed.confirmedBy?` por ${escapeHtml(confirmed.confirmedBy)}`:""} · ${tdEur(confirmed.result??confirmed.casillas?.["05"])}</p>`:"";
   return `<div class="td-detail-head"><b>Borrador modelo ${draft.model} · ${draft.period} ${draft.year}</b><span>${escapeHtml(taxDrafts.clientData?.cif||"")}${taxDrafts.clientData?.cif?" · ":""}${escapeHtml(taxDrafts.client)}</span></div>
-    <div class="td-boxes">${taxDraftBoxes(draft.boxes,true,draft.model)}</div>
+    <div class="td-boxes">${taxDraftBoxes(draft.boxes,true,draft.model)}</div>${tdComplBlock(draft)}
     <div class="td-checks">${checks.join("")}</div>
     <div class="td-actions">${confirmNote}<button type="button" class="secondary-button" data-td-copy>Copiar casillas</button><button type="button" class="primary blue-button" data-td-confirm>${confirmed?"Confirmar de nuevo":"Confirmar borrador"}</button></div>`;
 }
@@ -348,7 +374,7 @@ function confirmTaxDraft(){
   const draft=taxDraftBuild(model,period),year=draft.year,key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
   const today=new Date(),iso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   data.prepared=iso;data.amount=draft.result.toFixed(2);
-  data.draft={model,period,year,client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",title:draft.title,boxes:draft.boxes,result:draft.result,signature:taxDraftSignature(draft),lists:draft.lists,confirmedAt:new Date().toISOString(),confirmedBy:typeof signedInUser!=="undefined"&&signedInUser?.name||""};
+  data.draft={model,period,year,client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",title:draft.title,boxes:draft.boxes,result:draft.result,signature:taxDraftSignature(draft),lists:draft.lists,complementaria:draft.complementaria||null,confirmedAt:new Date().toISOString(),confirmedBy:typeof signedInUser!=="undefined"&&signedInUser?.name||""};
   localStorage.setItem(key,JSON.stringify(data));
   renderTaxDraftMain();
 }

@@ -30,7 +30,7 @@ function aeatFile(draft){
   // Tipo: I ingreso, U domiciliación (con IBAN), N negativa. Tras las casillas: complementaria (1),
   // justificante anterior (13) e IBAN (34), como en el fichero del 123 de Impresos Hacienda.
   const iban=String(draft.iban||"").replace(/\s+/g,"").toUpperCase(),type=result>0?(iban?"U":"I"):"N";
-  let page=" "+type+pad(nif,9)+pad(clean(draft.client),60)+pad("",20)+year+pad(period,2)+spec.boxes.map(([n,width])=>value(n,width)).join("")+pad("",14)+pad(type==="U"?iban:"",34);
+  let page=" "+type+pad(nif,9)+pad(clean(draft.client),60)+pad("",20)+year+pad(period,2)+spec.boxes.map(([n,width])=>value(n,width)).join("")+(draft.complementaria?.activa?"X"+String(draft.complementaria.justificante||"").replace(/\D/g,"").padStart(13,"0").slice(-13):pad("",14))+pad(type==="U"?iban:"",34);
   page=pad(page,spec.page);
   const aux=pad("",70)+"AM01"+pad("",4)+"B72758998";
   const head=`T${draft.model}0${year}${period}0000`;
@@ -66,7 +66,8 @@ document.addEventListener("click",event=>{
   const [model,period]=button.dataset.aeatFile.split("|");
   // Se usa el borrador confirmado si lo hay; si no, el cálculo actual.
   const saved=taxDraftControl(model,period).draft;
-  const draft=saved&&saved.model===model&&aeatBoxes(saved).length?saved:{...taxDraftBuild(model,period),client:taxDrafts.client};
+  const base=saved&&saved.model===model&&aeatBoxes(saved).length?saved:{...taxDraftBuild(model,period),client:taxDrafts.client};
+  const draft={...base,complementaria:typeof tdCompl==="function"?tdCompl(model,period):base.complementaria};
   downloadAeatFile({...draft,cif:draft.cif||taxDrafts.clientData?.cif||"",client:draft.client||taxDrafts.client});
 });
 // En el borrador confirmado (ojo), botón para descargar el fichero.
