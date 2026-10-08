@@ -904,6 +904,39 @@ http.createServer((req, res) => {
     if (!requireUser(req, res)) return;
     return json(res, 200, invoiceReader.readerStatus());
   }
+  // Libros de facturas (emitidas y recibidas) que se guardan al confirmar «Procesar facturas»: los usan los
+  // borradores de las declaraciones, sobre todo en clientes sin contabilidad de AMCOMTA.
+  if (requestPath === "/api/libros" && ["GET", "POST", "DELETE"].includes(req.method)) {
+    const user = requireUser(req, res);if (!user) return;
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const client = cleanText(params.get("client"), 200);
+    if (!client) return json(res, 400, { error: "Selecciona un cliente." });
+    const dir = path.join(dataDirectory, "libros"), file = path.join(dir, crypto.createHash("sha1").update(client.toLocaleLowerCase("es")).digest("hex") + ".json");
+    const load = () => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return { client, years: {} }; } };
+    const store = data => { fs.mkdirSync(dir, { recursive: true });fs.writeFileSync(file + ".tmp", JSON.stringify(data));fs.renameSync(file + ".tmp", file); };
+    const year = String(params.get("year") || "").replace(/\D/g, "").slice(0, 4);
+    if (req.method === "GET") { const data = load(), book = data.years[year] || {};return json(res, 200, { client, year, emitidas: book.emitidas || [], recibidas: book.recibidas || [], years: Object.keys(data.years).sort() }); }
+    if (req.method === "DELETE") {
+      const data = load(), kind = params.get("kind") === "recibidas" ? "recibidas" : "emitidas", id = String(params.get("id") || "");
+      if (data.years[year]?.[kind]) { data.years[year][kind] = data.years[year][kind].filter(item => item.id !== id);store(data); }
+      return json(res, 200, { deleted: true });
+    }
+    return readJson(req, 20 * 1024 * 1024).then(body => {
+      const kind = body.kind === "recibidas" ? "recibidas" : "emitidas", records = Array.isArray(body.records) ? body.records.slice(0, 5000) : [];
+      const data = load();let added = 0, updated = 0;
+      for (const raw of records) {
+        const fecha = String(raw.fecha || "");if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue;
+        const money = value => Math.round((Number(value) || 0) * 100) / 100;
+        const record = { id: cleanText(raw.id, 200), numero: cleanText(raw.numero, 60), fecha, nombre: cleanText(raw.nombre, 200), nif: cleanText(raw.nif, 20), base: money(raw.base), cuota: money(raw.cuota), recargo: money(raw.recargo), retencion: money(raw.retencion), retencionPct: money(raw.retencionPct), total: money(raw.total), concepto: cleanText(raw.concepto, 300), cuenta: cleanText(raw.cuenta, 20), archivo: cleanText(raw.archivo, 240), lineas: (Array.isArray(raw.lineas) ? raw.lineas.slice(0, 20) : []).map(line => ({ base: money(line.base), tipo: money(line.tipo), cuota: money(line.cuota) })), guardado: new Date().toISOString(), por: user.name || "" };
+        if (!record.id) continue;
+        const book = (data.years[fecha.slice(0, 4)] ||= {}), list = (book[kind] ||= []), index = list.findIndex(item => item.id === record.id);
+        if (index >= 0) { list[index] = record;updated++; } else { list.push(record);added++; }
+        list.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.numero.localeCompare(b.numero, "es", { numeric: true }));
+      }
+      store(data);
+      json(res, 200, { added, updated });
+    }).catch(error => json(res, 400, { error: error.message === "Payload too large" ? "Demasiadas facturas de una vez." : "No se han podido guardar las facturas." }));
+  }
   if (requestPath === "/api/contabilidad/base" && ["GET", "POST", "DELETE"].includes(req.method)) {
     const user = requireUser(req, res);if (!user) return;
     const params = new URL(req.url, "http://localhost").searchParams;

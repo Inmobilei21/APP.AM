@@ -2945,6 +2945,27 @@ async function saveAmcomtaImport(text,client){
   }
   downloadBlob(new Blob([bytes],{type:"text/plain"}),name);return"";
 }
+// Al confirmar, los datos de las facturas se guardan en el servidor (libro de emitidas o recibidas del cliente)
+// para tenerlos a mano en los borradores de las declaraciones.
+function invoiceBookRecord(group){
+  const lines=group.records,parse=value=>invoiceParseNumber(value)||0,head=group.record,date=invoiceDateParts(head.date);
+  if(!date)return null;
+  const fecha=`${date.year}-${String(date.month).padStart(2,"0")}-${String(date.day).padStart(2,"0")}`;
+  const base=lines.reduce((sum,line)=>sum+parse(line.base),0),cuota=lines.reduce((sum,line)=>sum+parse(line.vat),0);
+  const pct=lines.map(line=>parse(line.retentionRate)).find(Boolean)||0;
+  let retencion=lines.reduce((sum,line)=>sum+Math.abs(parse(line.retention)),0);if(!retencion&&pct)retencion=Math.round(base*pct)/100;
+  const nif=String(head.supplierNif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  return{id:[fecha,String(head.number||"").trim().toUpperCase(),nif||String(head.supplier||"").trim().toUpperCase()].join("|"),numero:String(head.number||"").trim(),fecha,nombre:String(head.supplier||"").trim(),nif,
+    base:Math.round(base*100)/100,cuota:Math.round(cuota*100)/100,retencion:Math.round(retencion*100)/100,retencionPct:pct,total:parse(head.total),concepto:String(head.concept||"").trim(),
+    cuenta:String(head.supplierAccount||head.counterAccount||"").trim(),archivo:head.file||"",lineas:lines.map(line=>({base:parse(line.base),tipo:parse(line.vatRate),cuota:parse(line.vat)}))};
+}
+async function saveInvoiceBook(groups,client,kind){
+  const records=groups.map(invoiceBookRecord).filter(Boolean);if(!records.length)return"";
+  try{const result=await apiJson(`/api/libros?client=${encodeURIComponent(client)}`,{method:"POST",body:JSON.stringify({kind:kind==="RECIBIDAS"?"recibidas":"emitidas",records})});
+    window.dispatchEvent(new Event("app-am-libros"));
+    const n=(result.added||0)+(result.updated||0);return`${n} ${n===1?"factura anotada":"facturas anotadas"} en el libro de ${kind==="RECIBIDAS"?"recibidas":"emitidas"} para las declaraciones`}
+  catch(error){console.error("Libro de facturas",error);alert(`Las facturas se han procesado, pero no se han podido anotar para las declaraciones: ${error.message}`);return""}
+}
 async function confirmInvoiceDraft(client){
   const records=readInvoiceDraft(),received=invoiceReceivedMode(),kind=received?"RECIBIDAS":"EMITIDAS",groups=invoiceDocumentGroups(records);
   if(!groups.length&&!invoiceIgnoredDocs.length){alert("No hay facturas en el borrador.");return""}
@@ -2961,6 +2982,7 @@ async function confirmInvoiceDraft(client){
     parts.push(invoiceConfirmProgress.entries==="descargado"?"Asientos descargados (.txt): el servidor no está conectado":`Asientos enviados a ${invoiceConfirmProgress.entries}`);
   }
   else if(!received&&groups.length)downloadInvoiceExcel(records,client);
+  if(groups.length){const libro=await saveInvoiceBook(groups,client,kind);if(libro)parts.push(libro)}
   const {saved,errors}=await saveInvoiceDocuments(groups,client,kind),otherResult=others.length?await saveInvoiceDocuments(others,client,kind):{saved:[],errors:[]};
   errors.push(...otherResult.errors);
   parts.push(`${saved.length} ${saved.length===1?"factura guardada":"facturas guardadas"}${others.length?` y ${otherResult.saved.length} ${otherResult.saved.length===1?"documento":"documentos"} en OTROS DOCUMENTOS`:""} en CLIENTES/${client}/CONTABILIDAD`);

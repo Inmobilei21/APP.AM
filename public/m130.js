@@ -25,12 +25,29 @@ function cuentas(tipo,q){
     return{cuenta:account.cuenta,nombre:account.nombre,tri,acum:tdRound(tri.slice(0,q).reduce((s,v)=>s+v,0))};
   }).filter(account=>account.tri.slice(0,q).some(v=>Math.abs(v)>0.004));
 }
+// Facturas guardadas al confirmar «Procesar facturas» (libros de emitidas y recibidas del cliente).
+const libros={key:"",data:null,loading:""};
+window.addEventListener("app-am-libros",()=>{libros.key="";libros.data=null});
+function libro(){
+  if(!taxDrafts.client)return null;
+  const key=`${taxDrafts.client}|${taxDraftYear()}`;
+  if(libros.key===key)return libros.data;
+  if(libros.loading!==key){libros.loading=key;
+    apiJson(`/api/libros?client=${encodeURIComponent(taxDrafts.client)}&year=${taxDraftYear()}`).catch(()=>({emitidas:[],recibidas:[]}))
+      .then(data=>{if(libros.loading!==key)return;libros.key=key;libros.data=data;libros.loading="";if(taxDrafts.model===M&&`${taxDrafts.client}|${taxDraftYear()}`===key)renderTaxDraftMain()})}
+  return null;
+}
 const inYearTo=(fecha,q)=>{const m=Number(String(fecha).slice(5,7));return String(fecha).slice(0,4)===String(taxDraftYear())&&m>=1&&m<=q*3};
 function calc(period){
   const q=Number(period[0]),m=st(period);
   const secI=setting(period,"secI",true)!==false,secII=setting(period,"secII",false)===true;
   const modalidad=setting(period,"modalidad","simplificada"),pct=num(setting(period,"pct",7)),variacion=tdRound(num(setting(period,"variacion",0)));
-  const ing=cuentas("ingreso",q),gas=cuentas("gasto",q),ret=(taxDrafts.base?.retencionesSoportadas||[]).filter(item=>inYearTo(item.fecha,q));
+  // Origen de los datos: contabilidad de AMCOMTA; si no hay, las facturas guardadas; si tampoco, a mano.
+  const book=sinBase()?libro():null,emit=(book?.emitidas||[]).filter(item=>inYearTo(item.fecha,q)),recib=(book?.recibidas||[]).filter(item=>inYearTo(item.fecha,q));
+  const fuente=!sinBase()?"contabilidad":emit.length||recib.length?"facturas":"manual";
+  const porTrimestre=(list,nombre)=>list.length?[{cuenta:nombre,nombre:`${list.length} facturas`,tri:[1,2,3,4].map(i=>tdRound(list.filter(item=>Math.ceil(Number(item.fecha.slice(5,7))/3)===i).reduce((s,item)=>s+item.base,0))),acum:tdRound(list.reduce((s,item)=>s+item.base,0))}]:[];
+  const ing=fuente==="contabilidad"?cuentas("ingreso",q):porTrimestre(emit,"Facturas emitidas"),gas=fuente==="contabilidad"?cuentas("gasto",q):porTrimestre(recib,"Facturas recibidas");
+  const ret=fuente==="contabilidad"?(taxDrafts.base?.retencionesSoportadas||[]).filter(item=>inYearTo(item.fecha,q)):emit.filter(item=>item.retencion).map(item=>({...item,porcentaje:item.retencionPct}));
   const prev=[];for(let i=1;i<q;i++)prev.push(calc(`${i}T`));
   // Lo que sale de la documentación (contabilidad); si se escribe un importe a mano, manda el manual.
   const manual=f=>m[f]!==undefined&&m[f]!==""&&m[f]!==null;
@@ -51,7 +68,7 @@ function calc(period){
   c["16"]=c["14"]>0?tdRound(Math.min(num(m.c16),topeVivienda,Math.max(0,c["14"]-c["15"]))):0;
   c["17"]=tdRound(c["14"]-c["15"]-c["16"]);
   const compl=tdCompl(M,period);c["18"]=compl.deducir;c["19"]=tdRound(c["17"]-c["18"]);
-  return{c,q,auto,manual,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
+  return{c,q,auto,manual,fuente,emit,recib,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
     pago:{forma:m.formaPago||(fisica()?"domiciliacion":"domiciliacion"),iban:m.iban??((taxDrafts.clientData?.bank?.ibans||[]).find(Boolean)||""),nrc:m.nrc||"",aDeducir:m.aDeducir===true}};
 }
 const LABELS={
@@ -92,7 +109,8 @@ TAX_DRAFT_BUILDERS[M]=period=>{
     lists:{ret130:r.ret,ing130:r.ing,gas130:r.gas},
     checks:()=>{
       const out=[];
-      if(sinBase())out.push('<div class="td-check warn">⚠ <div><b>Sin contabilidad de AMCOMTA</b>Escribe a mano los ingresos (01), los gastos (ojo de la 02) y las retenciones (06). Si añades la base en la ficha del cliente, se rellenan solos.</div></div>');
+      if(r.fuente==="facturas")out.push(`<div class="td-check ok">✓ <div><b>Datos de las facturas guardadas</b>${r.emit.length} emitidas y ${r.recib.length} recibidas del 1 de enero al ${["31 de marzo","30 de junio","30 de septiembre","31 de diciembre"][r.q-1]} (se guardan al confirmar «Procesar facturas»). Puedes corregir cualquier importe a mano.</div></div>`);
+      else if(r.fuente==="manual")out.push('<div class="td-check warn">⚠ <div><b>Sin contabilidad de AMCOMTA</b>Escribe a mano los ingresos (01), los gastos (ojo de la 02) y las retenciones (06). Si añades la base en la ficha del cliente, se rellenan solos.</div></div>');
       else if(r.manual("o01")||r.manual("oGastos")||r.manual("o06"))out.push(`<div class="td-check warn">⚠ <div><b>Hay importes escritos a mano</b>${[r.manual("o01")?`ingresos ${tdEur(r.c["01"])} (documentación ${tdEur(r.auto.ingresos)})`:"",r.manual("oGastos")?`gastos ${tdEur(r.gastosContables)} (documentación ${tdEur(r.auto.gastos)})`:"",r.manual("o06")?`retenciones ${tdEur(r.c["06"])} (documentación ${tdEur(r.auto.ret)})`:""].filter(Boolean).join(" · ")}.</div></div>`);
       if(r.secI&&!r.ing.length&&!sinBase()&&!r.manual("o01"))out.push('<div class="td-check warn">⚠ <div><b>Sin ingresos en el período</b>No hay saldos en las cuentas del grupo 7 hasta el final del trimestre.</div></div>');
       if(r.secI&&r.ing.length&&!sinBase())out.push(`<div class="td-check ok">✓ <div><b>Datos acumulados del 1 de enero al ${["31 de marzo","30 de junio","30 de septiembre","31 de diciembre"][r.q-1]}</b>${r.ing.length} cuentas de ingresos y ${r.gas.length} de gastos (incluidas amortizaciones).${r.modalidad==="simplificada"?` Gastos de difícil justificación: ${String(r.pct).replace(".",",")} % del rendimiento neto previo (máx. ${tdEur(LIMITE_DIFICIL)}).`:" Estimación directa normal: sin gastos de difícil justificación."}</div></div>`);
@@ -115,7 +133,7 @@ function line(r,n,editable){
   const v=r.c[n],field=INPUTS[n];
   const autoKey=AUTO[n],isManual=autoKey&&r.manual(field);
   const value=field&&editable?`<input class="m130-in${autoKey?" auto":""}${isManual?" manual":""}" data-m130="${field}" inputmode="decimal" value="${escapeHtml(inputValue(r.m[field]))}" placeholder="${autoKey?escapeHtml(tdEur(r.auto[autoKey])):"0,00"}">`:`<span class="tdg-v">${tdEur(v)}</span>`;
-  const hint=autoKey&&editable?`<small class="m130-hint">${sinBase()?"Sin documentación: escríbelo a mano":isManual?`Importe manual · según la documentación: ${tdEur(r.auto[autoKey])} (bórralo para volver a usarla)`:"Sale de la documentación · puedes escribir otro importe"}</small>`:n==="02"&&editable?`<small class="m130-hint">Gastos y % de difícil justificación: pulsa el ojo${r.manual("oGastos")?" · gastos escritos a mano":""}</small>`:n==="16"&&editable?`<small class="m130-hint">Máx. 2 % de [03] (${tdEur(r.topeVivienda)} este trimestre)</small>`:n==="09"?`<small class="m130-hint">2 % de [08]</small>`:"";
+  const hint=autoKey&&editable?`<small class="m130-hint">${r.fuente==="manual"?"Sin documentación: escríbelo a mano":isManual?`Importe manual · según la documentación: ${tdEur(r.auto[autoKey])} (bórralo para volver a usarla)`:r.fuente==="facturas"?"Sale de las facturas guardadas · puedes escribir otro importe":"Sale de la documentación · puedes escribir otro importe"}</small>`:n==="02"&&editable?`<small class="m130-hint">Gastos y % de difícil justificación: pulsa el ojo${r.manual("oGastos")?" · gastos escritos a mano":""}</small>`:n==="16"&&editable?`<small class="m130-hint">Máx. 2 % de [03] (${tdEur(r.topeVivienda)} este trimestre)</small>`:n==="09"?`<small class="m130-hint">2 % de [08]</small>`:"";
   return `<div class="tdg-total m130-line${["07","11","19"].includes(n)?" result":""}${["17","12"].includes(n)?" strong":""}"><span class="tdg-label">${escapeHtml(LABELS[n])}${hint}</span><div class="tdg-cell${v||field?"":" zero"}"><span class="tdg-n">${n}</span><span class="tdg-cap"></span>${value}${editable?eyeBtn(n,v):""}</div></div>`;
 }
 function grid(r,editable=true){
@@ -159,12 +177,13 @@ function accountsTable(list,q,total){
 const FIN=["31 de marzo","30 de junio","30 de septiembre","31 de diciembre"];
 function sideHtml(kind,draft){
   const r=draft.calc||calc(draft.period),q=r.q;
-  if(kind==="ing130")return accountsTable(r.ing,q,r.ingresos);
+  const facturas=(list,titulo)=>list.length?`<h4 class="td-list-title">${titulo} (${list.length})</h4><table class="td-list"><thead><tr><th>Fecha</th><th>Factura</th><th>${titulo.includes("emitidas")?"Cliente":"Proveedor"}</th><th class="num">Base</th><th class="num">IVA</th><th class="num">Retención</th><th class="num">Total</th></tr></thead><tbody>${list.map(item=>`<tr><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<small>${escapeHtml(item.nif)}</small></td><td class="num">${tdEur(item.base)}</td><td class="num">${tdEur(item.cuota)}</td><td class="num">${item.retencion?tdEur(item.retencion):""}</td><td class="num">${tdEur(item.total)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">Total</td><td class="num">${tdEur(tdSum(list,"base"))}</td><td class="num">${tdEur(tdSum(list,"cuota"))}</td><td class="num">${tdEur(tdSum(list,"retencion"))}</td><td class="num">${tdEur(tdSum(list,"total"))}</td></tr></tfoot></table>`:"";
+  if(kind==="ing130")return accountsTable(r.ing,q,r.auto.ingresos)+(r.fuente==="facturas"?facturas(r.emit,"Facturas emitidas"):"");
   if(kind==="gas130"){
     const row=(label,value,cls="",input="")=>`<div class="m130-calc-row ${cls}"><span>${label}</span>${input||`<b>${tdEur(value)}</b>`}</div>`;
     return `<div class="m130-calc">
       <label class="m130-mod"><span>Modalidad</span><select data-m130="modalidad"><option value="simplificada"${r.modalidad==="simplificada"?" selected":""}>Estimación directa simplificada</option><option value="normal"${r.modalidad==="normal"?" selected":""}>Estimación directa normal</option></select></label>
-      ${row(`Gastos (incluyendo amortizaciones) a ${FIN[q-1]}${sinBase()?"":` <small>· documentación: ${tdEur(r.auto.gastos)}</small>`}`,r.gastosContables,"edit",`<input data-m130="oGastos" inputmode="decimal" value="${escapeHtml(inputValue(r.m.oGastos))}" placeholder="${escapeHtml(tdEur(r.auto.gastos))}">`)}
+      ${row(`Gastos (incluyendo amortizaciones) a ${FIN[q-1]}${r.fuente==="manual"?"":` <small>· documentación: ${tdEur(r.auto.gastos)}</small>`}`,r.gastosContables,"edit",`<input data-m130="oGastos" inputmode="decimal" value="${escapeHtml(inputValue(r.m.oGastos))}" placeholder="${escapeHtml(tdEur(r.auto.gastos))}">`)}
       ${row("Variación en los gastos a declarar (+/−)",r.variacion,"edit",`<input data-m130="variacion" inputmode="decimal" value="${escapeHtml(inputValue(r.variacion))}" placeholder="0,00">`)}
       ${row("Total gastos a declarar del período",r.totalGastos,"sub")}
       ${row(`Ingresos computables a ${FIN[q-1]} (casilla 01)${r.manual("o01")?" · a mano":""}`,r.ingresos)}
@@ -173,7 +192,7 @@ function sideHtml(kind,draft){
       ${row("Gastos fiscalmente deducibles (casilla 02)",r.c["02"],"strong green")}
       ${row("Diferencia = rendimiento neto (casilla 03)",r.c["03"],"strong green")}
       ${row("20 % del rendimiento neto (casilla 04)",r.c["04"],"strong blue")}
-    </div><h4 class="td-list-title">Cuentas de gastos</h4>${accountsTable(r.gas,q,r.gastosContables)}`;
+    </div><h4 class="td-list-title">${r.fuente==="contabilidad"?"Cuentas de gastos":"Gastos por trimestre"}</h4>${accountsTable(r.gas,q,r.auto.gastos)}${r.fuente==="facturas"?facturas(r.recib,"Facturas recibidas"):""}`;
   }
   if(kind==="ret130"){
     const pagos=(taxDrafts.base?.pagosACuenta||[]).filter(item=>inYearTo(item.fecha,q));
