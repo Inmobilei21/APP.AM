@@ -76,9 +76,19 @@ function pagoOf(model,period){
   const tipo=saved.tipo&&aeatTipo(saved.tipo)[0]===saved.tipo?saved.tipo:saved.forma?(saved.forma==="domiciliacion"?"U":"I"):(list.length?"U":"I");
   return{tipo,iban:saved.iban??(pref||list[0]||"")};
 }
+// Equivalencia con la columna «Pago» de Control de declaraciones, que se rellena sola con lo elegido aquí.
+const CONTROL_PAGO={"U":"Domicil.","I":"N.R.C.","IP":"N.R.C.","RD-APL":"Aplaz.","IP-APL":"Aplaz.","RD-COM":"Compensación","IP-COM":"Compensación","G":"Compensación","RD-IMP":"Pte. Pago","IP-IMP":"Pte. Pago","RD-TRF":"Pte. Pago","RD-PHE":"Pte. Pago","IP-PHE":"Pte. Pago"};
+function syncControlPago(model,period){
+  if(!AEAT_FILE_MODELS[model]||!period)return;
+  const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
+  if(data.notRequired)return;
+  const result=Number(taxDraftBuild(model,period).result)||0,value=result>0?CONTROL_PAGO[pagoOf(model,period).tipo]||"N.R.C.":"Negativa";
+  if(data.payment!==value){data.payment=value;localStorage.setItem(key,JSON.stringify(data))}
+}
+window.syncControlPago=syncControlPago;
 function savePago(model,period,field,value){
   const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
-  const current=pagoOf(model,period);data.pago={tipo:current.tipo,iban:data.pago?.iban??current.iban,[field]:value};delete data.pago.forma;localStorage.setItem(key,JSON.stringify(data));renderTaxDraftMain();
+  const current=pagoOf(model,period);data.pago={tipo:current.tipo,iban:data.pago?.iban??current.iban,[field]:value};delete data.pago.forma;localStorage.setItem(key,JSON.stringify(data));syncControlPago(model,period);renderTaxDraftMain();
 }
 const ibanText=iban=>String(iban||"").replace(/(.{4})/g,"$1 ").trim();
 // Desplegable que va en la línea del resultado a ingresar.
@@ -115,6 +125,7 @@ if(typeof renderTaxDraftMain==="function"){const previousMain=renderTaxDraftMain
   const r=previousMain.apply(this,arguments),model=taxDrafts.model,period=taxDrafts.open,card=document.querySelector("#tdMain .td-detail .td-card");
   if(!card||!AEAT_FILE_MODELS[model]||!/^\dT$/.test(period||""))return r;
   const draft=taxDraftBuild(model,period),label=card.querySelector(".tdg-total.result .tdg-label")||card.querySelector(".td-box.total .td-label");
+  syncControlPago(model,period);
   if(label&&!label.querySelector(".aeat-pago-inline")){label.classList.add("aeat-has-pago");label.insertAdjacentHTML("beforeend",pagoInline(draft))}
   const compl=card.querySelector(".td-compl"),checks=card.querySelector(".td-checks");
   if(compl&&checks&&!compl.querySelector(".td-compl-checks")){

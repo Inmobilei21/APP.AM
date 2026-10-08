@@ -216,6 +216,12 @@ function fieldValue(input){
   if(f==="modalidad")return input.value;
   return input.value.trim()===""?"":num(input.value);
 }
+// La forma de pago del 130 se refleja en la columna «Pago» de Control de declaraciones.
+function syncControlPago(period){
+  const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);if(data.notRequired)return;
+  const r=calc(period),res=r.c["19"],value=res>0?{domiciliacion:"Domicil.",adeudo:"N.R.C.",efectivo:"Pte. Pago"}[r.pago.forma]||"N.R.C.":"Negativa";
+  if(data.payment!==value){data.payment=value;localStorage.setItem(key,JSON.stringify(data))}
+}
 function bindInputs(root,period,after){
   root.querySelectorAll("[data-m130]").forEach(input=>input.addEventListener("change",()=>{
     const f=input.dataset.m130;save(period,f,fieldValue(input));
@@ -239,7 +245,7 @@ renderTaxDraftMain=function(){
     const th=box.querySelectorAll(".td-table thead th");if(th.length>=4){th[1].textContent="Ingresos acum.";th[2].textContent="Rend. neto acum.";th[3].textContent="Resultado"}
     const foot=box.querySelector(".td-table tfoot tr td:nth-child(3)");if(foot)foot.textContent=tdEur(calc("4T").c["03"]);
     if(taxDrafts.open&&/^\dT$/.test(taxDrafts.open)){
-      const period=taxDrafts.open,detail=box.querySelector(".td-detail .td-card");
+      const period=taxDrafts.open,detail=box.querySelector(".td-detail .td-card");syncControlPago(period);
       if(detail){bindInputs(detail,period,()=>renderTaxDraftMain());
         detail.querySelectorAll("[data-m130-sec]").forEach(d=>d.addEventListener("toggle",()=>{(taxDrafts.m130Open||={})[d.dataset.m130Sec]=d.open}));}
     }
