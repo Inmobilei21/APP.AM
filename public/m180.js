@@ -167,7 +167,7 @@ renderTaxDraftMain=function(){const r=previousMain.apply(this,arguments);const b
 .m180-card>header{display:flex!important;flex-wrap:wrap;align-items:baseline;justify-content:flex-start!important;gap:4px 12px;min-height:0!important;height:auto!important;padding:0 0 10px!important;margin:0 0 6px!important;background:none!important;border-bottom:1px solid #eef0f5;position:static!important;box-shadow:none!important}
 .m180-n{font-size:11px;font-weight:800;color:#1f4a99;background:#eef1ff;border-radius:999px;padding:2px 8px}.m180-card header strong{font-size:15px}.m180-card header small{color:#69748a;font-size:12px}
 .m180-card h6{margin:12px 0 8px;font-size:12.5px;color:#1f4a99}
-.m180-g{display:grid;gap:10px 12px;margin-bottom:10px}.m180-g.c3{grid-template-columns:repeat(3,minmax(0,1fr))}.m180-g.c4{grid-template-columns:repeat(4,minmax(0,1fr))}.m180-g.c8{grid-template-columns:repeat(8,minmax(0,1fr))}
+.m180-g{display:grid;gap:10px 12px;margin-bottom:10px;align-items:end}.m180-g.c3{grid-template-columns:repeat(3,minmax(0,1fr))}.m180-g.c4{grid-template-columns:repeat(4,minmax(0,1fr))}.m180-g.c8{grid-template-columns:repeat(8,minmax(0,1fr))}
 .m180-g .span2{grid-column:span 2}.m180-g .span3{grid-column:span 3}
 .m180-note{margin:0 0 4px;font-size:12px;color:#8a5a00}.m180-note.ok{color:#168456}
 @media(max-width:900px){.m180-g.c8{grid-template-columns:repeat(4,minmax(0,1fr))}}
