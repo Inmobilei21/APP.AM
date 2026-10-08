@@ -114,10 +114,12 @@ function renderTaxDraftSource(){
   box.className="td-source ready";
   box.innerHTML=`<span>✓</span><div>Datos de <strong>AMCOMTA · ${escapeHtml(base.empresa||client)}${base.ejercicio?` · ejercicio ${escapeHtml(base.ejercicio)}`:""}</strong>${when?` · base actualizada el ${escapeHtml(when)}`:""}${base.actualizadoPor?` por ${escapeHtml(base.actualizadoPor)}`:""}. Se actualiza desde la ficha del cliente.</div>`;
 }
+// Nombre que se muestra: el 130-131 de la ficha se presenta como 130 (estimación directa).
+const tdModelName=model=>model==="130-131"?"130":String(model);
 function renderTaxDraftModels(){
   const models=taxDraftClientModels(),box=document.querySelector("#tdModels");
   if(!models.length){box.innerHTML=`<h2>Modelos</h2><p class="td-note">Este cliente no tiene modelos marcados en su ficha (Obligaciones fiscales).</p>`;return}
-  box.innerHTML=`<h2>Modelos que presenta</h2>${models.map(model=>{const info=TAX_DRAFT_MODELS[model]||{title:"",ready:false};return `<button type="button" class="td-model${model===taxDrafts.model?" active":""}" data-td-model="${escapeHtml(model)}"${info.ready?"":" disabled"}><span class="td-badge m${escapeHtml(model.replace(/\D.*/,""))}"><small>Modelo</small><b>${escapeHtml(model)}</b></span><span class="td-model-text"><strong>Modelo ${escapeHtml(model)}</strong><small>${info.ready?escapeHtml(info.title):"Próximamente"}</small></span></button>`}).join("")}`;
+  box.innerHTML=`<h2>Modelos que presenta</h2>${models.map(model=>{const info=TAX_DRAFT_MODELS[model]||{title:"",ready:false};return `<button type="button" class="td-model${model===taxDrafts.model?" active":""}" data-td-model="${escapeHtml(model)}"${info.ready?"":" disabled"}><span class="td-badge m${escapeHtml(model.replace(/\D.*/,""))}"><small>Modelo</small><b>${escapeHtml(tdModelName(model))}</b></span><span class="td-model-text"><strong>Modelo ${escapeHtml(tdModelName(model))}</strong><small>${info.ready?escapeHtml(info.title):"Próximamente"}</small></span></button>`}).join("")}`;
   box.querySelectorAll("[data-td-model]").forEach(button=>button.addEventListener("click",()=>{taxDrafts.model=button.dataset.tdModel;taxDrafts.open="";taxDrafts.documents=new Map();renderTaxDraftModels();renderTaxDraftMain();loadTaxDraftDocuments()}));
 }
 function taxDraftYear(){return Number(taxDrafts.base?.ejercicio)||new Date().getFullYear()}
@@ -296,7 +298,7 @@ function renderTaxDraftMain(){
     const open=taxDrafts.open===period;
     return `<tr class="td-q${open?" open":""}" data-td-period="${period}" tabindex="0" aria-expanded="${open}"><td><span class="td-caret">›</span> ${period[0]}.º Trimestre</td><td class="num">${draft.summary.perceptores}</td><td class="num">${tdEur(draft.summary.base)}</td><td class="num"><b>${tdEur(draft.summary.retencion)}</b></td><td class="num">${controlCell}</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td class="center">${eye}</td></tr>${open?`<tr class="td-detail"><td colspan="7"><div class="td-card">${taxDraftDetail(draft,control)}</div></td></tr>`:""}`;
   }).join("");
-  box.innerHTML=`<div class="td-card-head"><span class="td-chip m${escapeHtml(model)}">${escapeHtml(model)}</span><strong>${escapeHtml(title)} · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
+  box.innerHTML=`<div class="td-card-head"><span class="td-chip m${escapeHtml(model)}">${escapeHtml(tdModelName(model))}</span><strong>${escapeHtml(title)} · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">${model==="111"?"Percepciones":"Base"}</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
     <tfoot><tr><td>Total</td><td></td><td class="num">${tdEur(totals.base)}</td><td class="num">${tdEur(totals.ret)}</td><td class="num">${tdEur(totals.control)}</td><td colspan="2"></td></tr>${taxDraftAnnualRow(model,totals)}</tfoot></table></div>
     ${model==="111"&&!Array.isArray(taxDrafts.base.nominas)?'<p class="td-hint">Esta base se cargó antes de que la app leyera las nóminas: de momento solo se incluyen las retenciones de facturas. Vuelve a añadir la base en la ficha del cliente («Base de datos de contabilidad») para incluir los trabajadores.</p>':""}
@@ -359,7 +361,7 @@ function taxDraftDetail(draft,control){
   const confirmed=control.draft;
   const changed=confirmed&&(confirmed.signature?confirmed.signature!==taxDraftSignature(draft):Math.abs((Number(confirmed.result??confirmed.casillas?.["05"])||0)-result)>=0.005);
   const confirmNote=confirmed?`<p class="td-confirmed">${changed?"⚠ El borrador ha cambiado desde que se confirmó: ":"✓ "}Confirmado el ${tdDate(confirmed.confirmedAt)}${confirmed.confirmedBy?` por ${escapeHtml(confirmed.confirmedBy)}`:""} · ${tdEur(confirmed.result??confirmed.casillas?.["05"])}</p>`:"";
-  return `<div class="td-detail-head"><b>Borrador modelo ${draft.model} · ${draft.period} ${draft.year}</b><span>${escapeHtml(taxDrafts.clientData?.cif||"")}${taxDrafts.clientData?.cif?" · ":""}${escapeHtml(taxDrafts.client)}</span></div>
+  return `<div class="td-detail-head"><b>Borrador modelo ${tdModelName(draft.model)} · ${draft.period} ${draft.year}</b><span>${escapeHtml(taxDrafts.clientData?.cif||"")}${taxDrafts.clientData?.cif?" · ":""}${escapeHtml(taxDrafts.client)}</span></div>
     <div class="td-boxes">${taxDraftBoxes(draft.boxes,true,draft.model)}</div>${tdComplBlock(draft)}
     <div class="td-checks">${checks.join("")}</div>
     <div class="td-actions">${confirmNote}<button type="button" class="secondary-button" data-td-copy>Copiar casillas</button><button type="button" class="primary blue-button" data-td-confirm>${confirmed?"Confirmar de nuevo":"Confirmar borrador"}</button></div>`;
@@ -390,7 +392,7 @@ const TAX_DRAFT_SIDE={
 };
 function openTaxDraftSide(kind,draft){
   const side=TAX_DRAFT_SIDE[kind];if(!side)return;
-  document.querySelector("#tdSideTag").textContent=`Modelo ${draft.model} · ${draft.period} ${draft.year}`;
+  document.querySelector("#tdSideTag").textContent=`Modelo ${tdModelName(draft.model)} · ${draft.period} ${draft.year}`;
   document.querySelector("#tdSideTitle").textContent=side.title(draft);
   document.querySelector("#tdSideSub").textContent=side.sub;
   const body=document.querySelector("#tdSideBody");
@@ -557,8 +559,8 @@ async function openConfirmedTaxDraft(key){
   document.querySelector("#tdDraftView")?.remove();
   const view=document.createElement("div");view.id="tdDraftView";view.className="td-modal";view.setAttribute("role","dialog");view.setAttribute("aria-modal","true");
   const listHtml=[lists.alquileres?`<h4>Facturas (${lists.alquileres.length})</h4><div data-td-list="alquileres">${taxDraftInvoiceTable(lists.alquileres,{person:"Arrendador"})}</div>`:"",lists.trabajo?`<h4>Nóminas (${lists.trabajo.length})</h4>${taxDraftNominaTable(lists.trabajo,false)}`:"",lists.profesionales?`<h4>Facturas de profesionales (${lists.profesionales.length})</h4><div data-td-list="profesionales">${taxDraftInvoiceTable(lists.profesionales,{person:"Profesional",especie:true})}</div>`:""].join("");
-  const form=taxDraftFormHtml(full,client),title=`Borrador modelo ${draft.model} ${draft.period} ${draft.year} ${draft.client}`;
-  view.innerHTML=`<div class="td-modal-box td-form-modal"><header><div><span class="td-tag">Borrador confirmado</span><h3>Modelo ${escapeHtml(draft.model)} · ${escapeHtml(draft.period)} ${escapeHtml(draft.year)}</h3><p>${escapeHtml(draft.cif?draft.cif+" · ":"")}${escapeHtml(draft.client)} · confirmado el ${tdDate(draft.confirmedAt)}${draft.confirmedBy?` por ${escapeHtml(draft.confirmedBy)}`:""}</p></div><div class="td-form-actions"><button type="button" class="secondary-button" data-td-print>Imprimir / guardar PDF</button><button type="button" class="td-close" aria-label="Cerrar">×</button></div></header>
+  const form=taxDraftFormHtml(full,client),title=`Borrador modelo ${tdModelName(draft.model)} ${draft.period} ${draft.year} ${draft.client}`;
+  view.innerHTML=`<div class="td-modal-box td-form-modal"><header><div><span class="td-tag">Borrador confirmado</span><h3>Modelo ${escapeHtml(tdModelName(draft.model))} · ${escapeHtml(draft.period)} ${escapeHtml(draft.year)}</h3><p>${escapeHtml(draft.cif?draft.cif+" · ":"")}${escapeHtml(draft.client)} · confirmado el ${tdDate(draft.confirmedAt)}${draft.confirmedBy?` por ${escapeHtml(draft.confirmedBy)}`:""}</p></div><div class="td-form-actions"><button type="button" class="secondary-button" data-td-print>Imprimir / guardar PDF</button><button type="button" class="td-close" aria-label="Cerrar">×</button></div></header>
     <div class="td-modal-body"><style>${AEAT_FORM_CSS}</style>${form}${listHtml?`<details class="td-form-annex"><summary>Detalle de la contabilidad</summary>${listHtml}</details>`:""}</div></div>`;
   document.body.append(view);
   view.querySelector("[data-td-print]").addEventListener("click",()=>printTaxDraftForm(form,title));
