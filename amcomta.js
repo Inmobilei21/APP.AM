@@ -201,9 +201,11 @@ module.exports = function ({ dataDirectory }) {
     // Modelo 303 (IVA devengado): líneas de IVA de las facturas emitidas, compactas:
     // [fecha del asiento, nº factura, cliente, base, % IVA, cuota, % recargo, recargo].
     const issuedHead = new Map();
-    for (const row of rows("Facturas", ["Fecha", "Asiento", "Contabilidad", "Emitida", "Número Factura", "Nombre", "Cuenta"])) {
-      if (!(isTrue(row.Emitida) || row.Emitida === true)) continue;
-      issuedHead.set(`${isoDay(row.Fecha)}|${text(row.Asiento)}|${text(row.Contabilidad)}`, { numero: text(row["Número Factura"]), nombre: text(row.Nombre) || records.get(text(row.Cuenta))?.nombre || accountNames.get(text(row.Cuenta)) || "" });
+    const receivedHead = new Map();
+    for (const row of rows("Facturas", ["Fecha", "Asiento", "Contabilidad", "Emitida", "Número Factura", "Nombre", "Cuenta", "Cif", "PaisIdentificacion", "Autofactura"])) {
+      const key = `${isoDay(row.Fecha)}|${text(row.Asiento)}|${text(row.Contabilidad)}`, cuenta = text(row.Cuenta);
+      const head = { numero: text(row["Número Factura"]), nombre: text(row.Nombre) || records.get(cuenta)?.nombre || accountNames.get(cuenta) || "", nif: nif(row.Cif) || records.get(cuenta)?.nif || "", pais: text(row.PaisIdentificacion).toUpperCase(), autofactura: isTrue(row.Autofactura) || row.Autofactura === true };
+      if (isTrue(row.Emitida) || row.Emitida === true) issuedHead.set(key, head); else receivedHead.set(key, head);
     }
     const ivaEmitidas = [];
     for (const row of rows("Bases Factura", ["Fecha", "Asiento", "Contabilidad", "Emitida", "Base", "Base Euro", "% IVA", "Importe IVA", "Importe IVA Euro", "% Recargo", "Importe Recargo", "Importe Recargo Euro"])) {
@@ -212,15 +214,29 @@ module.exports = function ({ dataDirectory }) {
       const head = issuedHead.get(`${fecha}|${text(row.Asiento)}|${text(row.Contabilidad)}`) || { numero: "", nombre: "" };
       const base = money(row, "Base Euro", "Base"), cuota = money(row, "Importe IVA Euro", "Importe IVA"), recargo = money(row, "Importe Recargo Euro", "Importe Recargo");
       if (!base && !cuota && !recargo) continue;
-      ivaEmitidas.push([fecha, head.numero, head.nombre, base, Number(row["% IVA"]) || 0, cuota, Number(row["% Recargo"]) || 0, recargo]);
+      ivaEmitidas.push([fecha, head.numero, head.nombre, base, Number(row["% IVA"]) || 0, cuota, Number(row["% Recargo"]) || 0, recargo, head.autofactura ? 1 : 0]);
     }
     ivaEmitidas.sort((a, b) => a[0].localeCompare(b[0]));
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347, capital, resultados, resultadosEjercicio: pygYear, retencionesSoportadas, pagosACuenta, ivaEmitidas };
+    // IVA deducible: líneas de las facturas recibidas
+    // [fecha, nº factura, proveedor, NIF, base, % IVA, cuota, bien de inversión (0/1), IVA no deducible, país].
+    const ivaRecibidas = [];
+    for (const row of rows("Bases Factura", ["Fecha", "Asiento", "Contabilidad", "Emitida", "Cuenta", "Base", "Base Euro", "% IVA", "Importe IVA", "Importe IVA Euro", "Inversion", "IvaNoDeducible", "ImporteIvaNoDeducible"])) {
+      if (isTrue(row.Emitida) || row.Emitida === true) continue;
+      const fecha = isoDay(row.Fecha);if (!fecha) continue;
+      const head = receivedHead.get(`${fecha}|${text(row.Asiento)}|${text(row.Contabilidad)}`) || { numero: "", nombre: "", nif: "", pais: "" };
+      const base = money(row, "Base Euro", "Base"), cuota = money(row, "Importe IVA Euro", "Importe IVA");
+      if (!base && !cuota) continue;
+      const inversion = isTrue(row.Inversion) || row.Inversion === true || text(row.Cuenta).startsWith("2");
+      const noDeducible = isTrue(row.IvaNoDeducible) || row.IvaNoDeducible === true ? (Math.round((Number(row.ImporteIvaNoDeducible) || 0) * 100) / 100 || cuota) : 0;
+      ivaRecibidas.push([fecha, head.numero, head.nombre, head.nif, base, Number(row["% IVA"]) || 0, cuota, inversion ? 1 : 0, noDeducible, head.pais]);
+    }
+    ivaRecibidas.sort((a, b) => a[0].localeCompare(b[0]));
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347, capital, resultados, resultadosEjercicio: pygYear, retencionesSoportadas, pagosACuenta, ivaEmitidas, ivaRecibidas };
   }
 
   // Versión del resumen: al leer más datos de la base se sube y los resúmenes antiguos se
   // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
-  const VERSION = 7;
+  const VERSION = 8;
   const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
   // ¿La empresa de la base es la del cliente elegido? (evita guardar la base de otro cliente)
   const words = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")
