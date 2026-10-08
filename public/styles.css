@@ -5819,3 +5819,5 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
   .tdg-v{font-size:13.5px;overflow:visible}
   .tdg-total .tdg-cell{grid-template-columns:32px 0 1fr 26px}
 }
+.td-list tr.td-off td{opacity:.5}.td-list tr.td-off td:first-child{opacity:1}
+.td-origen{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:999px;background:#fff1d6;color:#8a5a00;font-size:10.5px;font-weight:800;white-space:nowrap}

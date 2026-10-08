@@ -14,7 +14,7 @@ function m190Records(){
   const add=(key,base,values)=>{const rec=map.get(key)||{key,...base,integra:0,retenciones:0,especieValor:0,especieIngresos:0,estimado:false};
     for(const k of ["integra","retenciones","especieValor","especieIngresos"])rec[k]=tdRound(rec[k]+(values[k]||0));if(values.estimado)rec.estimado=true;map.set(key,rec)};
   drafts.forEach(draft=>{
-    (draft.lists.trabajo||[]).forEach(entry=>{
+    (draft.lists.trabajo||[]).filter(entry=>entry.incluir!==false).forEach(entry=>{
       const workers=entry.trabajadores||[],total=workers.reduce((sum,w)=>sum+(Number(w.liquido)||0),0);
       workers.forEach(w=>{
         const share=workers.length===1?1:(total?(Number(w.liquido)||0)/total:1/workers.length);
@@ -22,7 +22,7 @@ function m190Records(){
         add(`A|${w.cuenta}`,{clave:"A",cuenta:w.cuenta,nif:w.nif||"",nombre:w.nombre||w.cuenta,cp:w.cp||""},entry.especie?{especieValor:gross,especieIngresos:ret,estimado:workers.length>1}:{integra:gross,retenciones:ret,estimado:workers.length>1});
       });
     });
-    (draft.lists.profesionales||[]).forEach(item=>{
+    (draft.lists.profesionales||[]).filter(item=>item.incluir!==false).forEach(item=>{
       add(`G|${item.nif||item.cuenta}`,{clave:"G",cuenta:item.cuenta,nif:item.nif||"",nombre:item.nombre||item.cuenta,cp:item.cp||""},item.especie?{especieValor:item.base,especieIngresos:item.retencion}:{integra:item.base,retenciones:item.retencion});
     });
   });

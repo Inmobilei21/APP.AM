@@ -138,6 +138,24 @@ async function loadTaxDraftDocuments(){
 const taxDraftItemId=item=>[item.fecha,item.numero,item.cuenta,item.retencion].join("|");
 const taxDraftNominaId=entry=>`nom|${entry.fecha}|${entry.asiento}`;
 const tdInQuarter=(date,period)=>Math.ceil(Number(String(date).slice(5,7))/3)===Number(period[0]);
+// Percepciones del trimestre con arrastre: lo que se dejó sin incluir en un trimestre anterior aparece en
+// los siguientes (marcado con su trimestre de origen) hasta que se incluye en alguno.
+function tdCarry(model,period,list,idFn){
+  const q=Number(String(period)[0]),excl={};for(let i=1;i<=q;i++)excl[i]=new Set(taxDraftControl(model,`${i}T`).excluidos||[]);
+  return (list||[]).map(item=>{
+    const q0=Math.ceil(Number(String(item.fecha).slice(5,7))/3);if(!q0||q0>q)return null;
+    const id=idFn(item);for(let k=q0;k<q;k++)if(!excl[k].has(id))return null;
+    return{...item,id,origen:q0<q?`${q0}T`:"",incluir:!excl[q].has(id)};
+  }).filter(Boolean);
+}
+function toggleTaxDraftIncluir(model,period,id,checked){
+  const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
+  const list=new Set(data.excluidos||[]);if(checked)list.delete(id);else list.add(id);
+  data.excluidos=[...list];localStorage.setItem(key,JSON.stringify(data));
+  renderTaxDraftMain();
+}
+function taxDraftIncluirCell(item,editable){return editable?`<input type="checkbox" data-td-incluir="${escapeHtml(item.id)}"${item.incluir!==false?" checked":""} aria-label="Incluir en la declaración">`:item.incluir===false?"No":"Sí"}
+const tdOrigen=item=>item.origen?` <span class="td-origen" title="No se declaró en el ${item.origen}; se incluye en este trimestre">del ${item.origen}</span>`:"";
 const tdSum=(list,field)=>tdRound(list.reduce((sum,item)=>sum+(Number(item[field])||0),0));
 function taxDraftControl(model,period){return declarationData(model,period,taxDrafts.client,taxDraftYear())}
 
@@ -145,7 +163,7 @@ function taxDraftControl(model,period){return declarationData(model,period,taxDr
 // Cada casilla: {n, label, value, kind:"count"|"money", eye, cls}; las cabeceras de apartado: {heading}.
 const TAX_DRAFT_BUILDERS={
   "115":period=>{
-    const items=(taxDrafts.base?.retencionesIrpf||[]).filter(item=>item.tipo==="alquiler"&&tdInQuarter(item.fecha,period));
+    const all=tdCarry("115",period,(taxDrafts.base?.retencionesIrpf||[]).filter(item=>item.tipo==="alquiler"),taxDraftItemId),items=all.filter(item=>item.incluir);
     const base=tdSum(items,"base"),ret=tdSum(items,"retencion");
     const people=[...new Map(items.map(item=>[item.nif||item.cuenta,item])).values()];
     return{
@@ -158,7 +176,7 @@ const TAX_DRAFT_BUILDERS={
         {n:"05",label:"Resultado a ingresar ([03] − [04])",value:ret,kind:"money",eye:"alquileres",cls:"total"}
       ],
       result:ret,summary:{perceptores:people.length,base,retencion:ret},
-      lists:{alquileres:items},people,
+      lists:{alquileres:all},people,
       checks:()=>{
         const rates=[...new Set(items.map(item=>item.porcentaje))];
         if(!items.length)return['<div class="td-check warn">⚠ <div><b>Sin retenciones de alquiler en el trimestre</b>No hay facturas recibidas con retención de alquiler en la contabilidad.</div></div>'];
@@ -168,8 +186,9 @@ const TAX_DRAFT_BUILDERS={
   },
   "111":period=>{
     const especie=new Set(taxDraftControl("111",period).especie||[]);
-    const nominas=(taxDrafts.base?.nominas||[]).filter(entry=>tdInQuarter(entry.fecha,period)).map(entry=>({...entry,id:taxDraftNominaId(entry),especie:especie.has(taxDraftNominaId(entry))}));
-    const profesionales=(taxDrafts.base?.retencionesIrpf||[]).filter(item=>item.tipo==="profesional"&&tdInQuarter(item.fecha,period)).map(item=>({...item,id:taxDraftItemId(item),especie:especie.has(taxDraftItemId(item))}));
+    const nominasAll=tdCarry("111",period,taxDrafts.base?.nominas,taxDraftNominaId).map(entry=>({...entry,especie:especie.has(entry.id)}));
+    const profesionalesAll=tdCarry("111",period,(taxDrafts.base?.retencionesIrpf||[]).filter(item=>item.tipo==="profesional"),taxDraftItemId).map(item=>({...item,especie:especie.has(item.id)}));
+    const nominas=nominasAll.filter(entry=>entry.incluir),profesionales=profesionalesAll.filter(item=>item.incluir);
     const workers=list=>new Set(list.flatMap(entry=>entry.trabajadores.map(worker=>worker.cuenta))).size;
     const people=list=>new Set(list.map(item=>item.nif||item.cuenta)).size;
     const tD=nominas.filter(entry=>!entry.especie),tE=nominas.filter(entry=>entry.especie),pD=profesionales.filter(item=>!item.especie),pE=profesionales.filter(item=>item.especie);
@@ -197,7 +216,7 @@ const TAX_DRAFT_BUILDERS={
         {n:"30",label:"Resultado a ingresar ([28] − [29])",value:total,kind:"money",eye:"todo",cls:"total"}
       ],
       result:total,summary:{perceptores:allWorkers+people(profesionales),base:tdRound(c["02"]+c["05"]+c["08"]+c["11"]),retencion:total},
-      lists:{trabajo:nominas,profesionales},
+      lists:{trabajo:nominasAll,profesionales:profesionalesAll},
       checks:()=>{
         const out=[];
         if(!nominas.length&&(taxDrafts.base?.trabajadores||[]).length)out.push(`<div class="td-check warn">⚠ <div><b>No hay nóminas con retención en el trimestre</b>El cliente tiene ${taxDrafts.base.trabajadores.length} trabajadores en AMCOMTA, pero no hay asientos con abono a la cuenta de retenciones del trabajo.</div></div>`);
@@ -227,6 +246,7 @@ function taxDraftAnnualRow(model,totals){
   const drafts=["1T","2T","3T","4T"].map(period=>taxDraftBuild(model,period));
   const ids=new Set();
   drafts.forEach(draft=>{
+    const lists=Object.fromEntries(Object.entries(draft.lists||{}).map(([k,v])=>[k,(v||[]).filter(item=>item.incluir!==false)]));draft={...draft,lists};
     (draft.lists.alquileres||[]).forEach(item=>ids.add(item.nif||item.cuenta));
     (draft.lists.profesionales||[]).forEach(item=>ids.add(item.nif||item.cuenta));
     (draft.lists.trabajo||[]).forEach(entry=>(entry.trabajadores||[]).forEach(worker=>ids.add(worker.cuenta)));
@@ -300,6 +320,10 @@ function taxDraftBoxes(boxes,withEyes=true,model=""){
 function taxDraftSignature(draft){return JSON.stringify(draft.boxes.filter(box=>!box.heading).map(box=>[box.n,box.value]))}
 function taxDraftDetail(draft,control){
   const result=draft.result,checks=[];
+  const allItems=Object.values(draft.lists||{}).flat().filter(item=>item&&typeof item==="object");
+  const arrastre=allItems.filter(item=>item.origen&&item.incluir!==false),fuera=allItems.filter(item=>item.incluir===false);
+  if(arrastre.length)checks.push(`<div class="td-check warn">⚠ <div><b>${arrastre.length} percepci${arrastre.length===1?"ón":"ones"} de trimestres anteriores sin declarar</b>Se incluyen en este trimestre: ${tdEur(tdSum(arrastre,"retencion"))} de retención (${[...new Set(arrastre.map(item=>item.origen))].join(", ")}).</div></div>`);
+  if(fuera.length)checks.push(`<div class="td-check warn">⚠ <div><b>${fuera.length} percepci${fuera.length===1?"ón":"ones"} sin incluir en este trimestre</b>${tdEur(tdSum(fuera,"retencion"))} de retención quedan fuera y aparecerán en el ${draft.period==="4T"?"resumen anual (no se declaran en ningún trimestre)":"siguiente trimestre"}.</div></div>`);
   const amount=control.amount===""||control.amount===undefined?null:Number(control.amount);
   if(amount===null||Number.isNaN(amount))checks.push(`<div class="td-check warn">⚠ <div><b>Aún no hay importe en Control de declaraciones</b>Al confirmar el borrador se anotarán la fecha de confección y ${tdEur(result)}.</div></div>`);
   else if(Math.abs(amount-result)<0.005)checks.push(`<div class="td-check ok">✓ <div><b>Coincide con Control de declaraciones</b>Borrador del trimestre: ${tdEur(result)} · Importe anotado: ${tdEur(amount)}.</div></div>`);
@@ -346,6 +370,10 @@ function openTaxDraftSide(kind,draft){
   body.innerHTML=taxDraftLists(kind,draft,true);
   if(draft.lists.alquileres&&(kind==="alquileres"))fillTaxDraftInvoiceFiles(body.querySelector('[data-td-list="alquileres"]'),taxDrafts.client,draft.lists.alquileres);
   if(draft.lists.profesionales&&(kind==="profesionales"||kind==="todo"))fillTaxDraftInvoiceFiles(body.querySelector('[data-td-list="profesionales"]'),taxDrafts.client,draft.lists.profesionales);
+  body.querySelectorAll("[data-td-incluir]").forEach(input=>input.addEventListener("change",()=>{
+    toggleTaxDraftIncluir(draft.model,draft.period,input.dataset.tdIncluir,input.checked);
+    openTaxDraftSide(kind,taxDraftBuild(draft.model,draft.period));
+  }));
   body.querySelectorAll("[data-td-especie]").forEach(input=>input.addEventListener("change",()=>{
     toggleTaxDraftEspecie(draft.model,draft.period,input.dataset.tdEspecie,input.checked);
     openTaxDraftSide(kind,taxDraftBuild(draft.model,draft.period));
@@ -354,7 +382,7 @@ function openTaxDraftSide(kind,draft){
 }
 function taxDraftLists(kind,draft,editable){
   if(kind==="people")return `<table class="td-list"><thead><tr><th>Arrendador</th><th>NIF</th><th>Cuenta</th><th class="num">Facturas</th><th class="num">Base</th><th class="num">Retención</th></tr></thead><tbody>${draft.people.map(person=>{const list=draft.lists.alquileres.filter(item=>(item.nif||item.cuenta)===(person.nif||person.cuenta));return `<tr><td>${escapeHtml(person.nombre)}</td><td>${escapeHtml(person.nif)}</td><td>${escapeHtml(person.cuenta)}</td><td class="num">${list.length}</td><td class="num">${tdEur(tdSum(list,"base"))}</td><td class="num">${tdEur(tdSum(list,"retencion"))}</td></tr>`}).join("")}</tbody></table>`;
-  if(kind==="alquileres")return `<div data-td-list="alquileres">${taxDraftInvoiceTable(draft.lists.alquileres,{person:"Arrendador"})}</div>`;
+  if(kind==="alquileres")return `<div data-td-list="alquileres">${taxDraftInvoiceTable(draft.lists.alquileres,{person:"Arrendador",editable})}</div>`;
   if(kind==="trabajo")return taxDraftNominaTable(draft.lists.trabajo,editable);
   if(kind==="profesionales")return `<div data-td-list="profesionales">${taxDraftInvoiceTable(draft.lists.profesionales,{person:"Profesional",especie:true,editable})}</div>`;
   return `<h4 class="td-list-title">Rendimientos del trabajo</h4>${taxDraftNominaTable(draft.lists.trabajo,editable)}<h4 class="td-list-title">Actividades económicas (profesionales)</h4><div data-td-list="profesionales">${taxDraftInvoiceTable(draft.lists.profesionales,{person:"Profesional",especie:true,editable})}</div>`;
@@ -362,12 +390,13 @@ function taxDraftLists(kind,draft,editable){
 function taxDraftEspecieCell(item,editable){return editable?`<input type="checkbox" data-td-especie="${escapeHtml(item.id)}"${item.especie?" checked":""} aria-label="En especie">`:item.especie?"Sí":"—"}
 function taxDraftNominaTable(entries,editable){
   if(!entries.length)return'<p class="td-note td-pad">No hay nóminas con retención en el trimestre.</p>';
-  return `<table class="td-list"><thead><tr><th>Fecha</th><th>Concepto</th><th class="num">Trabajadores</th><th class="num">Percepciones</th><th class="num">Retención</th><th class="num">%</th><th class="center">En especie</th></tr></thead><tbody>${entries.map(entry=>`<tr${entry.especie?' class="td-especie"':""}><td>${tdDate(entry.fecha)}</td><td>${escapeHtml(entry.concepto||`Asiento ${entry.asiento}`)}<br><small>${escapeHtml(entry.trabajadores.map(worker=>worker.nombre).join(" · "))}</small></td><td class="num">${entry.trabajadores.length}</td><td class="num">${tdEur(entry.percepciones)}</td><td class="num">${tdEur(entry.retencion)}</td><td class="num">${entry.percepciones?`${(entry.retencion/entry.percepciones*100).toFixed(2).replace(".",",")} %`:"—"}</td><td class="center">${taxDraftEspecieCell(entry,editable)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">Total</td><td class="num">${tdEur(tdSum(entries,"percepciones"))}</td><td class="num">${tdEur(tdSum(entries,"retencion"))}</td><td colspan="2"></td></tr></tfoot></table>`;
+  const inc=entries.filter(entry=>entry.incluir!==false);
+  return `<table class="td-list"><thead><tr><th class="center">Incluir</th><th>Fecha</th><th>Concepto</th><th class="num">Trabajadores</th><th class="num">Percepciones</th><th class="num">Retención</th><th class="num">%</th><th class="center">En especie</th></tr></thead><tbody>${entries.map(entry=>`<tr class="${entry.especie?"td-especie":""}${entry.incluir===false?" td-off":""}"><td class="center">${taxDraftIncluirCell(entry,editable)}</td><td>${tdDate(entry.fecha)}${tdOrigen(entry)}</td><td>${escapeHtml(entry.concepto||`Asiento ${entry.asiento}`)}<br><small>${escapeHtml(entry.trabajadores.map(worker=>worker.nombre).join(" · "))}</small></td><td class="num">${entry.trabajadores.length}</td><td class="num">${tdEur(entry.percepciones)}</td><td class="num">${tdEur(entry.retencion)}</td><td class="num">${entry.percepciones?`${(entry.retencion/entry.percepciones*100).toFixed(2).replace(".",",")} %`:"—"}</td><td class="center">${taxDraftEspecieCell(entry,editable)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Total incluido</td><td class="num">${tdEur(tdSum(inc,"percepciones"))}</td><td class="num">${tdEur(tdSum(inc,"retencion"))}</td><td colspan="2"></td></tr></tfoot></table>`;
 }
 function taxDraftInvoiceTable(items,options={}){
   if(!items.length)return'<p class="td-note td-pad">No hay facturas con retención en el trimestre.</p>';
-  const especie=Boolean(options.especie);
-  return `<table class="td-list td-invoices"><thead><tr><th>Fecha</th><th>Nº factura</th><th>${options.person||"Proveedor"}</th><th class="center" title="Factura guardada en la carpeta del cliente">Factura</th><th class="num">Base</th><th class="num">%</th><th class="num">Retención</th>${especie?'<th class="center">En especie</th>':""}</tr></thead><tbody>${items.map((item,index)=>`<tr${item.especie?' class="td-especie"':""}><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<br><small>${escapeHtml(item.nif)}</small></td><td class="center" data-td-file="${index}"><span class="td-file-wait" title="Buscando la factura…">…</span></td><td class="num">${tdEur(item.base)}</td><td class="num">${escapeHtml(item.porcentaje)} %</td><td class="num">${tdEur(item.retencion)}</td>${especie?`<td class="center">${taxDraftEspecieCell(item,options.editable)}</td>`:""}</tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Total</td><td class="num">${tdEur(tdSum(items,"base"))}</td><td></td><td class="num">${tdEur(tdSum(items,"retencion"))}</td>${especie?"<td></td>":""}</tr></tfoot></table>`;
+  const especie=Boolean(options.especie),inc=items.filter(item=>item.incluir!==false);
+  return `<table class="td-list td-invoices"><thead><tr><th class="center">Incluir</th><th>Fecha</th><th>Nº factura</th><th>${options.person||"Proveedor"}</th><th class="center" title="Factura guardada en la carpeta del cliente">Factura</th><th class="num">Base</th><th class="num">%</th><th class="num">Retención</th>${especie?'<th class="center">En especie</th>':""}</tr></thead><tbody>${items.map((item,index)=>`<tr class="${item.especie?"td-especie":""}${item.incluir===false?" td-off":""}"><td class="center">${taxDraftIncluirCell(item,options.editable)}</td><td>${tdDate(item.fecha)}${tdOrigen(item)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<br><small>${escapeHtml(item.nif)}</small></td><td class="center" data-td-file="${index}"><span class="td-file-wait" title="Buscando la factura…">…</span></td><td class="num">${tdEur(item.base)}</td><td class="num">${escapeHtml(item.porcentaje)} %</td><td class="num">${tdEur(item.retencion)}</td>${especie?`<td class="center">${taxDraftEspecieCell(item,options.editable)}</td>`:""}</tr>`).join("")}</tbody><tfoot><tr><td colspan="5">Total incluido</td><td class="num">${tdEur(tdSum(inc,"base"))}</td><td></td><td class="num">${tdEur(tdSum(inc,"retencion"))}</td>${especie?"<td></td>":""}</tr></tfoot></table>`;
 }
 // Las percepciones marcadas «en especie» se guardan junto al control del trimestre (compartido en el servidor).
 function toggleTaxDraftEspecie(model,period,id,checked){

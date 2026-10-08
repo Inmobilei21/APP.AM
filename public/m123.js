@@ -7,8 +7,8 @@ TAX_DRAFT_MODELS["123"]={title:"Rendimientos del capital mobiliario",ready:true}
 const rentaId=entry=>`cap|${entry.fecha}|${entry.asiento}`;
 TAX_DRAFT_BUILDERS["123"]=period=>{
   const dividendos=new Set(taxDraftControl("123",period).especie||[]);
-  const rentas=(taxDrafts.base?.capital||[]).filter(entry=>tdInQuarter(entry.fecha,period)).map(entry=>({...entry,id:rentaId(entry),dividendo:dividendos.has(rentaId(entry))}));
-  const div=rentas.filter(entry=>entry.dividendo),resto=rentas.filter(entry=>!entry.dividendo);
+  const todas=tdCarry("123",period,taxDrafts.base?.capital,rentaId).map(entry=>({...entry,dividendo:dividendos.has(entry.id)}));
+  const rentas=todas.filter(entry=>entry.incluir),div=rentas.filter(entry=>entry.dividendo),resto=rentas.filter(entry=>!entry.dividendo);
   const c={"01":div.length,"02":resto.length,"03":rentas.length,"04":tdSum(div,"base"),"05":tdSum(resto,"base"),"06":tdSum(rentas,"base"),"07":tdSum(div,"retencion"),"08":tdSum(resto,"retencion"),"09":tdSum(rentas,"retencion"),"10":0,"11":0};
   const total=tdRound(c["09"]+c["11"]);
   const box=(n,label,kind,cls)=>({n,label,value:c[n],kind,eye:"capital",cls});
@@ -29,7 +29,7 @@ TAX_DRAFT_BUILDERS["123"]=period=>{
       {n:"14",label:"Resultado a ingresar ([12] − [13])",value:total,kind:"money",eye:"capital",cls:"total"}
     ],
     result:total,summary:{perceptores:rentas.length,base:c["06"],retencion:c["09"]},
-    lists:{capital:rentas},
+    lists:{capital:todas},
     checks:()=>{
       if(!(taxDrafts.base?.capital||[]).length)return['<div class="td-check warn">⚠ <div><b>Sin cuenta de retenciones del capital mobiliario</b>No hay asientos con abono a una cuenta 4751 de intereses o capital mobiliario. Si el cliente no paga intereses ni dividendos, no hay nada que declarar.</div></div>'];
       if(!rentas.length)return['<div class="td-check warn">⚠ <div><b>Sin retenciones en el trimestre</b>No hay asientos de intereses o dividendos con retención en este trimestre.</div></div>'];
@@ -42,8 +42,9 @@ TAX_DRAFT_BUILDERS["123"]=period=>{
 if(typeof TAX_DRAFT_SIDE!=="undefined")TAX_DRAFT_SIDE.capital={title:draft=>`Rentas del trimestre (${draft.lists.capital.length})`,sub:"Asientos con retención del capital mobiliario en AMCOMTA. Marca «Dividendos» en las que lo sean; el resto va a «Resto de rentas»."};
 function capitalTable(entries,editable){
   if(!entries.length)return'<p class="td-note td-pad">No hay rentas del capital mobiliario con retención en el trimestre.</p>';
-  return `<table class="td-list"><thead><tr><th>Fecha</th><th>Concepto</th><th class="num">Base</th><th class="num">Retención</th><th class="num">%</th><th class="center">Dividendos</th></tr></thead><tbody>${entries.map(entry=>`<tr${entry.dividendo?' class="td-especie"':""}><td>${tdDate(entry.fecha)}</td><td>${escapeHtml(entry.concepto||`Asiento ${entry.asiento}`)}<small style="display:block;color:#69748a">${escapeHtml(entry.cuentas.map(cuenta=>`${cuenta.cuenta} ${cuenta.nombre}`).join(" · "))}</small></td><td class="num">${tdEur(entry.base)}</td><td class="num">${tdEur(entry.retencion)}</td><td class="num">${String(entry.porcentaje).replace(".",",")} %</td><td class="center">${editable?`<input type="checkbox" data-td-especie="${escapeHtml(entry.id)}"${entry.dividendo?" checked":""} aria-label="Dividendos">`:entry.dividendo?"Sí":"—"}</td></tr>`).join("")}</tbody>
-    <tfoot><tr><td colspan="2">Total</td><td class="num">${tdEur(tdSum(entries,"base"))}</td><td class="num">${tdEur(tdSum(entries,"retencion"))}</td><td colspan="2"></td></tr></tfoot></table>`;
+  const inc=entries.filter(entry=>entry.incluir!==false);
+  return `<table class="td-list"><thead><tr><th class="center">Incluir</th><th>Fecha</th><th>Concepto</th><th class="num">Base</th><th class="num">Retención</th><th class="num">%</th><th class="center">Dividendos</th></tr></thead><tbody>${entries.map(entry=>`<tr class="${entry.dividendo?"td-especie":""}${entry.incluir===false?" td-off":""}"><td class="center">${taxDraftIncluirCell(entry,editable)}</td><td>${tdDate(entry.fecha)}${tdOrigen(entry)}</td><td>${escapeHtml(entry.concepto||`Asiento ${entry.asiento}`)}<small style="display:block;color:#69748a">${escapeHtml(entry.cuentas.map(cuenta=>`${cuenta.cuenta} ${cuenta.nombre}`).join(" · "))}</small></td><td class="num">${tdEur(entry.base)}</td><td class="num">${tdEur(entry.retencion)}</td><td class="num">${String(entry.porcentaje).replace(".",",")} %</td><td class="center">${editable?`<input type="checkbox" data-td-especie="${escapeHtml(entry.id)}"${entry.dividendo?" checked":""} aria-label="Dividendos">`:entry.dividendo?"Sí":"—"}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td colspan="3">Total incluido</td><td class="num">${tdEur(tdSum(inc,"base"))}</td><td class="num">${tdEur(tdSum(inc,"retencion"))}</td><td colspan="2"></td></tr></tfoot></table>`;
 }
 if(typeof taxDraftLists==="function"){const previousLists=taxDraftLists;taxDraftLists=function(kind,draft,editable){return kind==="capital"?capitalTable(draft.lists.capital||[],editable):previousLists.apply(this,arguments)}}
 // Borrador confirmado con el aspecto del impreso del 123.
