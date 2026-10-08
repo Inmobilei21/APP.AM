@@ -42,7 +42,7 @@ async function askIban(draft){
   let client=null;try{client=(await getAllClientMetadata()).find(item=>item.name===draft.client||item.id===draft.client)}catch{}
   const iban=(client?.bank?.ibans||[]).find(Boolean)||"";
   if(!iban)return"";
-  return confirm(`¿Domiciliar el pago de ${tdEur(result)} en la cuenta ${iban}?\n\nAceptar: domiciliación · Cancelar: ingreso sin domiciliar`)?iban:"";
+  return await appConfirm({eyebrow:"FICHERO AEAT",title:`¿Domiciliar el pago de ${tdEur(result)}?`,message:`Cuenta ${iban}`,ok:"Domiciliar",cancel:"Ingreso sin domiciliar"})?iban:"";
 }
 async function downloadAeatFile(draft){
   try{

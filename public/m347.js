@@ -263,11 +263,11 @@ async function open347Invoices(row,q){
     paint();renderTaxDraftMain();
   });
 }
-function download347Aeat(draft){
+async function download347Aeat(draft){
   try{
     const missing=draft.declarados.filter(d=>!d.nif&&!d.nifComunitario).length;
-    if(missing&&!confirm(`${missing} declarado${missing===1?"":"s"} sin NIF. ¿Generar el fichero igualmente?`))return;
-    if(!/^\d{9}$/.test(String(draft.contacto?.telefono||"").replace(/\D/g,""))&&!confirm("Falta el teléfono de contacto (9 cifras). ¿Generar el fichero igualmente?"))return;
+    if(missing&&!await appConfirm({eyebrow:"MODELO 347",title:`${missing} declarado${missing===1?"":"s"} sin NIF`,message:"¿Generar el fichero igualmente?",ok:"Generar igualmente"}))return;
+    if(!/^\d{9}$/.test(String(draft.contacto?.telefono||"").replace(/\D/g,""))&&!await appConfirm({eyebrow:"MODELO 347",title:"Falta el teléfono de contacto",message:"Debe tener 9 cifras. ¿Generar el fichero igualmente?",ok:"Generar igualmente"}))return;
     const text=m347AeatFile(draft),bytes=new Uint8Array([...text].map(ch=>{const c=ch.charCodeAt(0);return c<256?c:32}));
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bytes],{type:"text/plain;charset=iso-8859-1"}));
     a.download=`${String(draft.cif||"").toUpperCase()}_347_${draft.year}.347`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);

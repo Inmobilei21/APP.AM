@@ -5850,3 +5850,5 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .app-confirm-box footer button{min-width:120px}
 @keyframes appConfirmIn{from{opacity:0}to{opacity:1}}@keyframes appConfirmPop{from{transform:translateY(8px) scale(.98)}to{transform:none}}
 @media(max-width:520px){.app-confirm-box footer{flex-direction:column-reverse}.app-confirm-box footer button{width:100%}}
+.app-confirm-msg{white-space:pre-line;max-height:46vh;overflow:auto}
+.app-confirm-box footer .app-confirm-danger{background:#b42318!important;border-color:#b42318!important}

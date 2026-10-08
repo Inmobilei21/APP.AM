@@ -73,7 +73,7 @@ async function uploadClientAccountingBase(client,file){
   const send=force=>fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}${force?"&force=1":""}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
   let response=await send(false),result=await response.json().catch(()=>({}));
   if(response.status===409){
-    if(!confirm(`${result.error}\n\n¿Seguro que quieres guardarla como la contabilidad de ${client}?`))return null;
+    if(!await appConfirm({eyebrow:"BASE DE DATOS DE CONTABILIDAD",title:"¿Es de otra empresa?",message:`${result.error}\n\n¿Seguro que quieres guardarla como la contabilidad de ${client}?`,ok:"Guardar igualmente",danger:true}))return null;
     response=await send(true);result=await response.json().catch(()=>({}));
   }
   if(!response.ok)throw new Error(result.error||"No se ha podido leer la base de datos.");
@@ -106,7 +106,7 @@ function renderTaxDraftSource(){
     box.className="td-source missing";
     box.innerHTML=`<strong>⚠ La base guardada para ${escapeHtml(client)} es de «${escapeHtml(base.empresa)}».</strong> Se subió con otro cliente seleccionado. <button type="button" class="secondary-button" id="tdRemoveBase">Quitar esta base</button> y añade la correcta en la ficha del cliente.`;
     box.querySelector("#tdRemoveBase").onclick=async()=>{
-      if(!confirm(`¿Quitar la base de «${base.empresa}» de ${client}?`))return;
+      if(!await appConfirm({eyebrow:"BASE DE DATOS DE CONTABILIDAD",title:"¿Quitar la base?",message:`Se quitará la base de «${base.empresa}» de ${client}.`,ok:"Quitar",danger:true}))return;
       try{await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"DELETE"});taxDrafts.base=null;renderTaxDraftShell()}catch(error){alert(error.message)}
     };
     return;
@@ -602,7 +602,7 @@ document.addEventListener("click",event=>{const button=event.target.closest("[da
     });
     box.querySelector("[data-cab-remove]").addEventListener("click",async()=>{
       const client=form.dataset.editing;if(!client&&pendiente){pendiente=null;refrescar();return}
-      if(!client||!confirm(`¿Quitar la base de datos de contabilidad de ${client}?`))return;
+      if(!client||!await appConfirm({eyebrow:"BASE DE DATOS DE CONTABILIDAD",title:"¿Quitar la base?",message:`Se quitará la base de datos de contabilidad de ${client}.`,ok:"Quitar",danger:true}))return;
       try{await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"DELETE"})}catch(error){alert(error.message)}
       refrescar();
     });

@@ -2611,9 +2611,9 @@ async function setupInvoiceProcessor(){
   open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
   const typeSelect=panel.querySelector("#invoiceType");
   const resetProcessor=()=>{clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();select.value="";typeSelect.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraftRows").innerHTML="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";const button=panel.querySelector("#processInvoices");button.disabled=false;button.textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()};
-  panel.querySelector("#closeInvoiceProcessor").addEventListener("click",()=>{
+  panel.querySelector("#closeInvoiceProcessor").addEventListener("click",async()=>{
     const progress=invoiceProcessorFiles.length||invoiceDraftRecords.length||select.value||typeSelect.value;
-    if(progress&&!confirm("Si cierras, se borrarán los avances: el cliente, las facturas añadidas y el borrador. ¿Quieres cerrar?"))return;
+    if(progress&&!await appConfirm({eyebrow:"PROCESAR FACTURAS",title:"¿Cerrar sin terminar?",message:"Se borrarán los avances: el cliente, las facturas añadidas y el borrador.",ok:"Cerrar",cancel:"Seguir trabajando",danger:true}))return;
     resetProcessor();panel.hidden=true;
   });
   input.addEventListener("change",()=>addFiles(input.files));
@@ -2971,15 +2971,23 @@ async function saveInvoiceBook(groups,client,kind){
     const n=(result.added||0)+(result.updated||0);return`${n} ${n===1?"factura anotada":"facturas anotadas"} en el libro de ${kind==="RECIBIDAS"?"recibidas":"emitidas"} para las declaraciones`}
   catch(error){console.error("Libro de facturas",error);alert(`Las facturas se han procesado, pero no se han podido anotar para las declaraciones: ${error.message}`);return""}
 }
+// Avisos con el estilo del despacho en lugar de los del navegador: alert() abre esta ventana (sin bloquear).
+// El título sale de la primera frase si el mensaje es corto; los mensajes largos se ven completos con scroll.
+function appAlert(message,{title="",eyebrow="AVISO"}={}){
+  const text=String(message??"").trim();let head=title,body=text;
+  if(!head){const m=text.match(/^([^\n]{1,90}?[.:!?])(\s|$)([\s\S]*)$/);if(m&&m[3].trim()){head=m[1].replace(/[.:]$/,"");body=m[3].trim()}else if(text.length<=90&&!text.includes("\n")){head=text;body=""}else head="Aviso"}
+  return appConfirm({eyebrow,title:head,message:body,ok:"Entendido",alertOnly:true});
+}
+window.alert=message=>{appAlert(message)};
 // Ventana de confirmación con el estilo de la app (en lugar del confirm del navegador).
-function appConfirm({eyebrow="",title="",subtitle="",steps=[],message="",ok="Aceptar",cancel="Cancelar"}={}){
+function appConfirm({eyebrow="",title="",subtitle="",steps=[],message="",ok="Aceptar",cancel="Cancelar",danger=false,alertOnly=false}={}){
   return new Promise(resolve=>{
     const shade=document.createElement("div");shade.className="app-confirm";shade.setAttribute("role","dialog");shade.setAttribute("aria-modal","true");
     shade.innerHTML=`<div class="app-confirm-box"><header>${eyebrow?`<p class="eyebrow">${escapeHtml(eyebrow)}</p>`:""}<h3>${escapeHtml(title)}</h3>${subtitle?`<p class="app-confirm-sub">${escapeHtml(subtitle)}</p>`:""}</header>
       ${steps.length?`<ul class="app-confirm-steps">${steps.map(([icon,text])=>`<li><span aria-hidden="true">${escapeHtml(icon)}</span><p>${escapeHtml(text)}</p></li>`).join("")}</ul>`:""}${message?`<p class="app-confirm-msg">${escapeHtml(message)}</p>`:""}
-      <footer><button type="button" class="secondary-button" data-confirm="0">${escapeHtml(cancel)}</button><button type="button" class="primary blue-button" data-confirm="1">${escapeHtml(ok)}</button></footer></div>`;
+      <footer>${alertOnly?"":`<button type="button" class="secondary-button" data-confirm="0">${escapeHtml(cancel)}</button>`}<button type="button" class="primary blue-button${danger?" app-confirm-danger":""}" data-confirm="1">${escapeHtml(ok)}</button></footer></div>`;
     const done=value=>{document.removeEventListener("keydown",keys);shade.classList.add("out");setTimeout(()=>shade.remove(),160);resolve(value)};
-    const keys=event=>{if(event.key==="Escape")done(false);if(event.key==="Enter"){event.preventDefault();done(true)}};
+    const keys=event=>{if(event.key==="Escape")done(alertOnly);if(event.key==="Enter"){event.preventDefault();done(true)}};
     shade.addEventListener("click",event=>{const button=event.target.closest("[data-confirm]");if(button)done(button.dataset.confirm==="1");else if(event.target===shade)done(false)});
     document.addEventListener("keydown",keys);document.body.append(shade);shade.querySelector('[data-confirm="1"]').focus();
   });
@@ -3442,7 +3450,7 @@ function currentDocumentClientName(){if(activeFolderConfig?.storageKey!=="client
 async function offerClientDocumentVisibility(files){
   const clientName=currentDocumentClientName();if(!clientName)return;
   try{const clients=await getAllClientMetadata(),client=clients.find(item=>clientIdentity(item)===clientName);if(!client?.appAccessEnabled)return;
-    const visible=confirm(files.length===1?`¿Quieres que “${files[0].name}” sea visible para el cliente en su aplicación?`:`¿Quieres que estos ${files.length} documentos sean visibles para el cliente en su aplicación?`);
+    const visible=await appConfirm({eyebrow:"APLICACIÓN DEL CLIENTE",title:files.length===1?"¿Visible para el cliente?":`¿Visibles para el cliente?`,subtitle:clientName,message:files.length===1?`«${files[0].name}» se mostrará en su aplicación.`:`Estos ${files.length} documentos se mostrarán en su aplicación.`,ok:"Sí, hacer visible",cancel:"No, solo para el despacho"});
     const existing=Array.isArray(client.portalDocuments)?client.portalDocuments:[],basePath=currentDirectoryHandle?.path||currentDirectoryHandle?.name||clientName,now=new Date().toISOString(),added=files.map(file=>({name:file.name,path:remotePath(basePath,file.name),visible,addedAt:now,decidedAt:now,decidedBy:signedInUser?.name||""}));
     const merged=[...existing.filter(item=>!added.some(document=>document.path===item.path)),...added];await saveClientMetadata({...client,portalDocuments:merged});
   }catch(error){console.warn("No se pudo guardar la visibilidad del documento",error)}
