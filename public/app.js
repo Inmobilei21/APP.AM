@@ -712,6 +712,9 @@ function toggleClientPeople(){
   const legal=document.querySelector('#clientPersonType').value==='juridica';
   document.querySelector('#clientPeople').hidden=!legal;
   document.querySelector('#legacyClientPeople').hidden=legal;
+  // Persona física: no tiene administradores, sino personas de contacto (mismo campo guardado).
+  const admins=document.querySelector('#clientAdministrators'),label=admins?.closest('label'),text=label&&[...label.childNodes].find(node=>node.nodeType===3&&node.textContent.trim());
+  if(text){text.textContent=legal?'Administradores':'Personas de contacto';admins.placeholder=legal?'Un administrador por línea':'Una persona por línea'}
 }
 function openPeopleTab(name){
   document.querySelectorAll('[data-people-tab]').forEach(tab=>tab.setAttribute('aria-selected',String(tab.dataset.peopleTab===name)));

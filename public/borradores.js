@@ -574,7 +574,12 @@ document.addEventListener("click",event=>{const button=event.target.closest("[da
 (function(){
   if(typeof syncClientPortalAccessBlock!=="function")return;
   const fecha=value=>value?new Date(value).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
-  let turno=0;
+  let turno=0,pendiente=null;
+  // Cliente nuevo: la base elegida se sube en cuanto se guarda la ficha (personas físicas y jurídicas).
+  if(typeof saveClientMetadata==="function"){const previoGuardar=saveClientMetadata;saveClientMetadata=async function(data){const r=await previoGuardar.apply(this,arguments);
+    const file=pendiente,client=data?.id||data?.name;if(file&&client&&!document.querySelector("#newClientForm")?.dataset.editing){pendiente=null;
+      try{await uploadClientAccountingBase(client,file)}catch(error){alert(`El cliente se ha guardado, pero no se pudo vincular la base de datos: ${error.message}`)}}
+    return r}}
   function instalar(){
     const form=document.querySelector("#newClientForm"),after=form?.querySelector(".fiscal-obligations");
     if(!form||!after)return null;
@@ -583,8 +588,10 @@ document.addEventListener("click",event=>{const button=event.target.closest("[da
     box.innerHTML=`<legend>Base de datos de contabilidad</legend><p>Base de AMCOMTA (.MDB) de este cliente. Es la que usan los borradores de sus modelos.</p>
       <div class="cab-row"><div class="cab-status" data-cab-status>—</div><div class="cab-actions"><label class="secondary-button cab-upload"><span data-cab-label>Añadir base de datos</span><input type="file" accept=".mdb,.accdb" hidden data-cab-file></label><button type="button" class="secondary-button cab-remove" data-cab-remove hidden>Quitar</button></div></div>`;
     after.after(box);
+    form.addEventListener("reset",()=>{pendiente=null});
     box.querySelector("[data-cab-file]").addEventListener("change",async event=>{
       const input=event.currentTarget,file=input.files[0],client=form.dataset.editing;input.value="";
+      if(file&&!client){pendiente=file;refrescar();return}
       if(!file||!client)return;
       const status=box.querySelector("[data-cab-status]");status.textContent=`Leyendo ${file.name}…`;
       try{const result=await uploadClientAccountingBase(client,file);if(result&&typeof taxDrafts!=="undefined"&&taxDrafts.client===client)taxDrafts.base=result}
@@ -592,7 +599,8 @@ document.addEventListener("click",event=>{const button=event.target.closest("[da
       refrescar();
     });
     box.querySelector("[data-cab-remove]").addEventListener("click",async()=>{
-      const client=form.dataset.editing;if(!client||!confirm(`¿Quitar la base de datos de contabilidad de ${client}?`))return;
+      const client=form.dataset.editing;if(!client&&pendiente){pendiente=null;refrescar();return}
+      if(!client||!confirm(`¿Quitar la base de datos de contabilidad de ${client}?`))return;
       try{await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"DELETE"})}catch(error){alert(error.message)}
       refrescar();
     });
@@ -603,9 +611,9 @@ document.addEventListener("click",event=>{const button=event.target.closest("[da
     const form=document.querySelector("#newClientForm"),client=form.dataset.editing||"",yo=++turno;
     const status=box.querySelector("[data-cab-status]"),label=box.querySelector("[data-cab-label]"),upload=box.querySelector(".cab-upload"),remove=box.querySelector("[data-cab-remove]"),input=box.querySelector("[data-cab-file]");
     // Se puede subir aunque la ficha esté en modo consulta: se guarda al momento, no con «Guardar».
-    setTimeout(()=>{input.disabled=!client},0);
-    upload.classList.toggle("disabled",!client);remove.hidden=true;label.textContent="Añadir base de datos";
-    if(!client){status.innerHTML='<span class="cab-dim">Guarda primero el cliente para añadir su base de datos.</span>';return}
+    setTimeout(()=>{input.disabled=false},0);
+    upload.classList.remove("disabled");remove.hidden=true;label.textContent="Añadir base de datos";
+    if(!client){if(pendiente){status.innerHTML=`<b class="cab-ok">✓</b> <strong>${escapeHtml(pendiente.name)}</strong><small>Se vinculará al guardar el cliente.</small>`;label.textContent="Cambiar archivo";remove.hidden=false}else status.innerHTML='<span class="cab-dim">Elige la base de AMCOMTA (.MDB); se vinculará al guardar el cliente.</span>';return}
     status.innerHTML='<span class="cab-dim">Comprobando…</span>';
     let base=null;try{base=await apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`)}catch{}
     if(yo!==turno)return;
@@ -616,5 +624,5 @@ document.addEventListener("click",event=>{const button=event.target.closest("[da
   }
   const previo=syncClientPortalAccessBlock;
   syncClientPortalAccessBlock=function(){const r=previo.apply(this,arguments);try{refrescar()}catch{}return r};
-  if(typeof setClientViewMode==="function"){const previoModo=setClientViewMode;setClientViewMode=function(){const r=previoModo.apply(this,arguments);const input=document.querySelector("[data-cab-file]");if(input)input.disabled=!document.querySelector("#newClientForm")?.dataset.editing;return r}}
+  if(typeof setClientViewMode==="function"){const previoModo=setClientViewMode;setClientViewMode=function(){const r=previoModo.apply(this,arguments);const input=document.querySelector("[data-cab-file]");if(input)input.disabled=false;return r}}
 })();
