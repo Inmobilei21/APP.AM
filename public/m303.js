@@ -138,10 +138,19 @@ function pageRes(r){
         <label class="m303-check"><input type="checkbox" data-m303f="bajaDomiciliacion"${m.bajaDomiciliacion?" checked":""}${r.rect?"":" disabled"}><span>Solicito dar de baja / modificar la domiciliación efectuada</span></label></div>
     </div>`;
 }
+// Identificación con los recuadros del modelo: dos columnas, línea de puntos y casilla a la derecha.
+const IDENT_L=[["redeme","Sujeto pasivo inscrito en el Registro de devolución mensual (art. 30 RIVA)"],["soloRS","Sujeto pasivo que tributa exclusivamente en régimen simplificado"],["conjunta","Autoliquidación conjunta"],
+  ["caja","Sujeto pasivo acogido al régimen especial del criterio de Caja (art. 163 undecies LIVA)"],["destCaja","Sujeto pasivo destinatario de operaciones acogidas al régimen especial del criterio de caja"],
+  ["prorrata","Opción por la aplicación de la prorrata especial (art. 103.Dos.1º LIVA)",true],["revocacion","Revocación de la opción por la aplicación de la prorrata especial (art. 103.Dos.1º LIVA)",true],["concurso","Sujeto pasivo declarado en concurso de acreedores en el presente período de liquidación"]];
+const IDENT_R=[["sii","Sujeto pasivo acogido voluntariamente al SII"],["exonerado","Sujeto pasivo exonerado de la Declaración-resumen anual del IVA, modelo 390",true],["volumen","Sujeto pasivo con volumen anual de operaciones distinto de cero (art. 121 LIVA)",true]];
 function pageIdent(r){
-  const f=r.m.f,ck=(k,l)=>`<label class="m303-check"><input type="checkbox" data-m303flag="${k}"${f[k]?" checked":""}><span>${escapeHtml(l)}</span></label>`;
-  return `<div class="m303-ident"><p class="m303-hint">${escapeHtml(taxDrafts.clientData?.cif||"")} · ${escapeHtml(taxDrafts.client)} · ejercicio ${taxDraftYear()} · ${escapeHtml(r.q?`${r.q}T`:"")}</p>${FLAGS.map(([k,l])=>ck(k,l)).join("")}
-    ${r.q===4?`<h6>Solo en el último periodo</h6>${FLAGS_4T.map(([k,l])=>ck(k,l)).join("")}`:'<p class="m303-hint">Las opciones de prorrata especial y de exoneración del 390 solo se marcan en el 4T.</p>'}</div>`;
+  const f=r.m.f,last=r.q===4;
+  const ck=([k,l,only4])=>{const off=only4&&!last||k==="volumen"&&!f.exonerado;return `<label class="m303-ck${off?" off":""}" title="${only4?"Solo en el último periodo (4T)":""}"><span>${escapeHtml(l)}</span><input type="checkbox" data-m303flag="${k}"${f[k]&&!off?" checked":""}${off?" disabled":""}></label>`};
+  const dd=[f.concDia??String(f.fechaConcurso||"").slice(0,2),f.concMes??String(f.fechaConcurso||"").slice(2,4),f.concAnio??String(f.fechaConcurso||"").slice(4,8)];
+  return `<div class="m303-idg"><div>${IDENT_L.map(ck).join("")}
+      <div class="m303-conc${f.concurso?"":" off"}"><span>Fecha en que se dictó el auto de declaración de concurso</span><div class="m303-date"><label><small>Día</small><input data-m303date="0" maxlength="2" inputmode="numeric" value="${escapeHtml(dd[0])}"${f.concurso?"":" disabled"}></label><label><small>Mes</small><input data-m303date="1" maxlength="2" inputmode="numeric" value="${escapeHtml(dd[1])}"${f.concurso?"":" disabled"}></label><label><small>Año</small><input data-m303date="2" maxlength="4" inputmode="numeric" class="y" value="${escapeHtml(dd[2])}"${f.concurso?"":" disabled"}></label></div></div>
+      <div class="m303-conc${f.concurso?"":" off"}"><span>Si se ha dictado auto de declaración de concurso en este período indique el tipo de autoliquidación</span><div class="m303-pp"><label class="m303-ck"><span>Preconcursal</span><input type="radio" name="m303conc" data-m303conc="1"${f.tipoConcurso==="1"?" checked":""}${f.concurso?"":" disabled"}></label><label class="m303-ck"><span>Postconcursal</span><input type="radio" name="m303conc" data-m303conc="2"${f.tipoConcurso==="2"?" checked":""}${f.concurso?"":" disabled"}></label></div></div></div>
+    <div>${IDENT_R.map(ck).join("")}${last?"":'<p class="m303-hint">Las casillas en gris solo se marcan en el último periodo (4T).</p>'}</div></div>`;
 }
 function pagePago(r){
   const c=r.c,{list,pref}=clientIbans(),otra=r.iban&&!list.includes(r.iban),needsIban=["U","D","I","G"].includes(r.code)||r.rect&&c["111"]>0;
@@ -169,6 +178,9 @@ function bind(card,period){
   const rerender=()=>renderTaxDraftMain();
   card.querySelectorAll("[data-m303-tab]").forEach(b=>b.addEventListener("click",()=>{taxDrafts.m303Tab=b.dataset.m303Tab;rerender()}));
   card.querySelectorAll("[data-m303]").forEach(input=>input.addEventListener("change",()=>{const n=input.dataset.m303,raw=input.value.trim();save(period,m=>{if(raw==="")delete m.v[n];else m.v[n]=num(raw)});rerender()}));
+  card.querySelectorAll("[data-m303date]").forEach(input=>input.addEventListener("change",()=>{const i=Number(input.dataset.m303date);save(period,m=>{const parts=[m.f.concDia||"",m.f.concMes||"",m.f.concAnio||""];parts[i]=input.value.replace(/\D/g,"");[m.f.concDia,m.f.concMes,m.f.concAnio]=parts;
+    m.f.fechaConcurso=parts[0]&&parts[1]&&/^\d{4}$/.test(parts[2])?parts[0].padStart(2,"0")+parts[1].padStart(2,"0")+parts[2]:""});rerender()}));
+  card.querySelectorAll("[data-m303conc]").forEach(input=>input.addEventListener("change",()=>{save(period,m=>{m.f.tipoConcurso=input.dataset.m303conc});rerender()}));
   card.querySelectorAll("[data-m303flag]").forEach(input=>input.addEventListener("change",()=>{save(period,m=>{m.f[input.dataset.m303flag]=input.checked});rerender()}));
   card.querySelectorAll("[data-m303f]").forEach(input=>input.addEventListener("change",()=>{const f=input.dataset.m303f;save(period,m=>{
     if(input.type==="checkbox"){m[f]=input.checked;if(f==="rect"&&!input.checked){m.justificante="";m.bajaDomiciliacion=false;delete m.v["111"]}}
@@ -211,7 +223,8 @@ function aeat303(draft){
   const code=c["71"]>0?(x.code==="U"&&!x.iban?"I":x.code):c["71"]<0?x.code:"N";
   if((code==="D"||code==="X")&&!x.iban)throw new Error("Falta la cuenta para la devolución.");
   const yn=k=>f[k]?"1":"2";
-  const flags="2"+yn("redeme")+(f.simplificado?"2":"3")+yn("conjunta")+yn("caja")+yn("destCaja")+(last?yn("prorrata"):" ")+(last?yn("revocacion"):" ")+yn("concurso")+" ".repeat(8)+" "+yn("sii")+(last?yn("exonerado"):"0")+(last&&f.exonerado?yn("volumen"):"0")+"0";
+  const fecha=f.concurso&&/^\d{8}$/.test(String(f.fechaConcurso||""))?f.fechaConcurso:" ".repeat(8);
+  const flags="2"+yn("redeme")+(f.soloRS?"1":f.simplificado?"2":"3")+yn("conjunta")+yn("caja")+yn("destCaja")+(last?yn("prorrata"):" ")+(last?yn("revocacion"):" ")+yn("concurso")+fecha+(f.concurso&&["1","2"].includes(f.tipoConcurso)?f.tipoConcurso:" ")+yn("sii")+(last?yn("exonerado"):"0")+(last&&f.exonerado?yn("volumen"):"0")+"0";
   const m17=n=>NUM(c[n],17),s17=n=>SIG(c[n],17);
   let p1="<T30301000>"+" "+code+RAW(nif,9)+AN(draft.client.replace(/,/g," "),80)+year+period+flags
     +m17("150")+"00000"+m17("152")+m17("165")+"00000"+m17("167")+m17("01")+"00400"+m17("03")+m17("153")+"00000"+m17("155")+m17("04")+"01000"+m17("06")+m17("07")+"02100"+m17("09")
@@ -248,7 +261,7 @@ if(typeof taxDraftFormHtml==="function"){const previousForm=taxDraftFormHtml;tax
   return `<div class="aeat-form m303f"><div class="af-watermark">BORRADOR</div>
     <div class="af-head"><div class="af-agency"><strong>Agencia Tributaria</strong><small>Documento preparado por Asesoría Molinero</small></div><div class="af-title"><strong>Impuesto sobre el Valor Añadido</strong><span>Autoliquidación</span><em>Ejercicio ${escapeHtml(draft.year)} · Período ${escapeHtml(draft.period)}</em></div><div class="af-model"><small>Modelo</small><b>303</b></div></div>
     <section class="af-sec"><div class="af-side">Identificación</div><div class="af-body"><div class="af-grid af-g2"><label><small>NIF</small><span>${escapeHtml(draft.cif||client.cif||"")}</span></label><label><small>Apellidos y nombre o razón social</small><span>${escapeHtml(draft.client||"")}</span></label></div>
-      ${Object.entries(f).filter(([,on])=>on).map(([k])=>`<p class="af-line">✓ ${escapeHtml([...FLAGS,...FLAGS_4T].find(x=>x[0]===k)?.[1]||k)}</p>`).join("")}</div></section>
+      ${Object.entries(f).filter(([,on])=>on).map(([k])=>`<p class="af-line">✓ ${escapeHtml([...IDENT_L,...IDENT_R,...FLAGS,...FLAGS_4T].find(x=>x[0]===k)?.[1]||k)}</p>`).join("")}</div></section>
     <section class="af-sec"><div class="af-side">IVA devengado</div><div class="af-body">${DEV.filter(([,b,,cu])=>c[b]||c[cu]).map(([l,b,t,cu])=>row(l||"Régimen general",[b,cu].filter(Boolean))).join("")||'<p class="af-line">Sin importes.</p>'}${row("<strong>Total cuota devengada</strong>",["27"])}</div></section>
     <section class="af-sec"><div class="af-side">IVA deducible</div><div class="af-body">${DED.filter(([,b,cu])=>c[b]||c[cu]).map(([l,b,cu])=>row(l,[b,cu].filter(Boolean))).join("")||'<p class="af-line">Sin importes.</p>'}${row("<strong>Total a deducir</strong>",["45"])}${row("<strong>Resultado régimen general</strong>",["46"])}</div></section>
     ${INFO.some(([,n])=>c[n])?`<section class="af-sec"><div class="af-side">Información adicional</div><div class="af-body">${INFO.filter(([,n])=>c[n]).map(([l,n])=>row(l,[n])).join("")}</div></section>`:""}
@@ -306,7 +319,18 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
 .m303-out{padding:0 8px;font-weight:800}
 .m303-t tfoot td{border-top:1px solid #163b8c}.m303-t tr.m303-res td{background:#dde5f6}.m303-t tr.m303-res .m303-out{color:#0f2a6b}
 .m303-ident,.m303-pago,.m303-boxes{margin:0 10px}.m303-hint{margin:4px 12px}
-.m303-rect{background:#fff;border-color:#8ea3cf;border-radius:4px}.m303-rect.on{background:#f6f8ff}
+.m303-rect{background:#fff;border-color:#8ea3cf;border-radius:4px}
+.m303-idg{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;padding:6px 14px 4px}
+.m303-ck{display:flex;align-items:center;gap:8px;font-size:12px;color:#1d2a44;padding:3px 0;cursor:pointer;line-height:1.25}
+.m303-ck span{flex:1;background-image:linear-gradient(to right,#8ea3cf 35%,transparent 0);background-size:5px 1px;background-repeat:repeat-x;background-position:0 88%}
+.m303-ck input{appearance:none;-webkit-appearance:none;flex:none;width:17px;height:17px;margin:0;border:1px solid #163b8c;background:#fff;box-shadow:2px 2px 0 #8ea3cf;border-radius:1px;cursor:pointer;display:grid;place-items:center}
+.m303-ck input:checked::after{content:"X";font-size:12px;font-weight:800;color:#0f2a6b;line-height:1}.m303-ck input[type=radio]{border-radius:1px}
+.m303-ck.off{color:#9aa3b5;cursor:not-allowed}.m303-ck.off input{border-color:#b8c2d8;box-shadow:none;background:#f1f3f7;cursor:not-allowed}
+.m303-conc{display:flex;align-items:center;gap:14px;margin:10px 0 4px 18px;font-size:11.5px;color:#1d2a44}.m303-conc>span{flex:1;max-width:260px}.m303-conc.off{opacity:.45}
+.m303-date{display:flex;gap:3px}.m303-date label{display:flex;flex-direction:column;align-items:center;gap:1px}.m303-date small{font-size:10px;color:#1d2a44}
+.m303-date input{width:34px;height:22px;border:1px solid #163b8c;text-align:center;font:inherit;font-size:12px;font-weight:700;background:#fff;box-shadow:2px 2px 0 #8ea3cf}.m303-date input.y{width:52px}
+.m303-pp{display:flex;flex-direction:column;gap:2px;border-left:1px solid #163b8c;padding-left:8px}.m303-pp .m303-ck span{background:none}
+@media(max-width:760px){.m303-idg{grid-template-columns:1fr;padding:6px 8px}.m303-conc{margin-left:0;flex-wrap:wrap}}.m303-rect.on{background:#f6f8ff}
 @media(max-width:760px){.m303-tabs button{min-width:130px}.m303-t{margin:0 6px 6px;width:calc(100% - 12px)}.m303-l{background:none}.m303-in{height:32px}.m303-out{line-height:32px;height:32px}}`;document.head.append(style)})();
 if(document.querySelector("#tdModels")&&taxDrafts.client){renderTaxDraftModels();renderTaxDraftMain()}
 })();
