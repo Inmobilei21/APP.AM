@@ -10,7 +10,7 @@ const M347_PERIOD="4T";
 const M347_CLAVES=[["A","A · Adquisiciones de bienes y servicios"],["B","B · Entregas de bienes y prestaciones de servicios"],["C","C · Cobros por cuenta de terceros"],["D","D · Adquisiciones de entidades públicas"],["E","E · Subvenciones y ayudas de las Administraciones públicas"],["F","F · Ventas de agencias de viajes"],["G","G · Compras de agencias de viajes"]];
 const M347_PROVINCIAS={"01":"Álava","02":"Albacete","03":"Alicante","04":"Almería","05":"Ávila","06":"Badajoz","07":"Illes Balears","08":"Barcelona","09":"Burgos","10":"Cáceres","11":"Cádiz","12":"Castellón","13":"Ciudad Real","14":"Córdoba","15":"A Coruña","16":"Cuenca","17":"Girona","18":"Granada","19":"Guadalajara","20":"Gipuzkoa","21":"Huelva","22":"Huesca","23":"Jaén","24":"León","25":"Lleida","26":"La Rioja","27":"Lugo","28":"Madrid","29":"Málaga","30":"Murcia","31":"Navarra","32":"Ourense","33":"Asturias","34":"Palencia","35":"Las Palmas","36":"Pontevedra","37":"Salamanca","38":"S.C. Tenerife","39":"Cantabria","40":"Segovia","41":"Sevilla","42":"Soria","43":"Tarragona","44":"Teruel","45":"Toledo","46":"Valencia","47":"Valladolid","48":"Bizkaia","49":"Zamora","50":"Zaragoza","51":"Ceuta","52":"Melilla","99":"Extranjero"};
 const m347Key=item=>`${item.clave}|${item.id}`;
-function m347State(){const data=declarationData("347",M347_PERIOD,taxDrafts.client,taxDraftYear());const m=data.m347||{};for(const k of ["claves","incluir","provincias","paises","detalle"])m[k]=m[k]||{};return{data,m}}
+function m347State(){const data=declarationData("347",M347_PERIOD,taxDrafts.client,taxDraftYear());const m=data.m347||{};for(const k of ["claves","incluir","provincias","paises","detalle","excluirFacturas"])m[k]=m[k]||{};return{data,m}}
 function m347Save(change){
   const year=taxDraftYear(),key=declarationKey("347",M347_PERIOD,taxDrafts.client,year),{data,m}=m347State();
   change(m);data.m347=m;localStorage.setItem(key,JSON.stringify(data));
@@ -19,10 +19,16 @@ function m347Rows(){
   const year=taxDraftYear(),{m}=m347State();
   return (taxDrafts.base?.terceros347||[]).filter(item=>Number(item.ejercicio)===year).map(item=>{
     const key=m347Key(item),cpProv=/^\d{5}$/.test(item.cp)?item.cp.slice(0,2):"";
+    // Facturas que se pueden quitar una a una (otro ejercicio, no corresponde…); los importes se recalculan.
+    const fuera=new Set(m.excluirFacturas[key]||[]);
+    const facturas=(item.facturas||[]).map((inv,i)=>({...inv,id:`${inv.fecha}|${inv.numero}|${inv.total}|${i}`})).map(inv=>({...inv,quitada:fuera.has(inv.id)}));
+    const trimestres=[0,0,0,0];facturas.forEach(inv=>{if(!inv.excluida&&!inv.quitada){const q=Math.ceil(Number(inv.fecha.slice(5,7))/3)-1;trimestres[q]=tdRound(trimestres[q]+inv.total)}});
+    const total=tdRound(trimestres.reduce((a,b)=>a+b,0)),bajo=fuera.size>0&&total<=3005.06;
+    item={...item,facturas,trimestres,total,bajo};
     const provincia=m.provincias[key]??(item.pais?"99":cpProv),pais=m.paises[key]??item.pais??"";
-    const incluir=m.incluir[key]??Boolean(item.nif);
+    const incluir=m.incluir[key]??(Boolean(item.nif)&&!item.bajo);
     const det=m.detalle[key]||{},nif=(det.nif??item.nif??"").toUpperCase(),nombre=det.nombre??item.nombre;
-    return{...item,nif,nombre,det,key,claveFinal:m.claves[key]||item.clave,provincia,pais,incluir,aviso:!nif?"Sin NIF en la contabilidad":(!provincia&&!pais?"Falta la provincia":"")};
+    return{...item,nif,nombre,det,key,claveFinal:m.claves[key]||item.clave,provincia,pais,incluir,aviso:item.bajo?"No supera 3.005,06 € al quitar facturas":!nif?"Sin NIF en la contabilidad":(!provincia&&!pais?"Falta la provincia":"")};
   });
 }
 function m347Totals(rows){const inc=rows.filter(row=>row.incluir);return{count:inc.length,total:tdRound(inc.reduce((sum,row)=>sum+row.total,0)),rows:inc}}
@@ -43,7 +49,7 @@ function m347DetailForm(row){
     <div class="m347-fgrid c1">${input("nombre","Apellidos y nombre, razón social o denominación del declarado",row.nombre)}</div>
     <div class="m347-fgrid c3"><label class="m347-f"><small>Código provincia</small>${provincias}</label><label class="m347-f"><small>Código país</small><input data-m347-pais="${key}" value="${escapeHtml(row.pais)}" maxlength="2" placeholder="Solo no residentes"></label><label class="m347-f"><small>Clave operación</small><select data-m347-clave="${key}">${M347_CLAVES.map(([c,label])=>`<option value="${c}"${c===row.claveFinal?" selected":""}>${escapeHtml(label)}</option>`).join("")}</select></label></div>
     <div class="m347-checks">${M347_CHECKS.map(([field,label])=>`<label><input type="checkbox" data-m347-det="${field}" data-key="${key}"${det[field]?" checked":""}><span>${escapeHtml(label)}</span></label>`).join("")}</div>
-    <div class="m347-fgrid c2"><div><small class="m347-cap">Importe trimestral de las operaciones</small>${row.trimestres.map((v,q)=>`<div class="m347-qrow"><b>${q+1}T</b><span class="m347-ro">${tdEur(v)}</span></div>`).join("")}</div>
+    <div class="m347-fgrid c2"><div><small class="m347-cap">Importe trimestral de las operaciones</small>${row.trimestres.map((v,q)=>{const n=row.facturas.filter(inv=>Math.ceil(Number(inv.fecha.slice(5,7))/3)===q+1).length;return `<div class="m347-qrow"><b>${q+1}T</b><span class="m347-ro m347-qeye">${n?`<button type="button" class="td-eye" data-m347-q="${q+1}" data-key="${key}" title="Ver las ${n} facturas del ${q+1}T">${tdEye}</button>`:`<span class="td-eye off" title="Sin facturas en el ${q+1}T">${tdEyeOff}</span>`}<span>${tdEur(v)}</span></span></div>`}).join("")}</div>
       <div><small class="m347-cap">Importe trimestral percibido por transmisiones de inmuebles sujetas a IVA</small>${[0,1,2,3].map(q=>`<div class="m347-qrow"><b>${q+1}T</b><input data-m347-inm="${q}" data-key="${key}" value="${escapeHtml(m347Fmt(inm[q]))}" inputmode="decimal"></div>`).join("")}</div></div>
     <div class="m347-fgrid c4"><label class="m347-f"><small>Importe anual de las operaciones</small><span class="m347-ro">${tdEur(row.total)}</span></label><label class="m347-f"><small>Importe anual percibido por transmisiones de inmuebles sujetas a IVA</small><span class="m347-ro">${anualInm?tdEur(anualInm):"—"}</span></label>${input("ivaCajaAnual","Importe anual de las operaciones devengadas conforme al criterio de caja del IVA",det.ivaCajaAnual,'inputmode="decimal"')}${input("bdns","Número de convocatoria BDNS",det.bdns)}</div>
     <div class="m347-fgrid c4">${input("metalico","Importe percibido en metálico",det.metalico,'inputmode="decimal"')}${input("ejercicioMetalico","Ejercicio",det.ejercicioMetalico,'maxlength="4" inputmode="numeric"')}</div>
@@ -65,8 +71,7 @@ function renderTaxDraft347(box){
       <td>${clave(row)}</td>
       ${row.trimestres.map(value=>`<td class="num">${value?tdEur(value):'<span class="td-dim">—</span>'}</td>`).join("")}
       <td class="num"><b>${tdEur(row.total)}</b></td></tr>
-      ${open===row.key?`<tr class="td-detail"><td colspan="10"><div class="td-card">${m347DetailForm(row)}<p class="td-hint">Facturas ${row.clave==="B"?"emitidas":"recibidas"} de ${escapeHtml(row.nombre)} en ${year} (fecha del asiento).${row.excluido?` ${tdEur(row.excluido)} no computan (con retención o de no residentes).`:""}</p>
-        <table class="td-list"><thead><tr><th>Fecha</th><th>Nº factura</th><th>Trimestre</th><th class="num">Total</th></tr></thead><tbody>${row.facturas.map(inv=>`<tr${inv.excluida?' class="td-dim"':""}><td>${tdDate(inv.fecha)}</td><td>${escapeHtml(inv.numero||"—")}</td><td>${Math.ceil(Number(inv.fecha.slice(5,7))/3)}T${inv.excluida?` · no computa (${inv.excluida==="retencion"?"con retención":"no residente"})`:""}</td><td class="num">${tdEur(inv.total)}</td></tr>`).join("")}</tbody></table></div></td></tr>`:""}`).join("");
+      ${open===row.key?`<tr class="td-detail"><td colspan="10"><div class="td-card">${m347DetailForm(row)}</div></td></tr>`:""}`).join("");
   box.innerHTML=`<div class="td-card-head"><span class="td-chip m347">347</span><strong>Operaciones con terceras personas · anual · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="m347-summary"><div><small>Declarados</small><b>${t.count}</b></div><div><small>Importe anual total</small><b>${tdEur(t.total)}</b></div><div><small>Control decl.</small><b>${control.prepared?`Preparado ${tdDate(control.prepared)}`:'<span class="td-dim">Sin anotar</span>'}</b></div><div><small>Estado</small><span class="td-pill ${status[1]}">${status[0]}</span></div><div><small>Presentada</small>${eye}</div></div>
     <div class="m347-contact"><strong>Declarante</strong><label class="m347-f"><small>Teléfono de contacto</small><input data-m347-contacto="telefono" value="${escapeHtml(m347Contact().telefono)}" maxlength="9" inputmode="tel"></label><label class="m347-f wide"><small>Apellidos y nombre de la persona con quien relacionarse</small><input data-m347-contacto="nombre" value="${escapeHtml(m347Contact().nombre)}"></label></div>
@@ -80,6 +85,7 @@ function renderTaxDraft347(box){
   find("[data-m347-clave]").forEach(select=>select.addEventListener("change",()=>{m347Save(m=>{m.claves[select.dataset.m347Clave]=select.value});renderTaxDraftMain()}));
   find("[data-m347-prov]").forEach(input=>input.addEventListener("change",()=>{const v=input.value.replace(/\D/g,"").padStart(input.value.trim()?2:0,"0");m347Save(m=>{m.provincias[input.dataset.m347Prov]=v});renderTaxDraftMain()}));
   find("[data-m347-pais]").forEach(input=>input.addEventListener("change",()=>{m347Save(m=>{m.paises[input.dataset.m347Pais]=input.value.trim().toUpperCase()});renderTaxDraftMain()}));
+  find("[data-m347-q]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();const row=m347Rows().find(r=>r.key===button.dataset.key);if(row)open347Invoices(row,Number(button.dataset.m347Q))}));
   find("[data-m347-det]").forEach(input=>input.addEventListener("change",()=>{const key=input.dataset.key,field=input.dataset.m347Det;m347Save(m=>{const d=m.detalle[key]=m.detalle[key]||{};d[field]=input.type==="checkbox"?input.checked:(field==="nif"||field.startsWith("nif")?input.value.trim().toUpperCase():input.value.trim())});renderTaxDraftMain()}));
   find("[data-m347-inm]").forEach(input=>input.addEventListener("change",()=>{const key=input.dataset.key,q=Number(input.dataset.m347Inm);m347Save(m=>{const d=m.detalle[key]=m.detalle[key]||{};d.inmuebles=d.inmuebles||["","","",""];d.inmuebles[q]=input.value.trim()});renderTaxDraftMain()}));
   find("[data-m347-contacto]").forEach(input=>input.addEventListener("change",()=>{const contact={...m347Contact(),[input.dataset.m347Contacto]:input.value.trim()};m347Save(m=>{m.contacto=contact});try{localStorage.setItem(M347_CONTACT_KEY,JSON.stringify(contact))}catch{}}));
@@ -217,6 +223,46 @@ function m347AeatFile(draft){
   const bad=[r1,...rows].find(line=>line.length!==500);if(bad)throw new Error("Registro con longitud incorrecta.");
   return [r1,...rows].join("\r\n")+"\r\n";
 }
+/* Facturas de un trimestre de un declarado: vista previa del PDF a la izquierda y la lista a la derecha,
+   con «Incluir» para quitar las que no correspondan (otro ejercicio, error…). */
+const m347Folders=new Map();
+async function m347FolderFiles(client,year,quarter,kind){
+  const key=`${client}|${year}|${quarter}|${kind}`;
+  if(!m347Folders.has(key))m347Folders.set(key,(async()=>{try{const root=await getSavedHandle("clients-folder");if(!root)return[];let folder=await root.getDirectoryHandle(client);
+    for(const part of ["CONTABILIDAD",String(year),quarter,kind])folder=await folder.getDirectoryHandle(part);
+    const files=[];for await(const entry of folder.values())if(entry.kind!=="directory")files.push(entry);return files}catch{return[]}})());
+  return m347Folders.get(key);
+}
+async function open347Invoices(row,q){
+  const year=taxDraftYear(),client=taxDrafts.client,kind=row.clave==="B"?"EMITIDAS":"RECIBIDAS";
+  const files=await m347FolderFiles(client,year,`${q}T`,kind),used=new Set();
+  const list=row.facturas.filter(inv=>Math.ceil(Number(inv.fecha.slice(5,7))/3)===q).map(inv=>{const file=taxDraftMatchFile({...inv,nombre:row.nombre},files,used);if(file)used.add(file);return{...inv,file}});
+  document.querySelector("#m347Viewer")?.remove();
+  const view=document.createElement("div");view.id="m347Viewer";view.className="td-modal";view.style.zIndex="3100";
+  let current=list.findIndex(inv=>inv.file);if(current<0)current=0;let url="";
+  const total=()=>tdRound(list.filter(inv=>!inv.quitada&&!inv.excluida).reduce((a,inv)=>a+inv.total,0));
+  const paint=async()=>{
+    view.querySelector(".m347v-list").innerHTML=list.map((inv,i)=>`<div class="m347v-item${i===current?" on":""}${inv.quitada||inv.excluida?" off":""}" data-i="${i}"><label title="Incluir en el 347"><input type="checkbox" data-inc="${i}"${inv.quitada||inv.excluida?"":" checked"}${inv.excluida?" disabled":""}></label><div><strong>${escapeHtml(inv.numero||"Sin número")}</strong><small>${tdDate(inv.fecha)}${inv.file?"":" · sin PDF"}${inv.excluida?" · no computa (retención o no residente)":""}</small></div><b>${tdEur(inv.total)}</b></div>`).join("")+`<div class="m347v-total"><span>Total incluido ${q}T</span><b>${tdEur(total())}</b></div>`;
+    const inv=list[current],box=view.querySelector(".m347v-doc");if(url){URL.revokeObjectURL(url);url=""}
+    if(!inv||!inv.file){box.innerHTML=`<div class="m347v-empty">${tdEyeOff}<p>${inv?"No está el PDF de esta factura en la carpeta del cliente.":"Sin facturas."}</p><small>CLIENTES/${escapeHtml(client)}/CONTABILIDAD/${year}/${q}T/${kind}</small></div>`;return}
+    box.innerHTML='<p class="m347v-empty">Cargando…</p>';
+    try{const file=await inv.file.getFile();url=URL.createObjectURL(file);const pdf=/\.pdf$/i.test(inv.file.name)||file.type==="application/pdf";
+      box.innerHTML=pdf?`<iframe src="${url}#toolbar=0&view=FitH" title="${escapeHtml(inv.file.name)}"></iframe>`:`<img src="${url}" alt="${escapeHtml(inv.file.name)}">`}
+    catch{box.innerHTML='<p class="m347v-empty">No se pudo abrir el PDF.</p>'}
+  };
+  view.innerHTML=`<div class="td-modal-box m347v"><header><div><span class="td-tag">Modelo 347 · ${q}T ${year}</span><h3>${escapeHtml(row.nombre)}</h3><p>${escapeHtml(row.nif||"Sin NIF")} · facturas ${kind==="EMITIDAS"?"emitidas":"recibidas"} del trimestre</p></div><button type="button" class="td-close" aria-label="Cerrar">×</button></header>
+    <div class="m347v-body"><div class="m347v-doc"></div><aside class="m347v-list"></aside></div></div>`;
+  document.body.append(view);paint();
+  view.addEventListener("click",event=>{
+    if(event.target===view||event.target.closest(".td-close")){if(url)URL.revokeObjectURL(url);view.remove();return}
+    const item=event.target.closest(".m347v-item");if(item&&!event.target.closest("label")){current=Number(item.dataset.i);paint()}
+  });
+  view.addEventListener("change",event=>{
+    const input=event.target.closest("[data-inc]");if(!input)return;const inv=list[Number(input.dataset.inc)];inv.quitada=!input.checked;
+    m347Save(m=>{const set=new Set(m.excluirFacturas[row.key]||[]);if(inv.quitada)set.add(inv.id);else set.delete(inv.id);m.excluirFacturas[row.key]=[...set]});
+    paint();renderTaxDraftMain();
+  });
+}
 function download347Aeat(draft){
   try{
     const missing=draft.declarados.filter(d=>!d.nif&&!d.nifComunitario).length;
@@ -278,3 +324,17 @@ if(document.querySelector("#tdModels")&&taxDrafts.client){renderTaxDraftModels()
 .m347-qrow{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:8px;margin-bottom:6px}.m347-qrow b{font-size:12px;color:#56627c}
 .m347-ro{display:block;height:34px;line-height:34px;padding:0 9px;border:1px solid #ece4c8;border-radius:8px;background:#f8f5ea;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
 @media(max-width:760px){.m347-fgrid.c3,.m347-fgrid.c4,.m347-fgrid.c2{grid-template-columns:1fr}.m347-checks{grid-template-columns:1fr 1fr}.m347-contact .m347-f{width:100%}}`;document.head.append(style)})();
+
+(function(){const style=document.createElement("style");style.textContent=`
+.m347-qeye{display:flex!important;align-items:center;justify-content:space-between;gap:6px;padding-left:4px!important}.m347-qeye .td-eye{width:28px;height:28px;flex:none}.m347-qeye .td-eye.off{opacity:.45;display:grid;place-items:center}
+.m347v{width:min(1200px,100%);height:min(88vh,900px);max-height:none}
+.m347v-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:0;border-top:1px solid #e8ebf1}
+.m347v-doc{background:#e9edf4;min-height:0;display:flex}.m347v-doc iframe,.m347v-doc img{flex:1;width:100%;height:100%;border:0;object-fit:contain;background:#fff}
+.m347v-empty{margin:auto;text-align:center;color:#56627c;font-size:14px;padding:20px}.m347v-empty svg{width:42px;height:42px;opacity:.5}.m347v-empty small{display:block;color:#8a94a7;font-size:11.5px;margin-top:4px}
+.m347v-list{overflow:auto;border-left:1px solid #e8ebf1;background:#fff;padding:8px}
+.m347v-item{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 8px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.m347v-item:hover{background:#f5f7fc}.m347v-item.on{border-color:#2338c5;background:#eef1ff}.m347v-item.off strong,.m347v-item.off b{opacity:.45;text-decoration:line-through}
+.m347v-item strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.m347v-item small{display:block;font-size:11.5px;color:#69748a}.m347v-item b{font-size:13px;font-variant-numeric:tabular-nums}
+.m347v-item input{width:17px;height:17px;accent-color:#1f4a99}
+.m347v-total{display:flex;justify-content:space-between;padding:12px 8px 4px;margin-top:6px;border-top:2px solid #1d2a44;font-size:13px}
+@media(max-width:760px){.m347v{height:94vh}.m347v-body{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 40%}.m347v-list{border-left:0;border-top:1px solid #e8ebf1}}`;document.head.append(style)})();
