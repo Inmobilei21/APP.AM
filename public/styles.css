@@ -5852,3 +5852,9 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 @media(max-width:520px){.app-confirm-box footer{flex-direction:column-reverse}.app-confirm-box footer button{width:100%}}
 .app-confirm-msg{white-space:pre-line;max-height:46vh;overflow:auto}
 .app-confirm-box footer .app-confirm-danger{background:#b42318!important;border-color:#b42318!important}
+/* Facturas: marca de operación intracomunitaria (modelo 349) */
+.invoice-intra-cell{display:flex;align-items:center;gap:6px}
+.invoice-intra-cell label{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#69748a;white-space:nowrap;cursor:pointer}
+.invoice-intra-cell select{min-width:0;flex:1;height:30px;border:1px solid #dfe4ee;border-radius:8px;font:inherit;font-size:12px;background:#fff}
+.invoice-intra-cell select:disabled{opacity:.35}
+.invoice-intra-cell.on label{color:#14279b}.invoice-intra-cell.on select{border-color:#14279b;background:#eef1ff;font-weight:700}

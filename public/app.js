@@ -2962,7 +2962,7 @@ function invoiceBookRecord(group){
   const nif=String(head.supplierNif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   return{id:[fecha,String(head.number||"").trim().toUpperCase(),nif||String(head.supplier||"").trim().toUpperCase()].join("|"),numero:String(head.number||"").trim(),fecha,nombre:String(head.supplier||"").trim(),nif,
     base:Math.round(base*100)/100,cuota:Math.round(cuota*100)/100,retencion:Math.round(retencion*100)/100,retencionPct:pct,total:parse(head.total),concepto:String(head.concept||"").trim(),
-    cuenta:String(head.supplierAccount||head.counterAccount||"").trim(),archivo:head.file||"",ruta:invoiceConfirmProgress.saved.get(group.key)||"",lineas:lines.map(line=>({base:parse(line.base),tipo:parse(line.vatRate),cuota:parse(line.vat)}))};
+    cuenta:String(head.supplierAccount||head.counterAccount||"").trim(),archivo:head.file||"",ruta:invoiceConfirmProgress.saved.get(group.key)||"",intracom:lines.some(line=>line.intra===true),clave349:(lines.find(line=>line.intra===true)?.intraKey||"").slice(0,1),lineas:lines.map(line=>({base:parse(line.base),tipo:parse(line.vatRate),cuota:parse(line.vat)}))};
 }
 async function saveInvoiceBook(groups,client,kind){
   const records=groups.map(invoiceBookRecord).filter(Boolean);if(!records.length)return"";
@@ -3031,6 +3031,10 @@ const INVOICE_EYE_ICON='<svg viewBox="0 0 24 24" width="17" height="17" aria-hid
 function invoiceWithoutAccounting(){const data=invoiceAccounting.data;return Boolean(invoiceAccounting.client&&invoiceAccounting.fisica&&!(data&&(data.empresa||data.actualizado)))}
 // Borrador en orden alfabético de proveedor o cliente (y por fecha y número dentro de cada uno); las
 // líneas de una misma factura siguen juntas. Las filas sin nombre van al final.
+// Claves de operación del modelo 349: primero las habituales de emitidas (entregas y servicios prestados) o de
+// recibidas (adquisiciones de bienes y servicios).
+const INVOICE_INTRA_KEYS={E:"Entrega intracomunitaria de bienes",S:"Prestación de servicios",A:"Adquisición de bienes",I:"Adquisición de servicios",T:"Operación triangular",M:"Entrega tras importación exenta",H:"Entrega tras importación exenta (repr. fiscal)",R:"Transferencia en consigna",D:"Devolución en consigna",C:"Sustitución en consigna"};
+function invoiceIntraKeys(received){return(received?["A","I","E","S","T","M","H","R","D","C"]:["E","S","A","I","T","M","H","R","D","C"]).map(key=>[key,INVOICE_INTRA_KEYS[key]])}
 function sortInvoiceRecords(records){
   const day=value=>{const d=invoiceDateParts(value);return d?`${d.year}${d.month}${d.day}`:"99999999"};
   const keyed=records.map((record,index)=>({record,index,name:String(record.supplier||"").trim()}));
@@ -3044,8 +3048,8 @@ function renderInvoiceDraft(records){
   const issued=invoiceProcessorType()==="emitidas";
   if(issued&&invoiceAccounting.data?.ingresoHabitual)records.forEach(record=>{if(!record.expenseAccount)record.expenseAccount=invoiceAccounting.data.ingresoHabitual});
   const columns=received
-    ?[["preview","",3.5],["number","Nº factura",7.5],["date","Fecha",7],["supplier","Proveedor",11.5],["supplierNif","NIF/CIF",7.5],["supplierAccount","Cta. proveedor",9],["expenseAccount","Cta. contrapartida",9.5],["base","Base imponible",7],["vatRate","IVA",6.5],["vat","Cuota IVA",6.5],["retention","Retención",12],["total","Total",7.5]]
-    :[["preview","",4],["number","Nº factura",10],["date","Fecha",9],["supplier",issued?"Cliente":"Proveedor",19],["supplierNif","NIF/CIF",10],["expenseAccount","Cta. contrapartida",11],["base","Base imponible",10],["vatRate","IVA",7],["vat","Cuota IVA",9],["total","Total",11]];
+    ?[["preview","",3.5],["number","Nº factura",7.5],["date","Fecha",7],["supplier","Proveedor",9],["supplierNif","NIF/CIF",7.5],["supplierAccount","Cta. proveedor",8],["expenseAccount","Cta. contrapartida",8.5],["base","Base imponible",7],["vatRate","IVA",6.5],["vat","Cuota IVA",6.5],["retention","Retención",11],["intra","Intracom. (349)",8.5],["total","Total",7.5]]
+    :[["preview","",4],["number","Nº factura",10],["date","Fecha",9],["supplier",issued?"Cliente":"Proveedor",15],["supplierNif","NIF/CIF",9],["expenseAccount","Cta. contrapartida",10],["base","Base imponible",9.5],["vatRate","IVA",6.5],["vat","Cuota IVA",8.5],["intra","Intracom. (349)",9],["total","Total",10.5]];
   if(invoiceWithoutAccounting()){const removed=columns.filter(([field])=>field==="supplierAccount"||field==="expenseAccount");if(removed.length){const extra=removed.reduce((sum,[,,width])=>sum+width,0);for(let i=columns.length-1;i>=0;i--)if(columns[i][0]==="supplierAccount"||columns[i][0]==="expenseAccount")columns.splice(i,1);const supplier=columns.find(([field])=>field==="supplier");if(supplier)supplier[2]+=extra}}
   const table=body.closest("table");table.classList.toggle("received",received);
   table.querySelector("#invoiceDraftCols").innerHTML=columns.map(([,,width])=>`<col style="width:${width}%">`).join("");
@@ -3063,6 +3067,7 @@ function renderInvoiceDraft(records){
   const cell=(index,record,field)=>{
     if(field==="supplierAccount"||field==="expenseAccount")return `<td>${accountInput(index,field,record[field]||"")}</td>`;
     if(field==="retention")return `<td>${retentionCell(index,record)}</td>`;
+    if(field==="intra"){const keys=invoiceIntraKeys(received),key=record.intraKey||keys[0][0];return `<td><div class="invoice-intra-cell${record.intra?" on":""}"><label title="Marca si es una operación intracomunitaria: irá al modelo 349"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="intra"${record.intra?" checked":""}><span>Sí</span></label><select data-invoice-row="${index}" data-invoice-field="intraKey" title="Clave de operación del modelo 349"${record.intra?"":" disabled"}>${keys.map(([value,label])=>`<option value="${value}"${value===key?" selected":""}>${safeValue(`${value} · ${label}`)}</option>`).join("")}</select></div></td>`}
     if(field==="vatRate"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""),record.vatWarning&&!record.vatToBase?'data-vat-warning="1"':"")}<label title="Sumar el IVA a la base imponible (IVA extranjero o no deducible): el IVA pasa a ser del 0 %"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="vatToBase"${record.vatToBase?" checked":""}>a base</label></div></td>`;
     // Sin columnas de concepto ni observaciones: el ojo abre la factura y, si hay algo que revisar, un aviso lo indica.
     if(field==="preview")return `<td class="invoice-preview-cell"><button type="button" class="invoice-preview-button${record.observation?" has-warning":""}" data-invoice-preview="${index}" title="${safeValue(record.observation?`Ver la factura · ${record.observation}`:"Ver la factura")}" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}${record.observation?'<span class="invoice-warning-dot" aria-hidden="true">!</span>':""}</button></td>`;
@@ -3092,7 +3097,7 @@ function renderInvoiceDraft(records){
         if(expense&&!expense.value&&supplier?.gasto){expense.value=supplier.gasto;expense.title=invoiceAccountTitle("expenseAccount",supplier.gasto);expense.classList.remove("needs-account")}
         if(withholding&&rate&&!withholding.value){withholding.value=amWithholdingFor({retentionRate:rate},supplier);withholding.classList.toggle("needs-account",!withholding.value)}
       }});
-    body.addEventListener("change",event=>{const el=event.target;if(el.matches?.("input[data-invoice-field=vatToBase]"))invoiceToggleVatToBase(el,rowField);if(el.matches?.("select[data-invoice-field=retentionAccount]")){el.classList.remove("needs-account");el.title=el.value?(amWithholding(el.value)?.nombre||el.value):"Cuenta de retención (4751)"}});
+    body.addEventListener("change",event=>{const el=event.target;if(el.matches?.("input[data-invoice-field=intra]")){const box=el.closest(".invoice-intra-cell");box?.classList.toggle("on",el.checked);const select=box?.querySelector("select");if(select)select.disabled=!el.checked}if(el.matches?.("input[data-invoice-field=vatToBase]"))invoiceToggleVatToBase(el,rowField);if(el.matches?.("select[data-invoice-field=retentionAccount]")){el.classList.remove("needs-account");el.title=el.value?(amWithholding(el.value)?.nombre||el.value):"Cuenta de retención (4751)"}});
     body.addEventListener("click",event=>{const button=event.target.closest?.("[data-invoice-preview]");if(button)openInvoicePreview(Number(button.dataset.invoicePreview))});
   }
   draft.hidden=false;draft.scrollIntoView({behavior:"smooth",block:"nearest"});

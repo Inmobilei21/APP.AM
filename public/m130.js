@@ -269,6 +269,7 @@ async function invoiceHandle(info){
   const index=Math.max(0,same.findIndex(item=>item.numero===info.numero));
   return found[Math.min(index,found.length-1)];
 }
+window.openBookInvoice=async info=>openDocumentPreview(await (await invoiceHandle(info)).getFile());
 document.addEventListener("click",async event=>{
   const button=event.target.closest("[data-m130-doc]");if(!button)return;event.preventDefault();
   button.disabled=true;
