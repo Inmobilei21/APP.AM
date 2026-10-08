@@ -18,7 +18,7 @@ function save(period,field,value){
   const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);
   data.m130={...(data.m130||{}),[field]:value};localStorage.setItem(key,JSON.stringify(data));
 }
-const fisica=()=>(taxDrafts.clientData?.personType||"fisica")!=="juridica";
+const fisica=()=>taxDrafts.clientData?.personType==="fisica";
 function cuentas(tipo,q){
   return (taxDrafts.base?.resultados||[]).filter(account=>account.tipo===tipo).map(account=>{
     const tri=[0,1,2,3].map(i=>tdRound(account.meses.slice(i*3,i*3+3).reduce((s,v)=>s+v,0)));
@@ -69,7 +69,7 @@ function calc(period){
   c["17"]=tdRound(c["14"]-c["15"]-c["16"]);
   const compl=tdCompl(M,period);c["18"]=compl.deducir;c["19"]=tdRound(c["17"]-c["18"]);
   return{c,q,auto,manual,fuente,emit,recib,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
-    pago:{forma:m.formaPago||(fisica()?"domiciliacion":"domiciliacion"),iban:m.iban??((taxDrafts.clientData?.bank?.ibans||[]).find(Boolean)||""),nrc:m.nrc||"",aDeducir:m.aDeducir===true}};
+    pago:{forma:m.formaPago==="efectivo"&&!fisica()?"adeudo":m.formaPago||"domiciliacion",iban:m.iban??((taxDrafts.clientData?.bank?.ibans||[]).find(Boolean)||""),nrc:m.nrc||"",aDeducir:m.aDeducir===true}};
 }
 const LABELS={
   "01":"Ingresos computables correspondientes al conjunto de las actividades ejercidas",

@@ -58,9 +58,11 @@ window.downloadAeatFile=downloadAeatFile;
    cuenta o efectivo (I). Si el resultado es cero o negativo, la declaración es negativa (N). --- */
 function clientIbans(){const bank=taxDrafts.clientData?.bank||{},list=(bank.ibans||[]).map(i=>String(i).replace(/\s+/g,"").toUpperCase()).filter(Boolean),pref=String(bank.ibanPreferido||"").replace(/\s+/g,"").toUpperCase();
   return{list:pref&&list.includes(pref)?[pref,...list.filter(i=>i!==pref)]:list,pref:list.includes(pref)?pref:""}}
+// El pago en efectivo solo es posible para personas físicas.
+const efectivoPermitido=()=>taxDrafts.clientData?.personType==="fisica";
 function pagoOf(model,period){
   const saved=taxDraftControl(model,period).pago||{},{list,pref}=clientIbans();
-  const forma=saved.forma||(list.length?"domiciliacion":"adeudo");
+  let forma=saved.forma||(list.length?"domiciliacion":"adeudo");if(forma==="efectivo"&&!efectivoPermitido())forma="adeudo";
   return{forma,iban:forma==="domiciliacion"?(saved.iban??(pref||list[0]||"")):""};
 }
 function savePago(model,period,field,value){
@@ -74,7 +76,7 @@ function pagoBlock(draft){
   if(!(result>0))return `<div class="aeat-pago"><h6>Resultado ${result<0?"negativo":"cero"}</h6><p class="aeat-pago-hint">Se presenta como declaración negativa.</p></div>`;
   const opt=(value,label)=>`<label class="aeat-pago-radio"><input type="radio" name="aeatPago${draft.model}" data-aeat-pago="forma" value="${value}"${p.forma===value?" checked":""}><span>${label}</span></label>`;
   const otra=p.iban&&!list.includes(p.iban);
-  return `<div class="aeat-pago"><h6>Ingreso · ${tdEur(result)}</h6><div class="aeat-pago-radios">${opt("domiciliacion","Domiciliación")}${opt("adeudo","Adeudo en cuenta")}${opt("efectivo","En efectivo")}</div>
+  return `<div class="aeat-pago"><h6>Ingreso · ${tdEur(result)}</h6><div class="aeat-pago-radios">${opt("domiciliacion","Domiciliación")}${opt("adeudo","Adeudo en cuenta")}${efectivoPermitido()?opt("efectivo","En efectivo"):""}</div>
     ${p.forma==="domiciliacion"?`<label class="td-cf aeat-pago-iban"><small>Cuenta de domiciliación (IBAN)</small><select data-aeat-pago="iban">${list.map(i=>`<option value="${i}"${i===p.iban?" selected":""}>${i===pref?"★ ":""}${ibanText(i)}</option>`).join("")}${otra?`<option value="${escapeHtml(p.iban)}" selected>${escapeHtml(ibanText(p.iban))}</option>`:""}<option value="__otra">Otra cuenta…</option>${list.length||otra?"":'<option value="" selected>Sin IBAN en la ficha del cliente</option>'}</select></label>`:""}
     <p class="aeat-pago-hint">${p.forma==="domiciliacion"?(p.iban?"La domiciliación solo se puede hacer hasta unos días antes de que termine el plazo. ★ = cuenta preferida de la ficha del cliente.":"⚠ Añade el IBAN en la ficha del cliente (Gestión) o elige «Otra cuenta…»."):p.forma==="adeudo"?"Se presenta con NRC: el pago se hace en el banco o en la sede de la AEAT.":"Pago en efectivo en una entidad colaboradora con la carta de pago."}</p></div>`;
 }
