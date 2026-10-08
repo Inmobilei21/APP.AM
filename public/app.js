@@ -2957,7 +2957,7 @@ function invoiceBookRecord(group){
   const nif=String(head.supplierNif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   return{id:[fecha,String(head.number||"").trim().toUpperCase(),nif||String(head.supplier||"").trim().toUpperCase()].join("|"),numero:String(head.number||"").trim(),fecha,nombre:String(head.supplier||"").trim(),nif,
     base:Math.round(base*100)/100,cuota:Math.round(cuota*100)/100,retencion:Math.round(retencion*100)/100,retencionPct:pct,total:parse(head.total),concepto:String(head.concept||"").trim(),
-    cuenta:String(head.supplierAccount||head.counterAccount||"").trim(),archivo:head.file||"",lineas:lines.map(line=>({base:parse(line.base),tipo:parse(line.vatRate),cuota:parse(line.vat)}))};
+    cuenta:String(head.supplierAccount||head.counterAccount||"").trim(),archivo:head.file||"",ruta:invoiceConfirmProgress.saved.get(group.key)||"",lineas:lines.map(line=>({base:parse(line.base),tipo:parse(line.vatRate),cuota:parse(line.vat)}))};
 }
 async function saveInvoiceBook(groups,client,kind){
   const records=groups.map(invoiceBookRecord).filter(Boolean);if(!records.length)return"";
@@ -3000,9 +3000,9 @@ async function confirmInvoiceDraft(client){
     parts.push(invoiceConfirmProgress.entries==="descargado"?"Asientos descargados (.txt): el servidor no está conectado":`Asientos enviados a ${invoiceConfirmProgress.entries}`);
   }
   else if(!received&&groups.length)downloadInvoiceExcel(records,client);
-  if(groups.length){const libro=await saveInvoiceBook(groups,client,kind);if(libro)parts.push(libro)}
   const {saved,errors}=await saveInvoiceDocuments(groups,client,kind),otherResult=others.length?await saveInvoiceDocuments(others,client,kind):{saved:[],errors:[]};
   errors.push(...otherResult.errors);
+  if(groups.length){const libro=await saveInvoiceBook(groups,client,kind);if(libro)parts.push(libro)}
   parts.push(`${saved.length} ${saved.length===1?"factura guardada":"facturas guardadas"}${others.length?` y ${otherResult.saved.length} ${otherResult.saved.length===1?"documento":"documentos"} en OTROS DOCUMENTOS`:""} en CLIENTES/${client}/CONTABILIDAD`);
   if(errors.length){alert(`${parts.join(". ")}.\n\nNo se ${errors.length===1?"ha podido guardar esta factura":"han podido guardar estas facturas"}:\n${errors.join("\n")}${received?"\n\nLos asientos ya se han enviado: si vuelves a confirmar, solo se guardarán las facturas que faltan.":""}`);return""}
   return parts.join(". ")+".";

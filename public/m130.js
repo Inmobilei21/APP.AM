@@ -177,7 +177,8 @@ function accountsTable(list,q,total){
 const FIN=["31 de marzo","30 de junio","30 de septiembre","31 de diciembre"];
 function sideHtml(kind,draft){
   const r=draft.calc||calc(draft.period),q=r.q;
-  const facturas=(list,titulo)=>list.length?`<h4 class="td-list-title">${titulo} (${list.length})</h4><table class="td-list"><thead><tr><th>Fecha</th><th>Factura</th><th>${titulo.includes("emitidas")?"Cliente":"Proveedor"}</th><th class="num">Base</th><th class="num">IVA</th><th class="num">Retención</th><th class="num">Total</th></tr></thead><tbody>${list.map(item=>`<tr><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<small>${escapeHtml(item.nif)}</small></td><td class="num">${tdEur(item.base)}</td><td class="num">${tdEur(item.cuota)}</td><td class="num">${item.retencion?tdEur(item.retencion):""}</td><td class="num">${tdEur(item.total)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">Total</td><td class="num">${tdEur(tdSum(list,"base"))}</td><td class="num">${tdEur(tdSum(list,"cuota"))}</td><td class="num">${tdEur(tdSum(list,"retencion"))}</td><td class="num">${tdEur(tdSum(list,"total"))}</td></tr></tfoot></table>`:"";
+  const tipo=titulo=>titulo.includes("emitidas")?"EMITIDAS":"RECIBIDAS";
+  const facturas=(list,titulo)=>list.length?`<h4 class="td-list-title">${titulo} (${list.length})</h4><table class="td-list m130-fact"><thead><tr><th class="center"></th><th>Fecha</th><th>Factura</th><th>${titulo.includes("emitidas")?"Cliente":"Proveedor"}</th><th class="num">Base</th><th class="num">IVA</th><th class="num">Retención</th><th class="num">Total</th></tr></thead><tbody>${list.map(item=>`<tr><td class="center">${/\.(xlsx?|xlsm|csv|ods)$/i.test(item.archivo||"")&&!item.ruta?`<span class="td-eye off" title="Factura importada de un Excel: no hay PDF">${tdEyeOff}</span>`:`<button type="button" class="td-eye" data-m130-doc="${encodeURIComponent(JSON.stringify({ruta:item.ruta||"",fecha:item.fecha,nombre:item.nombre,numero:item.numero,tipo:tipo(titulo)}))}" title="Ver la factura">${tdEye}</button>`}</td><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<small>${escapeHtml(item.nif)}</small></td><td class="num">${tdEur(item.base)}</td><td class="num">${tdEur(item.cuota)}</td><td class="num">${item.retencion?tdEur(item.retencion):""}</td><td class="num">${tdEur(item.total)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Total</td><td class="num">${tdEur(tdSum(list,"base"))}</td><td class="num">${tdEur(tdSum(list,"cuota"))}</td><td class="num">${tdEur(tdSum(list,"retencion"))}</td><td class="num">${tdEur(tdSum(list,"total"))}</td></tr></tfoot></table>`:"";
   if(kind==="ing130")return accountsTable(r.ing,q,r.auto.ingresos)+(r.fuente==="facturas"?facturas(r.emit,"Facturas emitidas"):"");
   if(kind==="gas130"){
     const row=(label,value,cls="",input="")=>`<div class="m130-calc-row ${cls}"><span>${label}</span>${input||`<b>${tdEur(value)}</b>`}</div>`;
@@ -251,6 +252,30 @@ if(typeof confirmTaxDraft==="function"){const previous=confirmTaxDraft;confirmTa
   if(model===M&&period){const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);
     if(data.draft){const k=calc(period);data.draft.pago=k.pago;data.draft.personType=taxDrafts.clientData?.personType||"";data.draft.calculo={modalidad:k.modalidad,pct:k.pct,variacion:k.variacion,gastosContables:k.gastosContables,previo:k.previo,dificil:k.dificil,secI:k.secI,secII:k.secII};delete data.draft.lists.ing130;delete data.draft.lists.gas130;localStorage.setItem(key,JSON.stringify(data))}}
   return r}}
+
+/* --- Ojo de cada factura guardada: abre su PDF de la carpeta CONTABILIDAD del cliente --- */
+async function invoiceHandle(info){
+  const root=await getSavedHandle("clients-folder");if(!root)throw new Error("Este equipo no tiene conectada la carpeta CLIENTES.");
+  const client=await root.getDirectoryHandle(taxDrafts.client);
+  const walk=async parts=>{let folder=client;for(const part of parts)folder=await folder.getDirectoryHandle(part);return folder};
+  if(info.ruta){const parts=info.ruta.split("/"),name=parts.pop();try{return await (await walk(parts)).getFileHandle(name)}catch{}}
+  // Facturas guardadas antes de anotar la ruta: se buscan por «AAAA.MM.DD Nombre» en su trimestre.
+  const [y,m,d]=info.fecha.split("-"),folder=await walk(["CONTABILIDAD",y,`${Math.ceil(Number(m)/3)}T`,info.tipo]);
+  const prefix=`${y}.${m}.${d} ${typeof safeFileName==="function"?safeFileName(info.nombre):info.nombre}`.toLocaleLowerCase("es"),found=[];
+  for await(const entry of folder.values())if(entry.kind!=="directory"&&entry.name.toLocaleLowerCase("es").startsWith(prefix))found.push(entry);
+  if(!found.length)throw new Error("No se encuentra el PDF de esta factura en la carpeta del cliente.");
+  found.sort((a,b)=>a.name.localeCompare(b.name,"es",{numeric:true}));
+  const book=libro(),same=[...(book?.emitidas||[]),...(book?.recibidas||[])].filter(item=>item.fecha===info.fecha&&item.nombre===info.nombre&&!item.ruta).sort((a,b)=>String(a.numero).localeCompare(String(b.numero),"es",{numeric:true}));
+  const index=Math.max(0,same.findIndex(item=>item.numero===info.numero));
+  return found[Math.min(index,found.length-1)];
+}
+document.addEventListener("click",async event=>{
+  const button=event.target.closest("[data-m130-doc]");if(!button)return;event.preventDefault();
+  button.disabled=true;
+  try{const handle=await invoiceHandle(JSON.parse(decodeURIComponent(button.dataset.m130Doc)));openDocumentPreview(await handle.getFile())}
+  catch(error){alert(error.message||"No se ha podido abrir la factura.")}
+  finally{button.disabled=false}
+});
 
 /* --- Fichero para importar en la sede de la AEAT (diseño de registro DR130, página de 600 posiciones) --- */
 const fpad=(value,width)=>String(value??"").slice(0,width).padEnd(width," ");
@@ -358,6 +383,7 @@ if(typeof taxDraftFormHtml==="function"){
 .m130-radios{display:flex;flex-wrap:wrap;gap:6px}.m130-radio{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;border:1px solid #d8deea;border-radius:999px;padding:5px 12px;cursor:pointer;background:#fff}
 .m130-radio:has(input:checked){border-color:#1f4a99;background:#eef1ff;color:#1f4a99}.m130-pago .td-cf{flex:1 1 260px}.m130-pago .td-cf input{width:100%}
 .m130-hint{margin:0;font-size:12px;color:#69748a}
+.m130-fact .td-eye{margin:0 auto}.m130-fact th:first-child,.m130-fact td:first-child{width:44px;padding-left:6px;padding-right:6px}
 .m130-calc{border:1px solid #e3e7ef;border-radius:12px;overflow:hidden;margin:12px}
 .m130-calc-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;border-top:1px solid #eef0f5;font-size:13px}.m130-calc-row:first-child{border-top:0}
 .m130-calc-row b{font-variant-numeric:tabular-nums;white-space:nowrap}.m130-calc-row.edit span{color:#b42318}.m130-calc-row.sub{background:#f1f3f7}.m130-calc-row.strong{font-weight:800;background:#f1f3f7}
