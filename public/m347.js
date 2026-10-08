@@ -73,7 +73,7 @@ function renderTaxDraft347(box){
     ${rows.length?`<div class="td-table-wrap"><table class="td-table m347-table"><thead><tr><th class="center" title="Incluir">Incl.</th><th>Declarado</th><th title="Código de provincia">Prov.</th><th title="Código de país">País</th><th>Clave operación</th><th class="num">1T</th><th class="num">2T</th><th class="num">3T</th><th class="num">4T</th><th class="num">Total anual</th></tr></thead><tbody>${body}</tbody>
       <tfoot><tr><td></td><td>Total incluidos (${t.count})</td><td colspan="3"></td>${[0,1,2,3].map(q=>`<td class="num">${tdEur(t.rows.reduce((sum,row)=>sum+row.trimestres[q],0))}</td>`).join("")}<td class="num">${tdEur(t.total)}</td></tr></tfoot></table></div>`:`<p class="td-note">Ningún cliente ni proveedor supera 3.005,06 € en ${year}.</p>`}
     <p class="td-hint">Se incluyen los clientes y proveedores que superan 3.005,06 € en el año (IVA incluido) por la misma clave. No computan las facturas con retención de IRPF (alquileres y profesionales, que van en el 180 y el 190) ni las de no residentes. Los terceros sin NIF quedan sin marcar.</p>
-    <div class="td-confirm m347-actions"><button type="button" class="secondary-button" data-m347-download>Descargar para el cliente</button><button type="button" class="secondary-button" data-m347-csv>Excel (CSV)</button><button type="button" class="secondary-button" data-m347-view>Ver borrador</button><button type="button" class="primary blue-button" data-m347-confirm${t.count?"":" disabled"}>${control.draft?"Volver a confirmar borrador":"Confirmar borrador"}</button></div>
+    <div class="td-confirm m347-actions"><button type="button" class="secondary-button" data-m347-download>Descargar para el cliente</button><button type="button" class="secondary-button" data-m347-csv>Excel (CSV)</button><button type="button" class="secondary-button" data-m347-aeat title="Fichero con el diseño de registro de la AEAT para importar en la Sede">Fichero AEAT</button><button type="button" class="secondary-button" data-m347-view>Ver borrador</button><button type="button" class="primary blue-button" data-m347-confirm${t.count?"":" disabled"}>${control.draft?"Volver a confirmar borrador":"Confirmar borrador"}</button></div>
 `;
   const find=selector=>box.querySelectorAll(selector);
   find("[data-m347-incluir]").forEach(input=>input.addEventListener("change",()=>{m347Save(m=>{m.incluir[input.dataset.m347Incluir]=input.checked});renderTaxDraftMain()}));
@@ -89,6 +89,7 @@ function renderTaxDraft347(box){
   box.querySelector("[data-m347-view]")?.addEventListener("click",()=>openConfirmed347(m347Draft(),false));
   box.querySelector("[data-m347-download]")?.addEventListener("click",()=>download347Client(m347Draft()));
   box.querySelector("[data-m347-csv]")?.addEventListener("click",()=>download347Csv(m347Draft()));
+  box.querySelector("[data-m347-aeat]")?.addEventListener("click",()=>download347Aeat(m347Draft()));
   if(taxDrafts.doc347===undefined){taxDrafts.doc347=null;find347Document()}
 }
 function m347Draft(){
@@ -188,6 +189,43 @@ async function download347Client(draft){
   const win=window.open("","_blank");if(!win){alert("Permite las ventanas emergentes para descargar el documento.");return}
   win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Modelo 347 ${escapeHtml(draft.year)} ${escapeHtml(name)} - confirmación de operaciones</title><style>${css}</style></head><body>${summary}${letters}<script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`);
   win.document.close();
+}
+/* Fichero para la AEAT con el diseño de registro oficial del 347 (ejercicio 2025 y siguientes):
+   registro tipo 1 (declarante) y un registro tipo 2 por declarado, de 500 posiciones, ISO-8859-1. */
+function m347AeatFile(draft){
+  const up=v=>[...String(v||"").toUpperCase()].map(c=>c==="Ñ"||c==="Ç"?c:c.normalize("NFD").replace(/[\u0300-\u036f]/g,"")).join("").replace(/,/g," ").replace(/[^A-Z0-9ÑÇ &.\-]/g," ").replace(/\s+/g," ").trim();
+  const A=(v,n)=>up(v).slice(0,n).padEnd(n," ");
+  const N=(v,n)=>String(Math.round(Math.abs(Number(v)||0))).padStart(n,"0").slice(-n);
+  const nif=v=>{const c=String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return c?c.padStart(9,"0").slice(-9):" ".repeat(9)};
+  const imp=(v,n=15)=>(Number(v)<0?"N":" ")+N(Math.abs(Number(v)||0)*100,n);
+  const year=String(draft.year),decl=nif(draft.cif),total=draft.declarados.reduce((sum,d)=>sum+(Number(d.total)||0),0);
+  if(decl.trim().length!==9)throw new Error("Falta el NIF del cliente (ficha del cliente).");
+  const contacto=draft.contacto||{},id="347"+String(Date.now()).slice(-10);
+  let r1="1347"+year+decl+A(draft.client,40)+"T"+N(String(contacto.telefono||"").replace(/\D/g,""),9)+A(contacto.nombre,40)+id+"  "+"0".repeat(13)+N(draft.declarados.length,9)+imp(total)+N(0,9)+" "+N(0,15);
+  r1=r1.padEnd(500," ");
+  const rows=draft.declarados.map(d=>{
+    const comunitario=String(d.nifComunitario||"").toUpperCase().replace(/[^A-Z0-9]/g,""),extranjero=!!comunitario||d.provincia==="99";
+    const inm=d.inmuebles||[0,0,0,0],q=d.trimestres||[0,0,0,0];
+    let r="2347"+year+decl+(comunitario?" ".repeat(9):nif(d.nif))+(d.nifRepresentante?nif(d.nifRepresentante):" ".repeat(9))+A(d.nombre,40)+"D"
+      +N(d.provincia||(extranjero?99:0),2)+(d.provincia==="99"?A(d.pais,2):"  ")+" "+A(d.clave,1)+imp(d.total)
+      +(d.seguro?"X":" ")+(d.arrendamiento?"X":" ")+N((Number(d.metalico)||0)*100,15)+imp(d.inmueblesAnual||0)+(Number(d.metalico)?N(d.ejercicioMetalico||year,4):"0000")
+      +imp(q[0])+imp(inm[0])+imp(q[1])+imp(inm[1])+imp(q[2])+imp(inm[2])+imp(q[3])+imp(inm[3])
+      +(comunitario?A(comunitario.slice(0,2),2)+comunitario.slice(2,17).padEnd(15," "):" ".repeat(17))
+      +(d.ivaCaja?"X":" ")+(d.inversion?"X":" ")+(d.deposito?"X":" ")+imp(d.ivaCajaAnual||0)+(d.clave==="E"&&d.bdns?N(String(d.bdns).replace(/\D/g,""),6):"000000");
+    return r.padEnd(500," ");
+  });
+  const bad=[r1,...rows].find(line=>line.length!==500);if(bad)throw new Error("Registro con longitud incorrecta.");
+  return [r1,...rows].join("\r\n")+"\r\n";
+}
+function download347Aeat(draft){
+  try{
+    const missing=draft.declarados.filter(d=>!d.nif&&!d.nifComunitario).length;
+    if(missing&&!confirm(`${missing} declarado${missing===1?"":"s"} sin NIF. ¿Generar el fichero igualmente?`))return;
+    if(!/^\d{9}$/.test(String(draft.contacto?.telefono||"").replace(/\D/g,""))&&!confirm("Falta el teléfono de contacto (9 cifras). ¿Generar el fichero igualmente?"))return;
+    const text=m347AeatFile(draft),bytes=new Uint8Array([...text].map(ch=>{const c=ch.charCodeAt(0);return c<256?c:32}));
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bytes],{type:"text/plain;charset=iso-8859-1"}));
+    a.download=`${String(draft.cif||"").toUpperCase()}_347_${draft.year}.347`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  }catch(error){alert(error.message)}
 }
 function download347Csv(draft){
   const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,num=v=>(Number(v)||0).toFixed(2).replace(".",",");
