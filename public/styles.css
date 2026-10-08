@@ -5833,3 +5833,20 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 @media(max-width:760px){.td-compl{grid-template-columns:1fr}}
 /* Contraseñas de la ficha del cliente: se ocultan sin type="password" para que el navegador no ofrezca guardarlas. */
 .pw-mask{-webkit-text-security:disc;text-security:disc}
+/* Ventana de confirmación de la app */
+.app-confirm{position:fixed;inset:0;z-index:4000;display:grid;place-items:center;padding:16px;background:rgba(14,24,53,.42);backdrop-filter:blur(3px);animation:appConfirmIn .16s ease-out}
+.app-confirm.out{opacity:0;transition:opacity .15s}
+.app-confirm-box{width:min(480px,100%);background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(14,24,53,.28);overflow:hidden;animation:appConfirmPop .18s ease-out}
+.app-confirm-box>header{display:block!important;position:static!important;height:auto!important;min-height:0!important;box-shadow:none!important;border:0!important;margin:0!important;padding:22px 24px 16px!important;background:linear-gradient(135deg,#0e1835,#14279b);color:#fff}
+.app-confirm-box header .eyebrow{margin:0 0 6px;color:#aebcff;font-size:11px;letter-spacing:.14em}
+.app-confirm-box header h3{margin:0;font-size:20px;line-height:1.25;color:#fff}
+.app-confirm-sub{margin:6px 0 0;font-size:13.5px;color:#d7defc}
+.app-confirm-steps{list-style:none;margin:0;padding:16px 24px 4px;display:grid;gap:10px}
+.app-confirm-steps li{display:flex;gap:12px;align-items:flex-start}
+.app-confirm-steps li span{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#eef1ff;color:#14279b;font-weight:800;font-size:15px}
+.app-confirm-steps li p{margin:5px 0 0;font-size:13.5px;line-height:1.4;color:#1d2a44}
+.app-confirm-msg{margin:0;padding:16px 24px 4px;font-size:14px;line-height:1.45;color:#1d2a44}
+.app-confirm-box footer{display:flex;justify-content:flex-end;gap:10px;padding:18px 24px 22px}
+.app-confirm-box footer button{min-width:120px}
+@keyframes appConfirmIn{from{opacity:0}to{opacity:1}}@keyframes appConfirmPop{from{transform:translateY(8px) scale(.98)}to{transform:none}}
+@media(max-width:520px){.app-confirm-box footer{flex-direction:column-reverse}.app-confirm-box footer button{width:100%}}

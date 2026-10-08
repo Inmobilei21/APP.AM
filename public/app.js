@@ -2966,6 +2966,19 @@ async function saveInvoiceBook(groups,client,kind){
     const n=(result.added||0)+(result.updated||0);return`${n} ${n===1?"factura anotada":"facturas anotadas"} en el libro de ${kind==="RECIBIDAS"?"recibidas":"emitidas"} para las declaraciones`}
   catch(error){console.error("Libro de facturas",error);alert(`Las facturas se han procesado, pero no se han podido anotar para las declaraciones: ${error.message}`);return""}
 }
+// Ventana de confirmación con el estilo de la app (en lugar del confirm del navegador).
+function appConfirm({eyebrow="",title="",subtitle="",steps=[],message="",ok="Aceptar",cancel="Cancelar"}={}){
+  return new Promise(resolve=>{
+    const shade=document.createElement("div");shade.className="app-confirm";shade.setAttribute("role","dialog");shade.setAttribute("aria-modal","true");
+    shade.innerHTML=`<div class="app-confirm-box"><header>${eyebrow?`<p class="eyebrow">${escapeHtml(eyebrow)}</p>`:""}<h3>${escapeHtml(title)}</h3>${subtitle?`<p class="app-confirm-sub">${escapeHtml(subtitle)}</p>`:""}</header>
+      ${steps.length?`<ul class="app-confirm-steps">${steps.map(([icon,text])=>`<li><span aria-hidden="true">${escapeHtml(icon)}</span><p>${escapeHtml(text)}</p></li>`).join("")}</ul>`:""}${message?`<p class="app-confirm-msg">${escapeHtml(message)}</p>`:""}
+      <footer><button type="button" class="secondary-button" data-confirm="0">${escapeHtml(cancel)}</button><button type="button" class="primary blue-button" data-confirm="1">${escapeHtml(ok)}</button></footer></div>`;
+    const done=value=>{document.removeEventListener("keydown",keys);shade.classList.add("out");setTimeout(()=>shade.remove(),160);resolve(value)};
+    const keys=event=>{if(event.key==="Escape")done(false);if(event.key==="Enter"){event.preventDefault();done(true)}};
+    shade.addEventListener("click",event=>{const button=event.target.closest("[data-confirm]");if(button)done(button.dataset.confirm==="1");else if(event.target===shade)done(false)});
+    document.addEventListener("keydown",keys);document.body.append(shade);shade.querySelector('[data-confirm="1"]').focus();
+  });
+}
 async function confirmInvoiceDraft(client){
   const records=readInvoiceDraft(),received=invoiceReceivedMode(),kind=received?"RECIBIDAS":"EMITIDAS",groups=invoiceDocumentGroups(records);
   if(!groups.length&&!invoiceIgnoredDocs.length){alert("No hay facturas en el borrador.");return""}
@@ -2973,9 +2986,14 @@ async function confirmInvoiceDraft(client){
   if(noDate.length){alert(`Corrige la fecha (DD/MM/AAAA) de ${noDate.length===1?"la factura":"las facturas"} ${noDate.map(group=>group.record.number||group.record.supplier||group.record.file).slice(0,8).join(", ")}${noDate.length>8?"…":""}: hace falta para guardarla en su trimestre.`);return""}
   const others=otherDocumentGroups(groups);
   let entries=null;
-  if(received&&groups.length&&!invoiceWithoutAccounting()){entries=amcomtaEntriesText(records);if(entries.missing&&!confirm(`${entries.missing} de ${entries.invoices} ${entries.invoices===1?"factura no tiene":"facturas no tienen"} cuenta de proveedor, de gasto o de retención. Se importarán con la cuenta vacía. ¿Continuar?`))return""}
+  if(received&&groups.length&&!invoiceWithoutAccounting()){entries=amcomtaEntriesText(records);if(entries.missing&&!await appConfirm({eyebrow:"FALTAN CUENTAS",title:`${entries.missing} de ${entries.invoices} ${entries.invoices===1?"factura no tiene":"facturas no tienen"} cuenta`,message:"Les falta la cuenta de proveedor, de gasto o de retención. Se importarán con la cuenta vacía.",ok:"Continuar igualmente",cancel:"Revisar"}))return""}
   const otherText=others.length?` y ${others.length} ${others.length===1?"documento":"documentos"} en OTROS DOCUMENTOS`:"";
-  if(!confirm(`${entries?`Se enviarán ${entries.invoices} ${entries.invoices===1?"asiento":"asientos"} a la carpeta de importación de AMCOMTA y se`:received||!groups.length?"Se":"Se descargará el Excel y se"} guardarán ${groups.length} ${groups.length===1?"factura":"facturas"}${otherText} en CLIENTES/${client}/CONTABILIDAD (${kind}). ¿Continuar?`))return"";
+  const steps=[];
+  if(entries)steps.push(["⇪",`${entries.invoices} ${entries.invoices===1?"asiento":"asientos"} a la carpeta de importación de AMCOMTA`]);
+  else if(!received&&groups.length)steps.push(["⤓","Se descargará el Excel de las facturas"]);
+  if(groups.length)steps.push(["▤",`${groups.length} ${groups.length===1?"factura":"facturas"} a CLIENTES / ${client} / CONTABILIDAD / ${kind}`],["✓","Se anotarán en el libro de "+(received?"recibidas":"emitidas")+" para las declaraciones"]);
+  if(others.length)steps.push(["＋",`${others.length} ${others.length===1?"documento":"documentos"} a OTROS DOCUMENTOS`]);
+  if(!await appConfirm({eyebrow:`FACTURAS ${kind}`,title:`¿Confirmar ${groups.length} ${groups.length===1?"factura":"facturas"}?`,subtitle:client,steps,ok:entries?"Confirmar e importar":!received&&groups.length?"Confirmar y descargar":"Confirmar"}))return"";
   const parts=[];
   if(entries){
     if(!invoiceConfirmProgress.entries)invoiceConfirmProgress.entries=await saveAmcomtaImport(entries.text,client)||"descargado";
