@@ -5831,3 +5831,5 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .td-cf{display:flex;flex-direction:column;gap:4px;min-width:0}.td-cf small{font-size:11.5px;font-weight:600;color:#56627c}
 .td-cf input{height:34px;padding:4px 10px;border:1px solid #d8deea;border-radius:8px;font:inherit;font-size:13px;background:#fff}.td-cf input:disabled{background:#eef0f4;color:#9aa3b5}
 @media(max-width:760px){.td-compl{grid-template-columns:1fr}}
+/* Contraseñas de la ficha del cliente: se ocultan sin type="password" para que el navegador no ofrezca guardarlas. */
+.pw-mask{-webkit-text-security:disc;text-security:disc}
