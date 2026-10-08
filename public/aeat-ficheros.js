@@ -30,7 +30,7 @@ function aeatFile(draft){
   // Tipo: I ingreso, U domiciliación (con IBAN), N negativa. Tras las casillas: complementaria (1),
   // justificante anterior (13) e IBAN (34), como en el fichero del 123 de Impresos Hacienda.
   const iban=String(draft.iban||"").replace(/\s+/g,"").toUpperCase(),type=result>0?(/^[IUG]$/.test(draft.tipoFichero||"")?(draft.tipoFichero==="U"&&!iban?"I":draft.tipoFichero):(iban?"U":"I")):"N";
-  let page=" "+type+pad(nif,9)+pad(clean(draft.client),60)+pad("",20)+year+pad(period,2)+spec.boxes.map(([n,width])=>value(n,width)).join("")+(draft.complementaria?.activa?"X"+String(draft.complementaria.justificante||"").replace(/\D/g,"").padStart(13,"0").slice(-13):pad("",14))+pad(type==="U"?iban:"",34);
+  let page=" "+type+pad(nif,9)+pad(clean(draft.client),60)+pad("",20)+year+pad(period,2)+spec.boxes.map(([n,width])=>value(n,width)).join("")+(draft.complementaria?.activa?"X"+String(draft.complementaria.justificante||"").replace(/\D/g,"").padStart(13,"0").slice(-13):pad("",14))+pad(type!=="N"?iban:"",34);
   page=pad(page,spec.page);
   const aux=pad("",70)+"AM01"+pad("",4)+"B72758998";
   const head=`T${draft.model}0${year}${period}0000`;
@@ -70,11 +70,11 @@ const AEAT_TIPOS=[
   ["IP-COM","Ingreso y reconocimiento de deuda con solicitud de compensación","I"],["IP-PHE","Ingreso parcial y reconocimiento de deuda con solicitud de pago mediante entrega de bienes del Patrimonio Histórico Español","I"],
   ["G","Ingreso a anotar en cuenta corriente tributaria","G"]];
 const aeatTipo=value=>AEAT_TIPOS.find(t=>t[0]===value)||AEAT_TIPOS[0];
-window.aeatPagoText=pago=>{if(!pago)return"";if(pago.tipo==="N")return"Negativa / saldo cero";const t=aeatTipo(pago.tipo||(pago.forma==="domiciliacion"?"U":"I"));return t[1]+(t[0]==="U"&&pago.iban?` · IBAN ${String(pago.iban).replace(/(.{4})/g,"$1 ").trim()}`:"")};
+window.aeatPagoText=pago=>{if(!pago)return"";if(pago.tipo==="N")return"Negativa / saldo cero";const t=aeatTipo(pago.tipo||(pago.forma==="domiciliacion"?"U":"I"));return t[1]+(pago.iban?` · IBAN ${String(pago.iban).replace(/(.{4})/g,"$1 ").trim()}`:"")};
 function pagoOf(model,period){
   const saved=taxDraftControl(model,period).pago||{},{list,pref}=clientIbans();
   const tipo=saved.tipo&&aeatTipo(saved.tipo)[0]===saved.tipo?saved.tipo:saved.forma?(saved.forma==="domiciliacion"?"U":"I"):(list.length?"U":"I");
-  return{tipo,iban:tipo==="U"?(saved.iban??(pref||list[0]||"")):""};
+  return{tipo,iban:saved.iban??(pref||list[0]||"")};
 }
 function savePago(model,period,field,value){
   const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
@@ -87,7 +87,7 @@ function pagoInline(draft){
   if(!(result>0))return `<span class="aeat-pago-inline"><select disabled title="Tipo de declaración"><option>Negativa / saldo cero</option></select></span>`;
   const p=pagoOf(draft.model,draft.period),{list,pref}=clientIbans(),otra=p.iban&&!list.includes(p.iban);
   return `<span class="aeat-pago-inline"><select data-aeat-pago="tipo" title="Tipo de declaración (forma de pago)">${AEAT_TIPOS.map(([v,l])=>`<option value="${v}"${v===p.tipo?" selected":""}>${escapeHtml(l)}</option>`).join("")}</select>
-    ${p.tipo==="U"?`<select data-aeat-pago="iban" class="${p.iban?"":"bad"}" title="Cuenta de domiciliación · ★ preferida en la ficha del cliente">${list.map(i=>`<option value="${i}"${i===p.iban?" selected":""}>${i===pref?"★ ":""}${ibanText(i)}</option>`).join("")}${otra?`<option value="${escapeHtml(p.iban)}" selected>${escapeHtml(ibanText(p.iban))}</option>`:""}<option value="__otra">Otra cuenta…</option>${list.length||otra?"":'<option value="" selected>Sin IBAN en la ficha</option>'}</select>`:""}</span>`;
+    ${p.tipo!=="N"?`<select data-aeat-pago="iban" class="${p.iban?"":"bad"}" title="${p.tipo==="U"?"Cuenta de domiciliación":"Cuenta bancaria del ingreso"} · ★ preferida en la ficha del cliente">${list.map(i=>`<option value="${i}"${i===p.iban?" selected":""}>${i===pref?"★ ":""}${ibanText(i)}</option>`).join("")}${otra?`<option value="${escapeHtml(p.iban)}" selected>${escapeHtml(ibanText(p.iban))}</option>`:""}<option value="__otra">Otra cuenta…</option>${list.length||otra?"":'<option value="" selected>Sin IBAN en la ficha</option>'}</select>`:""}</span>`;
 }
 document.addEventListener("change",event=>{
   const el=event.target.closest?.("[data-aeat-pago]");if(!el||!document.querySelector("#tdMain")?.contains(el))return;
@@ -108,7 +108,7 @@ if(typeof confirmTaxDraft==="function"){const previousConfirm=confirmTaxDraft;co
   const model=taxDrafts.model,period=taxDrafts.open,r=previousConfirm.apply(this,arguments);
   if(AEAT_FILE_MODELS[model]&&period){const year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);if(data.draft){data.draft.pago=pagoOf(model,period);localStorage.setItem(key,JSON.stringify(data))}}
   return r}}
-const withPago=draft=>{const p=draft.pago;if(!p)return draft;const tipo=p.tipo||(p.forma==="domiciliacion"?"U":"I"),code=aeatTipo(tipo)[2];return{...draft,tipoFichero:code,iban:code==="U"?p.iban||"":""}};
+const withPago=draft=>{const p=draft.pago;if(!p)return draft;const tipo=p.tipo||(p.forma==="domiciliacion"?"U":"I"),code=aeatTipo(tipo)[2];return{...draft,tipoFichero:code,iban:p.iban||""}};
 // Tras pintar el borrador: el tipo de declaración va en la línea del resultado y las comprobaciones, compactas,
 // en la línea de la declaración complementaria.
 if(typeof renderTaxDraftMain==="function"){const previousMain=renderTaxDraftMain;renderTaxDraftMain=function(){

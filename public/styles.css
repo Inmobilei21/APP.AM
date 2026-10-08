@@ -5882,3 +5882,12 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .td-mini.ok{background:#e9f7ec;color:#16784a}.td-mini.warn{background:#fff4e5;color:#9a5b00}.td-mini.bad{background:#fdecec;color:#b42318}
 @media(max-width:900px){.td-compl:has(.td-compl-checks){grid-template-columns:1fr!important}.td-compl-checks{max-width:none}.td-mini{white-space:normal}.aeat-pago-inline select{max-width:100%}}
 .td-mini.warn,.td-mini.bad{white-space:normal;overflow:visible;line-height:1.3}
+/* Borradores: columna «Sin obligación» */
+.td-table th:nth-child(1){width:16%}.td-table th:nth-child(2){width:10%}.td-table th:nth-child(3){width:13%}.td-table th:nth-child(4){width:13%}.td-table th:nth-child(5){width:12%}.td-table th:nth-child(6){width:15%}.td-table th:nth-child(7){width:9%}.td-table th:nth-child(8){width:11%}
+.td-noob-cell input{width:17px;height:17px;cursor:pointer;accent-color:#14279b}
+.td-table tr.td-q.td-noob>td{color:#9aa3b5;background:#f6f7fa;cursor:default}.td-table tr.td-q.td-noob .td-caret{visibility:hidden}
+.td-pill.noob{background:#eceef3;color:#56627c}
+@media(max-width:760px){
+  .td-main .td-table:not(.m347-table) tr.td-q>td:nth-child(7),.td-main .td-table:not(.m347-table) tfoot tr.td-annual>td:nth-child(7){display:none}
+  .td-main .td-table:not(.m347-table) tr.td-q>td:nth-child(8),.td-main .td-table:not(.m347-table) tfoot tr.td-annual>td:nth-child(8){display:block;grid-area:eye;justify-self:end}
+}

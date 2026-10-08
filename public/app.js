@@ -2277,7 +2277,7 @@ const declarationColumns=[
 ];
 function declarationTableHeaders(prefix,model=""){
   const columns=[...declarationColumns];
-  if(prefix==="tax"&&model==="111")columns.splice(columns.findIndex(column=>column.field==="cif")+1,0,{field:"notRequired",label:"No obligada",type:"boolean"});
+  if(prefix==="tax"&&model)columns.splice(columns.findIndex(column=>column.field==="cif")+1,0,{field:"notRequired",label:"No obligada",type:"boolean"});
   return columns.map(column=>{
     const label=prefix==="tax"&&column.field==="prepared"?"Confección":prefix==="tax"&&column.field==="submitted"?"Presentación":column.label;
     if(column.type==="boolean")return `<th data-declaration-column="${column.field}"><span>${label}</span></th>`;
@@ -2405,7 +2405,8 @@ function declarationData(model,period,client,year=2026){try{const saved=localSto
 function workerOptions(selected){return '<option value="">Seleccionar…</option>'+workers.map(name=>`<option value="${escapeHtml(name)}" ${selected===name?"selected":""}>${escapeHtml(name)}</option>`).join("")}
 async function loadTaxModel(model){
   const body=document.querySelector("#taxRows"),state=taxWindowState(sourceTaxModel(model),activeTaxQuarter,activeTaxType);
-  const isModel111=model==="111";
+  // Columna «No obligada» en todos los modelos (la misma marca que «Sin obligación» en Borradores).
+  const isModel111=Boolean(model);
   const columnCount=isModel111?11:10;
   const tableHead=document.querySelector("#taxTableHead");
   if(tableHead){tableHead.innerHTML=declarationTableHeaders("tax",model);setupDeclarationFilters("tax","taxRows")}
