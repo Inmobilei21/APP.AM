@@ -783,29 +783,34 @@ function fillMunicipalitySelect(provinceId,municipalityId,selected=""){
   municipality.value=selected||"";
 }
 function readBankIbans(){return[...document.querySelectorAll("[data-bank-iban]")].map(input=>input.value.trim())}
-function renderBankIbans(values=[""]){
+// La estrella marca la cuenta preferida para domiciliar las declaraciones (bank.ibanPreferido).
+function renderBankIbans(values=[""],pref){
   const list=document.querySelector("#bankIbanList");if(!list)return;const items=values.length?values:[""];
-  list.innerHTML=items.map((value,index)=>`<div class="bank-iban-row"><label>IBAN ${index+1}<input type="text" data-bank-iban maxlength="34" value="${escapeHtml(value)}"></label>${index>0?'<button type="button" data-remove-iban="'+index+'" aria-label="Eliminar IBAN">×</button>':""}</div>`).join("");
-  list.querySelectorAll("[data-remove-iban]").forEach(button=>button.addEventListener("click",()=>{const current=readBankIbans();current.splice(Number(button.dataset.removeIban),1);renderBankIbans(current)}));
+  if(pref!==undefined)list.dataset.pref=pref===null||pref===""||pref<0?"":String(pref);
+  const current=list.dataset.pref===""||list.dataset.pref===undefined?-1:Number(list.dataset.pref);
+  list.innerHTML=items.map((value,index)=>`<div class="bank-iban-row"><label>IBAN ${index+1}<input type="text" data-bank-iban maxlength="34" value="${escapeHtml(value)}"></label><button type="button" class="bank-iban-star${index===current?" on":""}" data-pref-iban="${index}" title="${index===current?"Cuenta preferida para las declaraciones":"Marcar como preferida para las declaraciones"}" aria-pressed="${index===current}">${index===current?"★":"☆"}</button>${index>0?'<button type="button" data-remove-iban="'+index+'" aria-label="Eliminar IBAN">×</button>':""}</div>`).join("");
+  list.querySelectorAll("[data-remove-iban]").forEach(button=>button.addEventListener("click",()=>{const current=readBankIbans(),i=Number(button.dataset.removeIban),p=list.dataset.pref===""?-1:Number(list.dataset.pref);current.splice(i,1);renderBankIbans(current,p===i?"":p>i?p-1:p)}));
+  list.querySelectorAll("[data-pref-iban]").forEach(button=>button.addEventListener("click",()=>{const i=Number(button.dataset.prefIban);renderBankIbans(readBankIbans(),list.dataset.pref===String(i)?"":i)}));
 }
+function preferredBankIban(){const list=document.querySelector("#bankIbanList"),ibans=readBankIbans(),i=list?.dataset.pref===""||list?.dataset.pref===undefined?-1:Number(list.dataset.pref);return i>=0&&ibans[i]?ibans[i].replace(/\s+/g,"").toUpperCase():""}
 function toggleCommercialRegistry(){toggleClientPeople();const section=document.querySelector("#commercialRegistrySection");if(section)section.hidden=document.querySelector("#clientPersonType").value!=="juridica"}
 function resetCommercialRegistry(){
   const form=document.querySelector("#newClientForm");delete form.dataset.registryCertificate;
   document.querySelector("#registryCertificateName").textContent="Ningún certificado guardado";
-  renderBankIbans([""]);fillMunicipalitySelect("registryProvince","registryMunicipality");fillMunicipalitySelect("bankProvince","bankMunicipality");openRegistryTab("domicilio");toggleCommercialRegistry();
+  renderBankIbans([""],"");fillMunicipalitySelect("registryProvince","registryMunicipality");fillMunicipalitySelect("bankProvince","bankMunicipality");openRegistryTab("domicilio");toggleCommercialRegistry();
 }
 function populateCommercialRegistry(value={}){
   const form=document.querySelector("#newClientForm"),address=value.registeredAddress||{},bank=value.bank||{},access=value.access||{},security=value.security||{};
   const set=(id,v)=>{const element=document.querySelector("#"+id);if(element)element.value=v||""};
   set("registryAddress",address.address);set("registryPostalCode",address.postalCode);set("registryProvince",address.province);fillMunicipalitySelect("registryProvince","registryMunicipality",address.municipality);
-  set("bankHolder",bank.holder);set("bankTaxId",bank.cif);set("bankBic",bank.bic);set("bankCcc",bank.ccc);renderBankIbans(bank.ibans?.length?bank.ibans:[""]);set("bankName",bank.name);set("bankAddress",bank.address);set("bankPostalCode",bank.postalCode);set("bankProvince",bank.province);fillMunicipalitySelect("bankProvince","bankMunicipality",bank.municipality);
+  set("bankHolder",bank.holder);set("bankTaxId",bank.cif);set("bankBic",bank.bic);set("bankCcc",bank.ccc);renderBankIbans(bank.ibans?.length?bank.ibans:[""],(bank.ibans||[]).findIndex(item=>String(item).replace(/\s+/g,"").toUpperCase()===String(bank.ibanPreferido||"").replace(/\s+/g,"").toUpperCase()));set("bankName",bank.name);set("bankAddress",bank.address);set("bankPostalCode",bank.postalCode);set("bankProvince",bank.province);fillMunicipalitySelect("bankProvince","bankMunicipality",bank.municipality);
   set("registryAccessUser",access.username);set("registryAccessPassword",access.password);set("registrySecurityUser",security.username);set("registrySecurityPassword",security.password);set("registryObservations",value.observations);
   if(value.certificateName)form.dataset.registryCertificate=value.certificateName;else delete form.dataset.registryCertificate;
   document.querySelector("#registryCertificateName").textContent=value.certificateName||"Ningún certificado guardado";openRegistryTab("domicilio");toggleCommercialRegistry();
 }
 function collectCommercialRegistryData(certificateName=""){
   const value=id=>document.querySelector("#"+id).value.trim();
-  return{certificateName,registeredAddress:{address:value("registryAddress"),postalCode:value("registryPostalCode"),province:value("registryProvince"),municipality:value("registryMunicipality")},bank:{holder:value("bankHolder"),cif:value("bankTaxId").toUpperCase(),bic:value("bankBic").toUpperCase(),ccc:value("bankCcc"),ibans:readBankIbans().filter(Boolean).map(item=>item.replace(/\s+/g,"").toUpperCase()),name:value("bankName"),address:value("bankAddress"),postalCode:value("bankPostalCode"),province:value("bankProvince"),municipality:value("bankMunicipality")},access:{username:value("registryAccessUser"),password:value("registryAccessPassword")},security:{username:value("registrySecurityUser"),password:value("registrySecurityPassword")},observations:value("registryObservations")};
+  return{certificateName,registeredAddress:{address:value("registryAddress"),postalCode:value("registryPostalCode"),province:value("registryProvince"),municipality:value("registryMunicipality")},bank:{holder:value("bankHolder"),cif:value("bankTaxId").toUpperCase(),bic:value("bankBic").toUpperCase(),ccc:value("bankCcc"),ibans:readBankIbans().filter(Boolean).map(item=>item.replace(/\s+/g,"").toUpperCase()),ibanPreferido:preferredBankIban(),name:value("bankName"),address:value("bankAddress"),postalCode:value("bankPostalCode"),province:value("bankProvince"),municipality:value("bankMunicipality")},access:{username:value("registryAccessUser"),password:value("registryAccessPassword")},security:{username:value("registrySecurityUser"),password:value("registrySecurityPassword")},observations:value("registryObservations")};
 }
 function setClientViewMode(viewOnly){
   const form=document.querySelector("#newClientForm");
