@@ -9,7 +9,7 @@ const M="130-131";
 TAX_DRAFT_MODELS[M]={title:"Pago fraccionado IRPF · estimación directa",ready:true};
 if(typeof TD_COMPL_BOX!=="undefined")TD_COMPL_BOX[M]="18";
 const LIMITE_DIFICIL=2000,LIMITE_VIVIENDA=660.14;
-const num=v=>{if(typeof v==="number")return Number.isFinite(v)?v:0;const s=String(v??"").trim();if(!s)return 0;const n=Number(s.includes(",")?s.replace(/\./g,"").replace(",","."):s);return Number.isFinite(n)?n:0};
+const num=v=>{if(typeof v==="number")return Number.isFinite(v)?v:0;const s=String(v??"").trim();if(!s)return 0;const n=Number(s.includes(",")||/^-?\d{1,3}(\.\d{3})+$/.test(s)?s.replace(/\./g,"").replace(",","."):s);return Number.isFinite(n)?n:0};
 const inputValue=v=>{if(v===undefined||v===null||v==="")return"";const n=Number(v)||0,[i,d]=Math.abs(n).toFixed(2).split(".");return(n<0?"-":"")+i.replace(/\B(?=(\d{3})+(?!\d))/g,".")+","+d};
 const st=period=>taxDraftControl(M,period).m130||{};
 // Ajustes que se arrastran: si no se han tocado en este trimestre, valen los del trimestre anterior.
