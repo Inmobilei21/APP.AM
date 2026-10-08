@@ -110,7 +110,8 @@ function calc(period){
   const list=c["71"]>0?TIPOS_INGRESO:c["71"]<0?TIPOS_NEG:TIPOS_CERO,{list:ibans,pref}=clientIbans();
   const tipo=list.some(t=>t[0]===m.tipo)?m.tipo:list===TIPOS_INGRESO?(ibans.length?"U":"I"):list[0][0];
   const code=list.find(t=>t[0]===tipo)[2];
-  return{c,m,q,src,cero,tipo,code,tipos:list,iban:m.iban??(pref||ibans[0]||""),swift:m.swift||"",sinActividad:m.sinActividad===true,rect:m.rect===true};
+  const devFields=DEV.flatMap(([,b,t,cu])=>[b,t,cu]).filter(Boolean),overrides=src.fuente==="manual"?[]:devFields.filter(n=>has(v[n])&&Math.abs(num(v[n])-(c["auto"+n]||0))>0.004).map(n=>({n,manual:num(v[n]),auto:c["auto"+n]||0}));
+  return{c,m,q,src,cero,overrides,tipo,code,tipos:list,iban:m.iban??(pref||ibans[0]||""),swift:m.swift||"",sinActividad:m.sinActividad===true,rect:m.rect===true};
 }
 const LABEL={"27":"Total cuota devengada","45":"Total a deducir","46":"Resultado régimen general (27 − 45)","64":"Suma de resultados (46 + 58 + 76)","65":"% atribuible a la Administración del Estado","66":"Atribuible a la Administración del Estado",
   "77":"IVA a la importación liquidado por la Aduana pendiente de ingreso","110":"Cuotas a compensar pendientes de periodos anteriores","78":"Cuotas a compensar de periodos anteriores aplicadas en este periodo","87":"Cuotas a compensar de periodos previos pendientes para periodos posteriores (110 − 78)",
@@ -127,6 +128,7 @@ TAX_DRAFT_BUILDERS[M]=period=>{
     checks:()=>{
       const out=[];
       if(r.src.fuente!=="manual")out.push(`<div class="td-check ok">✓ <div><b>IVA devengado de ${r.src.fuente==="contabilidad"?"la contabilidad":"las facturas guardadas"}</b>${r.src.lines.length} líneas de facturas emitidas del trimestre${c["14"]?` · bases negativas en la casilla 14: ${tdEur(c["14"])}`:""}.</div></div>`);
+      if(r.overrides.length)out.push(`<div class="td-check bad">✕ <div><b>Importes escritos a mano en lugar de la ${r.src.fuente==="contabilidad"?"contabilidad":"facturas guardadas"}</b>${r.overrides.map(o=>`[${o.n}] ${inputValue(o.manual)||"0,00"} (${r.src.fuente==="contabilidad"?"contabilidad":"facturas"}: ${inputValue(o.auto)||"0,00"})`).join(" · ")}. Bórralos o pulsa «Volver a los datos» en IVA devengado.</div></div>`);
       if(r.cero.length)out.push(`<div class="td-check warn">⚠ <div><b>${r.cero.length} línea${r.cero.length===1?"":"s"} al 0 % no van al IVA devengado</b>Base ${tdEur(tdSum(r.cero,"base"))}: si son entregas intracomunitarias o exportaciones, anótalas en «Información adicional» (59 o 60).</div></div>`);
       if(!Object.keys(r.m.v).length&&r.src.fuente==="manual")out.push('<div class="td-check warn">⚠ <div><b>Sin datos</b>De momento el 303 se rellena a mano: abre cada página con los botones de arriba.</div></div>');
       if(c["71"]<0&&r.tipo==="D"&&r.q!==4&&!r.m.f.redeme)out.push('<div class="td-check warn">⚠ <div><b>Devolución fuera del 4T</b>Solo se puede pedir la devolución en el último periodo, salvo inscritos en el REDEME. Lo habitual es «A compensar».</div></div>');
@@ -155,7 +157,7 @@ const cell=(n,content)=>`<div class="m303-cell"><span class="m303-n">${n}</span>
 const out=v=>`<span class="m303-out">${tdEur(v)}</span>`;
 function pageDev(r){
   const c=r.c;
-  return `${r.src.lines.length?`<div class="m303-src"><button type="button" class="m303-eyebtn" data-m303-eye="dev">${tdEye}<span>Ver las ${r.src.lines.length} líneas de facturas emitidas</span></button></div>`:""}<table class="m303-t c3"><thead><tr><th></th><th>Base imponible</th><th>Tipo %</th><th>Cuota</th></tr></thead><tbody>${DEV.map(([label,b,t,cu,rate,signed],i)=>`<tr${label&&i?' class="m303-sep"':""}><td class="m303-l">${escapeHtml(label)}</td>
+  return `${r.src.lines.length?`<div class="m303-src">${r.overrides.length?`<button type="button" class="m303-eyebtn warn" data-m303-reset="dev" title="Borra los importes escritos a mano en el IVA devengado">↺ <span>Volver a los datos de la ${r.src.fuente==="contabilidad"?"contabilidad":"facturas"} (${r.overrides.map(o=>o.n).join(", ")})</span></button>`:""}<button type="button" class="m303-eyebtn" data-m303-eye="dev">${tdEye}<span>Ver las ${r.src.lines.length} líneas de facturas emitidas</span></button></div>`:""}<table class="m303-t c3"><thead><tr><th></th><th>Base imponible</th><th>Tipo %</th><th>Cuota</th></tr></thead><tbody>${DEV.map(([label,b,t,cu,rate,signed],i)=>`<tr${label&&i?' class="m303-sep"':""}><td class="m303-l">${escapeHtml(label)}</td>
     <td>${b?cell(b,moneyInput(b,r,{signed,auto:c["auto"+b]})):""}</td><td>${t?cell(t,rate!==null&&rate!==undefined?`<span class="m303-out">${String(rate).replace(".",",")}</span>`:`<input class="m303-in short${has(r.m.v[t])?" manual":""}" data-m303="${t}" inputmode="decimal" value="${escapeHtml(has(r.m.v[t])?String(r.m.v[t]).replace(".",","):"")}" placeholder="${c["auto"+t]?String(c["auto"+t]).replace(".",","):"%"}">`):""}</td>
     <td>${cell(cu,moneyInput(cu,r,{auto:c["auto"+cu],signed}))}</td></tr>`).join("")}</tbody>
     <tfoot><tr><td class="m303-l" colspan="3"><b>${LABEL["27"]}</b> <small>(152 + 167 + 03 + 155 + 06 + 09 + 11 + 13 + 15 + 158 + 170 + 18 + 21 + 24 + 26)</small></td><td>${cell("27",out(c["27"]))}</td></tr></tfoot></table>
@@ -226,9 +228,11 @@ function syncControl(period){
 }
 function bind(card,period){
   const rerender=()=>renderTaxDraftMain();
+  card.querySelector("[data-m303-reset]")?.addEventListener("click",()=>{const fields=DEV.flatMap(([,b,t,cu])=>[b,t,cu]).filter(Boolean);save(period,m=>{fields.forEach(n=>delete m.v[n])});rerender()});
   card.querySelector("[data-m303-eye]")?.addEventListener("click",()=>openTaxDraftSide("iva303",taxDraftBuild(M,period)));
   card.querySelectorAll("[data-m303-tab]").forEach(b=>b.addEventListener("click",()=>{taxDrafts.m303Tab=b.dataset.m303Tab;rerender()}));
-  card.querySelectorAll("[data-m303]").forEach(input=>input.addEventListener("change",()=>{const n=input.dataset.m303,raw=input.value.trim();save(period,m=>{if(raw==="")delete m.v[n];else m.v[n]=num(raw)});rerender()}));
+  card.querySelectorAll("[data-m303]").forEach(input=>input.addEventListener("change",()=>{const n=input.dataset.m303,raw=input.value.trim(),auto=calc(period).c["auto"+n];
+    save(period,m=>{if(raw===""||auto!==undefined&&auto!==0&&Math.abs(num(raw)-auto)<0.005)delete m.v[n];else m.v[n]=num(raw)});rerender()}));
   card.querySelectorAll("[data-m303date]").forEach(input=>input.addEventListener("change",()=>{const i=Number(input.dataset.m303date);save(period,m=>{const parts=[m.f.concDia||"",m.f.concMes||"",m.f.concAnio||""];parts[i]=input.value.replace(/\D/g,"");[m.f.concDia,m.f.concMes,m.f.concAnio]=parts;
     m.f.fechaConcurso=parts[0]&&parts[1]&&/^\d{4}$/.test(parts[2])?parts[0].padStart(2,"0")+parts[1].padStart(2,"0")+parts[2]:""});rerender()}));
   card.querySelectorAll("[data-m303conc]").forEach(input=>input.addEventListener("change",()=>{save(period,m=>{m.f.tipoConcurso=input.dataset.m303conc});rerender()}));
@@ -337,7 +341,7 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
 .m303-in{flex:1;min-width:0;width:100%;height:32px;border:0;padding:0 9px;text-align:right;font:inherit;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;background:transparent}.m303-in::placeholder{color:#8a93a6;font-weight:600}.m303-in.manual{background:#fff4e5}
 .m303-in.short{max-width:80px}.m303-out{flex:1;text-align:right;padding:0 10px;font-weight:800;font-variant-numeric:tabular-nums;line-height:32px}
 .m303-hint{margin:6px 2px;font-size:12px;color:#69748a}
-.m303-src{display:flex;justify-content:flex-end;margin:0 10px 4px}.m303-eyebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid #8ea3cf;background:#fff;color:#163b8c;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.m303-eyebtn:hover{background:#f4f6ff}
+.m303-src{display:flex;justify-content:flex-end;margin:0 10px 4px}.m303-eyebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid #8ea3cf;background:#fff;color:#163b8c;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.m303-eyebtn:hover{background:#f4f6ff}.m303-src{gap:8px}.m303-eyebtn.warn{border-color:#e0a23a;color:#9a5b00;background:#fff7e8}
 .m303-ident{display:grid;gap:8px;padding:4px}.m303-ident h6{margin:8px 0 0;font-size:12px;color:#14279b;text-transform:uppercase;letter-spacing:.04em}
 .m303-check{display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;line-height:1.35}.m303-check input{margin-top:2px;accent-color:#14279b}
 .m303-boxes{display:grid;gap:10px;margin-top:6px}.m303-rect{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end;border:1px solid #e3e7ef;border-radius:12px;padding:10px 12px;background:#fafbfd}.m303-rect.on{background:#f3f6ff;border-color:#c9d2ef}.m303-rect .m303-check{width:100%}
