@@ -273,7 +273,28 @@ function renderTaxDraftMain(){
   box.querySelector("[data-td-copy]")?.addEventListener("click",copyTaxDraftBoxes);
   box.querySelector("[data-td-confirm]")?.addEventListener("click",confirmTaxDraft);
 }
-function taxDraftBoxes(boxes,withEyes=true){
+// Modelo 111: casillas agrupadas como en el formulario de la AEAT (tres columnas por apartado).
+function taxDraft111Grid(boxes,withEyes){
+  const map=new Map(boxes.filter(box=>box.n).map(box=>[box.n,box]));
+  const cell=(n,cap="")=>{const box=map.get(n)||{n,value:0,kind:["01","04","07","10","13","16","19","22","25"].includes(n)?"count":"money"},v=Number(box.value)||0;
+    const eye=!withEyes?"":box.eye&&v?`<button type="button" class="td-eye" data-td-eye="${box.eye}" title="Ver lo que compone la casilla ${n}" aria-label="Ver el detalle de la casilla ${n}">${tdEye}</button>`:`<span class="td-eye off" title="Sin datos en la casilla ${n}" aria-label="Sin datos">${tdEyeOff}</span>`;
+    return `<div class="tdg-cell${v?"":" zero"}"><span class="tdg-n">${n}</span><span class="tdg-cap">${cap}</span><span class="tdg-v">${box.kind==="count"?(v||"0"):tdEur(v)}</span>${eye}</div>`};
+  const row=(label,ns,caps=["Nº de perceptores","Importe de las percepciones","Importe de las retenciones"])=>`<div class="tdg-row"><span class="tdg-label">${label}</span>${ns.map((n,i)=>cell(n,caps[i])).join("")}</div>`;
+  const CAPS_ESP=["Nº de perceptores","Valor en especie","Ingresos a cuenta"];
+  const head=(third="Importe de las retenciones")=>`<div class="tdg-row tdg-head"><span></span><span>Nº de perceptores</span><span>Importe de las percepciones</span><span>${third}</span></div>`;
+  const especieHead=`<div class="tdg-row tdg-head tdg-sub"><span></span><span>Nº de perceptores</span><span>Valor percepciones en especie</span><span>Importe de los ingresos a cuenta</span></div>`;
+  const section=(title,a,b,labels=["Dinerarios","En especie"])=>`<section class="tdg-sec"><h6>${title}</h6>${head()}${row(labels[0],a)}${especieHead}${row(labels[1],b,CAPS_ESP)}</section>`;
+  const rest=["13","14","15","16","17","18","19","20","21","22","23","24","25","26","27"].some(n=>Number(map.get(n)?.value)||0);
+  const others=`${section("III. Premios por la participación en juegos, concursos, rifas o combinaciones aleatorias",["13","14","15"],["16","17","18"],["Premios dinerarios","Premios en especie"])}
+    ${section("IV. Ganancias patrimoniales de aprovechamientos forestales en montes públicos",["19","20","21"],["22","23","24"],["Dinerarias","En especie"])}
+    <section class="tdg-sec"><h6>V. Contraprestaciones por la cesión de derechos de imagen (art. 92.8)</h6><div class="tdg-row tdg-head"><span></span><span>Nº de perceptores</span><span>Contraprestaciones satisfechas</span><span>Importe de los ingresos a cuenta</span></div>${row("Dinerarias o en especie",["25","26","27"],["Nº de perceptores","Contraprestaciones","Ingresos a cuenta"])}</section>`;
+  const total=n=>{const box=map.get(n)||{n,value:0},v=Number(box.value)||0;return `<div class="tdg-total${n==="30"?" result":""}"><span class="tdg-label">${escapeHtml(box.label||"")}</span>${cell(n)}</div>`};
+  return `<div class="tdg">${section("I. Rendimientos del trabajo",["01","02","03"],["04","05","06"])}${section("II. Rendimientos de actividades económicas",["07","08","09"],["10","11","12"])}
+    <details class="tdg-more"${rest?" open":""}><summary>III a V · Premios, aprovechamientos forestales y derechos de imagen (casillas 13 a 27)${rest?"":" · sin importes"}</summary>${others}</details>
+    <section class="tdg-sec tdg-tot"><h6>Total liquidación</h6>${total("28")}${total("29")}${total("30")}</section></div>`;
+}
+function taxDraftBoxes(boxes,withEyes=true,model=""){
+  if(model==="111")return taxDraft111Grid(boxes,withEyes);
   return boxes.map(box=>box.heading?`<p class="td-heading">${escapeHtml(box.heading)}</p>`:`<div class="td-box ${box.cls||""}"><span class="td-n">${escapeHtml(box.n)}</span><span class="td-label">${escapeHtml(box.label)}</span><span class="td-value">${tdValue(box)}</span>${withEyes&&box.eye?`<button type="button" class="td-eye" data-td-eye="${box.eye}" title="Ver lo que compone esta casilla" aria-label="Ver el detalle de la casilla ${escapeHtml(box.n)}">${tdEye}</button>`:'<span></span>'}</div>`).join("");
 }
 function taxDraftSignature(draft){return JSON.stringify(draft.boxes.filter(box=>!box.heading).map(box=>[box.n,box.value]))}
@@ -288,7 +309,7 @@ function taxDraftDetail(draft,control){
   const changed=confirmed&&(confirmed.signature?confirmed.signature!==taxDraftSignature(draft):Math.abs((Number(confirmed.result??confirmed.casillas?.["05"])||0)-result)>=0.005);
   const confirmNote=confirmed?`<p class="td-confirmed">${changed?"⚠ El borrador ha cambiado desde que se confirmó: ":"✓ "}Confirmado el ${tdDate(confirmed.confirmedAt)}${confirmed.confirmedBy?` por ${escapeHtml(confirmed.confirmedBy)}`:""} · ${tdEur(confirmed.result??confirmed.casillas?.["05"])}</p>`:"";
   return `<div class="td-detail-head"><b>Borrador modelo ${draft.model} · ${draft.period} ${draft.year}</b><span>${escapeHtml(taxDrafts.clientData?.cif||"")}${taxDrafts.clientData?.cif?" · ":""}${escapeHtml(taxDrafts.client)}</span></div>
-    <div class="td-boxes">${taxDraftBoxes(draft.boxes)}</div>
+    <div class="td-boxes">${taxDraftBoxes(draft.boxes,true,draft.model)}</div>
     <div class="td-checks">${checks.join("")}</div>
     <div class="td-actions">${confirmNote}<button type="button" class="secondary-button" data-td-copy>Copiar casillas</button><button type="button" class="primary blue-button" data-td-confirm>${confirmed?"Confirmar de nuevo":"Confirmar borrador"}</button></div>`;
 }

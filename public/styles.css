@@ -5790,3 +5790,32 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 }
 /* Borradores: no se muestra el aviso de «Datos de AMCOMTA…» cuando la base es correcta (solo los avisos) */
 .td-shell .td-source.ready{display:none!important}
+
+/* Borradores 111: casillas agrupadas como en la AEAT */
+.tdg{display:flex;flex-direction:column;gap:10px}
+.tdg-sec{border:1px solid #e3e7ef;border-radius:12px;padding:8px 12px 10px;background:#fff}
+.tdg-sec h6{margin:0 0 6px;font-size:12.5px;font-weight:800;color:#1d2a44}
+.tdg-row{display:grid;grid-template-columns:minmax(90px,.9fr) repeat(3,minmax(0,1fr));gap:8px;align-items:center;margin-top:4px}
+.tdg-head{margin-top:2px}.tdg-head span{font-size:10.5px;font-weight:700;color:#7a849b;text-transform:uppercase;letter-spacing:.02em;line-height:1.2}
+.tdg-sub{margin-top:8px}
+.tdg-label{font-size:12.5px;color:#3e4a66;font-weight:600}
+.tdg-cell{display:grid;grid-template-columns:auto minmax(0,1fr) 26px;align-items:center;gap:6px;height:34px;padding:0 4px 0 0;border:1px solid #d8deea;border-radius:8px;background:#fbfcfe;overflow:hidden}
+.tdg-cell.zero{background:#f6f7fa}.tdg-cell.zero .tdg-v{color:#9aa3b5;font-weight:600}
+.tdg-n{align-self:stretch;display:grid;place-items:center;min-width:30px;padding:0 4px;background:#eef1f8;color:#56627c;font-size:11px;font-weight:800;border-right:1px solid #d8deea}
+.tdg-v{text-align:right;font-weight:800;font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tdg-cell .td-eye{width:26px;height:26px}.tdg-cell .td-eye.off{opacity:.45;display:grid;place-items:center;cursor:default}
+.tdg-more{border:1px dashed #d8deea;border-radius:12px;padding:6px 12px;background:#fafbfd}
+.tdg-more summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#56627c;padding:4px 0}
+.tdg-more[open] summary{margin-bottom:8px}.tdg-more .tdg-sec{margin-bottom:8px}
+.tdg-total{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,240px);gap:10px;align-items:center;padding:4px 0}
+.tdg-total.result{border-top:2px solid var(--ink);margin-top:4px;padding-top:8px}.tdg-total.result .tdg-label{font-weight:800;color:var(--ink)}.tdg-total.result .tdg-v{font-size:15px}
+@media(max-width:760px){.tdg-row{grid-template-columns:repeat(3,minmax(0,1fr))}.tdg-row>.tdg-label{grid-column:1/-1}.tdg-head>span:first-child{display:none}.tdg-head span{font-size:9.5px}.tdg-total{grid-template-columns:1fr}.tdg-v{font-size:12.5px}.tdg-cell{grid-template-columns:auto minmax(0,1fr) 22px}.tdg-n{min-width:24px}}
+.tdg-cap{display:none}
+@media(max-width:760px){
+  .tdg-head{display:none!important}
+  .tdg-row{grid-template-columns:1fr!important;gap:6px;margin-top:8px}
+  .tdg-cell{grid-template-columns:32px minmax(0,1fr) auto 26px;height:38px}
+  .tdg-cap{display:block;font-size:12px;color:#56627c;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:2px}
+  .tdg-v{font-size:13.5px;overflow:visible}
+  .tdg-total .tdg-cell{grid-template-columns:32px 0 1fr 26px}
+}
