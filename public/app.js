@@ -3046,6 +3046,14 @@ function invoiceWithoutAccounting(){const data=invoiceAccounting.data;return Boo
 const INVOICE_INTRA_KEYS={E:"Entrega intracomunitaria de bienes",S:"Prestación de servicios",A:"Adquisición de bienes",I:"Adquisición de servicios",T:"Operación triangular",M:"Entrega tras importación exenta",H:"Entrega tras importación exenta (repr. fiscal)",R:"Transferencia en consigna",D:"Devolución en consigna",C:"Sustitución en consigna"};
 function invoiceIntraKeys(received){return(received?["A","I","E","S","T","M","H","R","D","C"]:["E","S","A","I","T","M","H","R","D","C"]).map(key=>[key,INVOICE_INTRA_KEYS[key]])}
 // La otra parte de la factura (proveedor en recibidas, cliente en emitidas) nunca puede ser el propio cliente del despacho.
+function invoiceTaxIdValid(value){
+  const n=String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(/^\d{8}[A-Z]$/.test(n))return "TRWAGMYFPDXBNJZSQVHLCKE"[Number(n.slice(0,8))%23]===n[8];
+  if(/^[XYZ]\d{7}[A-Z]$/.test(n))return "TRWAGMYFPDXBNJZSQVHLCKE"[Number("XYZ".indexOf(n[0])+n.slice(1,8))%23]===n[8];
+  if(/^[KLM]\d{7}[A-Z]$/.test(n))return true;
+  if(/^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/.test(n))return true;
+  return /^(?!ES)[A-Z]{2}[0-9A-Z]{2,13}$/.test(n);
+}
 function invoiceSelfParty(record){
   const client=invoiceAccounting.client,cif=invoiceAccounting.cif||"",nif=String(record.supplierNif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(cif&&nif&&(nif===cif||nif.replace(/^ES/,"")===cif))return true;
@@ -3089,6 +3097,7 @@ function renderInvoiceDraft(records){
     // Sin columnas de concepto ni observaciones: el ojo abre la factura y, si hay algo que revisar, un aviso lo indica.
     if(field==="preview")return `<td class="invoice-preview-cell"><button type="button" class="invoice-preview-button${record.observation?" has-warning":""}" data-invoice-preview="${index}" title="${safeValue(record.observation?`Ver la factura · ${record.observation}`:"Ver la factura")}" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}${record.observation?'<span class="invoice-warning-dot" aria-hidden="true">!</span>':""}</button></td>`;
     if(field==="number")return `<td>${input(index,"number",record.number||"",`placeholder="Sin número"${invoiceNumberSuspicious(record.number)?' class="needs-account"':""}`)}</td>`;
+    if(field==="supplierNif"&&!invoiceSelfParty(record)&&!invoiceTaxIdValid(record.supplierNif))return `<td>${input(index,field,record[field]||"",`class="needs-account" title="${record.supplierNif?"NIF con formato no válido: debe empezar por letra (sociedad/NIE) o acabar en letra (persona física)":"Falta el NIF de la contraparte"}"`)}</td>`;
     if((field==="supplier"||field==="supplierNif")&&invoiceSelfParty(record))return `<td>${input(index,field,record[field]||"",`class="needs-account" title="${issued?"El cliente de la factura":"El proveedor"} no puede ser ${safeValue(invoiceAccounting.client)}: corrígelo"`)}</td>`;
     return `<td${numericField(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`;
   };
@@ -4583,7 +4592,8 @@ setInterval(refreshSuggestions,15000);
   }
   const num=v=>{const n=typeof v==="number"?v:Number(String(v??"").replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",","."));return Number.isFinite(n)?n:0};
   const dinero=v=>num(v).toFixed(2);
-  const nif=v=>String(v||"").toUpperCase().replace(/[\s.\-]/g,"").replace(/^ES(?=[A-Z0-9]{9}$)/,"");
+  // Un NIF español empieza por letra (persona jurídica, NIE) o acaba en letra (persona física); sólo dígitos es un teléfono u otro dato.
+  const nif=v=>{const n=String(v||"").toUpperCase().replace(/[\s.\-\/]/g,"").replace(/^ES(?=[A-Z0-9]{9}$)/,"");return /^\d+$/.test(n)?"":n};
   function fecha(v){
     const t=String(v||"").trim();let m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return `${m[3].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[1]}`;
     m=t.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/);if(m)return `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3].length===2?"20"+m[3]:m[3]}`;
@@ -4594,7 +4604,8 @@ setInterval(refreshSuggestions,15000);
     // Si la IA ha puesto al propio cliente como la otra parte y la otra casilla es distinta, se intercambian.
     {const cif=invoiceAccounting.cif||"",clean=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^ES(?=[0-9A-Z]{9}$)/,"");
       const mine=emitida?{n:f.receptor_nif,name:f.receptor_nombre}:{n:f.emisor_nif,name:f.emisor_nombre},other=emitida?{n:f.emisor_nif,name:f.emisor_nombre}:{n:f.receptor_nif,name:f.receptor_nombre};
-      if(cif&&clean(mine.n)===cif&&other.name&&clean(other.n)!==cif){if(emitida){f={...f,receptor_nif:other.n,receptor_nombre:other.name,emisor_nif:mine.n,emisor_nombre:mine.name}}else{f={...f,emisor_nif:other.n,emisor_nombre:other.name,receptor_nif:mine.n,receptor_nombre:mine.name}}}}
+      const isMe=p=>(cif&&clean(p.n)===cif)||Boolean(client&&p.name&&typeof declarationClientScore==="function"&&declarationClientScore(client,normalizeFiscalText(String(p.name)))>=0.8);
+      if(isMe(mine)&&other.name&&!isMe(other)){if(emitida){f={...f,receptor_nif:other.n,receptor_nombre:other.name,emisor_nif:mine.n,emisor_nombre:mine.name}}else{f={...f,emisor_nif:other.n,emisor_nombre:other.name,receptor_nif:mine.n,receptor_nombre:mine.name}}}}
 
     const tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
     const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
