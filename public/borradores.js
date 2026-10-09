@@ -417,7 +417,10 @@ function openTaxDraftSide(kind,draft){
     toggleTaxDraftEspecie(draft.model,draft.period,input.dataset.tdEspecie,input.checked);
     openTaxDraftSide(kind,taxDraftBuild(draft.model,draft.period));
   }));
-  document.querySelector("#tdShade").hidden=false;document.querySelector("#tdSide").classList.add("on");
+  // El panel y su sombreado se sacan al nivel de la ventana para tapar también el menú lateral.
+  const shade=document.querySelector("#tdShade"),panel=document.querySelector("#tdSide");
+  if(shade.parentElement!==document.body){document.querySelectorAll("body > #tdShade, body > #tdSide").forEach(el=>{if(el!==shade&&el!==panel)el.remove()});document.body.append(shade,panel)}
+  shade.hidden=false;panel.classList.add("on");document.body.classList.add("td-side-open");
 }
 function taxDraftLists(kind,draft,editable){
   if(kind==="people")return `<table class="td-list"><thead><tr><th>Arrendador</th><th>NIF</th><th>Cuenta</th><th class="num">Facturas</th><th class="num">Base</th><th class="num">Retención</th></tr></thead><tbody>${draft.people.map(person=>{const list=draft.lists.alquileres.filter(item=>(item.nif||item.cuenta)===(person.nif||person.cuenta));return `<tr><td>${escapeHtml(person.nombre)}</td><td>${escapeHtml(person.nif)}</td><td>${escapeHtml(person.cuenta)}</td><td class="num">${list.length}</td><td class="num">${tdEur(tdSum(list,"base"))}</td><td class="num">${tdEur(tdSum(list,"retencion"))}</td></tr>`}).join("")}</tbody></table>`;
@@ -488,7 +491,7 @@ async function fillTaxDraftInvoiceFiles(container,client,items){
     else cell.innerHTML=`<span class="td-eye off" title="No está la factura en CLIENTES/${escapeHtml(client)}/CONTABILIDAD/${escapeHtml(year)}/${escapeHtml(quarters[0]||"")}/RECIBIDAS" aria-label="Factura no encontrada">${tdEyeOff}</span>`;
   }
 }
-function closeTaxDraftSide(){document.querySelector("#tdShade")?.setAttribute("hidden","");document.querySelector("#tdSide")?.classList.remove("on")}
+function closeTaxDraftSide(){document.querySelector("#tdShade")?.setAttribute("hidden","");document.querySelector("#tdSide")?.classList.remove("on");document.body.classList.remove("td-side-open")}
 document.addEventListener("keydown",event=>{if(event.key==="Escape"&&document.querySelector("#tdSide.on"))closeTaxDraftSide()});
 
 /* --- Borrador confirmado, visible desde Control de declaraciones hasta que esté la declaración real --- */

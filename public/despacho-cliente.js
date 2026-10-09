@@ -82,4 +82,4 @@
 })();
 
 // Modelo 347 en Borradores (archivo aparte).
-(()=>{for(const src of ["/m347.js?v=7","/m123.js?v=5","/aeat-ficheros.js?v=10","/m190.js?v=6","/m180.js?v=6","/m130.js?v=11","/m349.js?v=1","/m303.js?v=19"]){const s=document.createElement("script");s.src=src;document.body.append(s)}})();
+(()=>{for(const src of ["/m347.js?v=7","/m123.js?v=5","/aeat-ficheros.js?v=10","/m190.js?v=6","/m180.js?v=6","/m130.js?v=11","/m349.js?v=1","/m303.js?v=20"]){const s=document.createElement("script");s.src=src;document.body.append(s)}})();

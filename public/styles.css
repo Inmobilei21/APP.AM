@@ -5897,3 +5897,7 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .td-done{background:#e9f7ec!important;border-color:#16784a!important;color:#16784a!important}
 .td-table tr.td-q.td-flash>td{animation:tdFlash 2.2s ease-out}
 @keyframes tdFlash{0%,35%{background:#dff3e6}100%{background:transparent}}
+/* Panel lateral de Borradores: por encima de todo (menú incluido) y sin dejar usar nada más mientras está abierto */
+.td-shade{z-index:1500!important;background:rgba(14,24,53,.42)!important}
+.td-side{z-index:1501!important}
+.td-side-open .suggestion-launcher,.td-side-open .chat-launcher{visibility:hidden}
