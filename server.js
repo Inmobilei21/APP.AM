@@ -957,7 +957,7 @@ http.createServer((req, res) => {
     try { client = cleanText(decodeURIComponent(String(req.headers["x-client"] || "")), 160); } catch {}
     const contentType = String(req.headers["content-type"] || "").split(";")[0].trim();
     return readBuffer(req, invoiceReader.MAX_FILE_BYTES + 1024)
-      .then(buffer => invoiceReader.readInvoice(buffer, name, contentType, client))
+      .then(buffer => { let clientNif = "", tipo = ""; try { clientNif = cleanText(decodeURIComponent(String(req.headers["x-client-nif"] || "")), 20); tipo = String(req.headers["x-invoice-type"] || "").toLowerCase(); } catch {} return invoiceReader.readInvoice(buffer, name, contentType, client, { nif: clientNif, tipo }); })
       .then(result => json(res, 200, result))
       .catch(error => { console.error("Lector de facturas:", error.message); json(res, error.status && error.status < 600 ? (error.status >= 500 ? 502 : error.status) : 502, { error: error.message || "No se pudo leer la factura." }); });
   }

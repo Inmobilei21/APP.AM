@@ -113,7 +113,7 @@ async function callClaude(body) {
   return data;
 }
 
-async function readInvoice(buffer, name, contentType, client) {
+async function readInvoice(buffer, name, contentType, client, extra = {}) {
   if (!process.env.ANTHROPIC_API_KEY) { const e = new Error("Falta la clave ANTHROPIC_API_KEY en el servidor."); e.status = 503; throw e; }
   if (!buffer.length) { const e = new Error("El archivo está vacío."); e.status = 400; throw e; }
   if (buffer.length > MAX_FILE_BYTES) { const e = new Error("El archivo supera los 25 MB."); e.status = 413; throw e; }
@@ -122,6 +122,8 @@ async function readInvoice(buffer, name, contentType, client) {
 
   const instructions = [
     "Eres un asistente de una asesoría fiscal española. Extrae los datos de la factura adjunta y devuélvelos con la herramienta guardar_facturas.",
+    client && extra.tipo === "recibidas" ? `Son facturas RECIBIDAS por el cliente del despacho "${client}"${extra.nif ? ` (NIF ${extra.nif})` : ""}: el cliente es SIEMPRE el receptor. El emisor es el proveedor que vende o presta el servicio (búscalo en el logotipo, la cabecera, el pie, el registro mercantil o «el firmante»), aunque los datos del cliente aparezcan en un recuadro como «Datos fiscales». Nunca pongas al cliente como emisor.` :
+    client && extra.tipo === "emitidas" ? `Son facturas EMITIDAS por el cliente del despacho "${client}"${extra.nif ? ` (NIF ${extra.nif})` : ""}: el cliente es SIEMPRE el emisor y el receptor es su cliente. Nunca pongas al cliente del despacho como receptor.` :
     client ? `La documentación pertenece al cliente del despacho "${client}". Normalmente es el receptor (factura recibida); si es el emisor, indícalo en observaciones.` : "",
     `Nombre del archivo: ${name}`,
     "Reglas:",

@@ -2824,7 +2824,7 @@ function refreshDraftAccounts(){
 }
 async function loadInvoiceAccounting(client){
   invoiceAccounting={client,data:null,loading:client?"Buscando la contabilidad de AMCOMTA del cliente…":false};renderInvoiceAccountingStatus();if(!client)return;
-  try{const [data,clients]=await Promise.all([apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`).catch(()=>null),getAllClientMetadata().catch(()=>[])]);if(invoiceAccounting.client!==client)return;invoiceAccounting.data=data;invoiceAccounting.fisica=(clients.find(item=>item.id===client||item.name===client)?.personType||"juridica")==="fisica"}catch{}
+  try{const [data,clients]=await Promise.all([apiJson(`/api/contabilidad/base?client=${encodeURIComponent(client)}`).catch(()=>null),getAllClientMetadata().catch(()=>[])]);if(invoiceAccounting.client!==client)return;invoiceAccounting.data=data;const meta=clients.find(item=>item.id===client||item.name===client);invoiceAccounting.fisica=(meta?.personType||"juridica")==="fisica";invoiceAccounting.cif=String(meta?.cif||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}catch{}
   invoiceAccounting.loading=false;renderInvoiceAccountingStatus();refreshDraftAccounts();
 }
 async function uploadInvoiceAccounting(file){
@@ -3003,6 +3003,8 @@ function appConfirm({eyebrow="",title="",subtitle="",steps=[],message="",ok="Ace
 async function confirmInvoiceDraft(client){
   const records=readInvoiceDraft(),received=invoiceReceivedMode(),kind=received?"RECIBIDAS":"EMITIDAS",groups=invoiceDocumentGroups(records);
   if(!groups.length&&!invoiceIgnoredDocs.length){alert("No hay facturas en el borrador.");return""}
+  const self=groups.filter(group=>invoiceSelfParty(group.record));
+  if(self.length){alert(`${received?"El proveedor":"El cliente"} de ${self.length===1?"la factura":"las facturas"} ${self.map(group=>group.record.number||group.record.file).slice(0,8).join(", ")} es ${client}, que es quien ${received?"recibe":"emite"} las facturas. Corrige ${received?"el proveedor":"el cliente"} (nombre y NIF) antes de confirmar.`);return""}
   const noDate=groups.filter(group=>!invoiceDateParts(group.record.date));
   if(noDate.length){alert(`Corrige la fecha (DD/MM/AAAA) de ${noDate.length===1?"la factura":"las facturas"} ${noDate.map(group=>group.record.number||group.record.supplier||group.record.file).slice(0,8).join(", ")}${noDate.length>8?"…":""}: hace falta para guardarla en su trimestre.`);return""}
   const others=otherDocumentGroups(groups);
@@ -3043,6 +3045,13 @@ function invoiceWithoutAccounting(){const data=invoiceAccounting.data;return Boo
 // recibidas (adquisiciones de bienes y servicios).
 const INVOICE_INTRA_KEYS={E:"Entrega intracomunitaria de bienes",S:"Prestación de servicios",A:"Adquisición de bienes",I:"Adquisición de servicios",T:"Operación triangular",M:"Entrega tras importación exenta",H:"Entrega tras importación exenta (repr. fiscal)",R:"Transferencia en consigna",D:"Devolución en consigna",C:"Sustitución en consigna"};
 function invoiceIntraKeys(received){return(received?["A","I","E","S","T","M","H","R","D","C"]:["E","S","A","I","T","M","H","R","D","C"]).map(key=>[key,INVOICE_INTRA_KEYS[key]])}
+// La otra parte de la factura (proveedor en recibidas, cliente en emitidas) nunca puede ser el propio cliente del despacho.
+function invoiceSelfParty(record){
+  const client=invoiceAccounting.client,cif=invoiceAccounting.cif||"",nif=String(record.supplierNif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(cif&&nif&&(nif===cif||nif.replace(/^ES/,"")===cif))return true;
+  const name=String(record.supplier||"").trim();
+  return Boolean(client&&name&&typeof declarationClientScore==="function"&&declarationClientScore(client,normalizeFiscalText(name))>=0.8);
+}
 function sortInvoiceRecords(records){
   const day=value=>{const d=invoiceDateParts(value);return d?`${d.year}${d.month}${d.day}`:"99999999"};
   const keyed=records.map((record,index)=>({record,index,name:String(record.supplier||"").trim()}));
@@ -3080,6 +3089,7 @@ function renderInvoiceDraft(records){
     // Sin columnas de concepto ni observaciones: el ojo abre la factura y, si hay algo que revisar, un aviso lo indica.
     if(field==="preview")return `<td class="invoice-preview-cell"><button type="button" class="invoice-preview-button${record.observation?" has-warning":""}" data-invoice-preview="${index}" title="${safeValue(record.observation?`Ver la factura · ${record.observation}`:"Ver la factura")}" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}${record.observation?'<span class="invoice-warning-dot" aria-hidden="true">!</span>':""}</button></td>`;
     if(field==="number")return `<td>${input(index,"number",record.number||"",`placeholder="Sin número"${invoiceNumberSuspicious(record.number)?' class="needs-account"':""}`)}</td>`;
+    if((field==="supplier"||field==="supplierNif")&&invoiceSelfParty(record))return `<td>${input(index,field,record[field]||"",`class="needs-account" title="${issued?"El cliente de la factura":"El proveedor"} no puede ser ${safeValue(invoiceAccounting.client)}: corrígelo"`)}</td>`;
     return `<td${numericField(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`;
   };
   body.innerHTML=records.map((record,index)=>`<tr${received&&record.vatWarning&&!record.vatToBase?' class="vat-warning"':""}>${columns.map(([field])=>cell(index,record,field)).join("")}</tr>`).join("");
@@ -4581,6 +4591,11 @@ setInterval(refreshSuggestions,15000);
   }
   function aRegistros(f,file,client,varias,orden=0){
     const emitida=invoiceProcessorType()==="emitidas";
+    // Si la IA ha puesto al propio cliente como la otra parte y la otra casilla es distinta, se intercambian.
+    {const cif=invoiceAccounting.cif||"",clean=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^ES(?=[0-9A-Z]{9}$)/,"");
+      const mine=emitida?{n:f.receptor_nif,name:f.receptor_nombre}:{n:f.emisor_nif,name:f.emisor_nombre},other=emitida?{n:f.emisor_nif,name:f.emisor_nombre}:{n:f.receptor_nif,name:f.receptor_nombre};
+      if(cif&&clean(mine.n)===cif&&other.name&&clean(other.n)!==cif){if(emitida){f={...f,receptor_nif:other.n,receptor_nombre:other.name,emisor_nif:mine.n,emisor_nombre:mine.name}}else{f={...f,emisor_nif:other.n,emisor_nombre:other.name,receptor_nif:mine.n,receptor_nombre:mine.name}}}}
+
     const tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
     const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
     const recargo=num(f.recargo_equivalencia),ret=Math.abs(num(f.retencion_importe)),total=num(f.total);
@@ -4611,7 +4626,7 @@ setInterval(refreshSuggestions,15000);
     });
   }
   async function leerConIA(file,client){
-    const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||"")},body:file});
+    const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||""),"X-Client-Nif":encodeURIComponent(invoiceAccounting.client===client?invoiceAccounting.cif||"":""),"X-Invoice-Type":invoiceProcessorType()},body:file});
     const data=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(data.error||`Error ${r.status}`);
     const lista=Array.isArray(data.facturas)?data.facturas:[];
