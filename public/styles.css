@@ -5901,3 +5901,16 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .td-shade{z-index:1500!important;background:rgba(14,24,53,.42)!important}
 .td-side{z-index:1501!important}
 .td-side-open .suggestion-launcher,.td-side-open .chat-launcher{visibility:hidden}
+/* Cuentas no creadas en AMCOMTA */
+.app-confirm-box.am-new-box{width:min(1080px,calc(100vw - 32px));max-width:none}
+.am-new-wrap{overflow-x:auto;margin:6px 0 8px;padding:0 22px}
+.am-new{width:100%;border-collapse:collapse;font-size:13px}
+.am-new th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#64748b;text-align:left;padding:6px 6px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+.am-new td{padding:5px 4px;border-bottom:1px solid #f1f5f9}
+.am-new input,.am-new select{width:100%;box-sizing:border-box;border:1px solid #d6dbe6;border-radius:8px;padding:6px 8px;font:inherit;background:#fff;min-width:0}
+.am-new td:nth-child(1){width:118px}.am-new td:nth-child(3){width:118px}.am-new td:nth-child(4){width:140px}.am-new td:nth-child(5){width:230px}.am-new td:nth-child(6){width:52px}
+.am-new .am-new-pais{text-align:center;text-transform:uppercase}
+.am-new .am-new-n{text-align:center;color:#64748b;width:40px}
+.am-new input.needs-account{border-color:#f0a3a3;background:#fff4f4}
+.am-new tr.am-new-bad td{background:#fff1f1}
+.app-confirm-sub.am-new-error{color:#b42318;font-weight:600}

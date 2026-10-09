@@ -937,6 +937,15 @@ http.createServer((req, res) => {
       json(res, 200, { added, updated });
     }).catch(error => json(res, 400, { error: error.message === "Payload too large" ? "Demasiadas facturas de una vez." : "No se han podido guardar las facturas." }));
   }
+  if (requestPath === "/api/contabilidad/fichas" && req.method === "POST") {
+    if (!requireUser(req, res)) return;
+    return readJson(req).then(({ client, fichas }) => {
+      client = cleanText(client, 200);
+      if (!client || !Array.isArray(fichas)) return json(res, 400, { error: "Datos incompletos." });
+      const record = amcomta.addAccounts(client, fichas.slice(0, 200));
+      return record ? json(res, 200, record) : json(res, 404, { error: "El cliente no tiene base de AMCOMTA." });
+    }).catch(() => json(res, 400, { error: "No se han podido guardar las cuentas." }));
+  }
   if (requestPath === "/api/contabilidad/base" && ["GET", "POST", "DELETE"].includes(req.method)) {
     const user = requireUser(req, res);if (!user) return;
     const params = new URL(req.url, "http://localhost").searchParams;

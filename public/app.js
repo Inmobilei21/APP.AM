@@ -3000,19 +3000,93 @@ function appConfirm({eyebrow="",title="",subtitle="",steps=[],message="",ok="Ace
     document.addEventListener("keydown",keys);document.body.append(shade);shade.querySelector('[data-confirm="1"]').focus();
   });
 }
+/* ===== Cuentas no creadas en AMCOMTA: se proponen al importar con su ficha (NIF, tipo de entidad, modalidad y país) ===== */
+const AM_MODALIDADES=["Régimen general","Intracomunitario (Bienes)","Intracomunitario (Servicios)","Extracomunitario (Bienes)","Extracomunitario (Servicios)","Extracomunitario (Asimiladas)","Operaciones sujetas a IPSI / IGIC","Inversión sujeto pasivo","Operaciones no sujetas reglas localización","Operaciones no sujetas (Interiores)","Operaciones exentas (Interiores)","Operaciones exentas (Otras)","Régimen especial agric. (REAGYP)","Régimen especial bienes usados (REBU)","Régimen especial agencias de viaje","Régimen especial oro de inversión","Régimen especial grupos de entidades","Régimen fiscal / aduanero / Zonas francas","Operaciones no sujetas acogidas OSS","Operaciones sujetas acogidas al OSS"];
+const AM_ENTIDADES=[["fisica","Persona física"],["juridica","Persona jurídica"],["sin","Sin determinar"]];
+const AM_EU=new Set("AT BE BG CY CZ DE DK EE EL GR ES FI FR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK XI".split(" "));
+function amNewAccountDefaults(record){
+  const raw=String(record.supplierNif||"").toUpperCase().replace(/[^A-Z0-9]/g,""),spanish=/^(ES)?([0-9XYZKLM]\d{7}[A-Z]|[A-W]\d{7}[0-9A-J])$/.test(raw);
+  const pais=spanish?"ES":(/^[A-Z]{2}(?=[0-9A-Z]{2,})/.test(raw)&&!/^[A-W]\d/.test(raw)?raw.slice(0,2):"")||String(record.supplierCountry||"").toUpperCase()||"ES";
+  const nif=raw.replace(/^ES(?=[0-9A-Z]{9}$)/,"");
+  const tipoEntidad=pais!=="ES"?"sin":/^[0-9XYZKLM]/.test(nif)?"fisica":/^[A-W]/.test(nif)?"juridica":"sin";
+  const key=String(record.clave349||"").toUpperCase(),servicios=key==="I"||key==="S";
+  const modalidad=record.intracom?(servicios?2:1):pais==="ES"?0:AM_EU.has(pais)?1:3;
+  return{nif,pais,tipoEntidad,modalidad};
+}
+function amNextAccounts(count){
+  const list=(invoiceAccounting.data?.proveedores||[]).map(item=>item.cuenta).filter(code=>/^4[01]0\d+$/.test(code)),digits=invoiceAccounting.data?.digitos||10;
+  const prefix=(()=>{const counts=new Map();list.forEach(code=>counts.set(code.slice(0,3),(counts.get(code.slice(0,3))||0)+1));return[...counts].sort((a,b)=>b[1]-a[1])[0]?.[0]||"410"})();
+  const used=new Set(list),numbers=list.filter(code=>code.startsWith(prefix)&&code.length===digits&&!/999$/.test(code)).map(code=>Number(code.slice(3)));
+  let next=(numbers.length?Math.max(...numbers):0)+1;const out=[];
+  while(out.length<count){const code=prefix+String(next++).padStart(digits-3,"0");if(!used.has(code))out.push(code)}
+  return out;
+}
+function amMissingAccounts(groups){
+  const known=account=>Boolean(amSupplier(account)),seen=new Map();
+  for(const group of groups){
+    const record=group.record,account=amAccount(record.supplierAccount);
+    if(account&&known(account))continue;
+    if(/^4[01]0+9999$/.test(account))continue;
+    const key=amNif(record.supplierNif)||normalizeFiscalClient(record.supplier);if(!key)continue;
+    if(!seen.has(key))seen.set(key,{record,account,groups:[]});
+    seen.get(key).groups.push(group);
+  }
+  return[...seen.values()];
+}
+function amCreateAccountsDialog(missing){
+  return new Promise(resolve=>{
+    const codes=amNextAccounts(missing.length);
+    const rows=missing.map((item,index)=>{const d=amNewAccountDefaults(item.record),code=item.account||codes[index];
+      return `<tr data-am-new="${index}"><td><input data-f="cuenta" value="${escapeHtml(code)}" inputmode="numeric" maxlength="12"></td><td><input data-f="nombre" value="${escapeHtml(String(item.record.supplier||"").toUpperCase())}" maxlength="100"></td><td><input data-f="nif" value="${escapeHtml(d.nif)}" maxlength="20"${invoiceTaxIdValid(d.nif)?"":' class="needs-account" title="Revisa el NIF"'}></td><td><select data-f="tipoEntidad">${AM_ENTIDADES.map(([v,l])=>`<option value="${v}"${v===d.tipoEntidad?" selected":""}>${l}</option>`).join("")}</select></td><td><select data-f="modalidad">${AM_MODALIDADES.map((l,i)=>`<option value="${i}"${i===d.modalidad?" selected":""}>${escapeHtml(l)}</option>`).join("")}</select></td><td><input data-f="pais" value="${escapeHtml(d.pais)}" maxlength="2" class="am-new-pais"></td><td class="am-new-n">${item.groups.length}</td></tr>`}).join("");
+    const shade=document.createElement("div");shade.className="app-confirm";shade.setAttribute("role","dialog");shade.setAttribute("aria-modal","true");
+    shade.innerHTML=`<div class="app-confirm-box am-new-box"><header><p class="eyebrow">CUENTAS NO CREADAS</p><h3>${missing.length===1?"1 proveedor no tiene":`${missing.length} proveedores no tienen`} cuenta en AMCOMTA</h3><p class="app-confirm-sub">¿Crearlas? Revisa los datos de la ficha: el asiento se importará con esta cuenta, su nombre y su NIF.</p></header>
+      <div class="am-new-wrap"><table class="am-new"><thead><tr><th>Cuenta</th><th>Razón social</th><th>NIF</th><th>Tipo entidad</th><th>Modalidad fiscal</th><th>País</th><th>Fras.</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <footer><button type="button" class="secondary-button" data-am="cancel">Revisar</button><button type="button" class="secondary-button" data-am="skip">Importar sin crear</button><button type="button" class="primary blue-button" data-am="ok">Crear cuentas y continuar</button></footer></div>`;
+    const done=value=>{document.removeEventListener("keydown",keys);shade.classList.add("out");setTimeout(()=>shade.remove(),160);resolve(value)};
+    const keys=event=>{if(event.key==="Escape")done(null)};
+    shade.addEventListener("input",event=>{const el=event.target;if(el.dataset.f==="nif"){const d=amNewAccountDefaults({supplierNif:el.value});el.classList.toggle("needs-account",!invoiceTaxIdValid(el.value));const row=el.closest("tr");row.querySelector('[data-f="tipoEntidad"]').value=d.tipoEntidad;row.querySelector('[data-f="pais"]').value=d.pais}if(el.dataset.f==="pais")el.value=el.value.toUpperCase()});
+    shade.addEventListener("click",event=>{
+      const button=event.target.closest("[data-am]");if(!button){if(event.target===shade)done(null);return}
+      if(button.dataset.am==="cancel")return done(null);if(button.dataset.am==="skip")return done("skip");
+      const fichas=[...shade.querySelectorAll("tr[data-am-new]")].map(row=>{const v=f=>row.querySelector(`[data-f="${f}"]`).value.trim();return{index:Number(row.dataset.amNew),cuenta:amAccount(v("cuenta")),nombre:v("nombre"),nif:v("nif").toUpperCase().replace(/[^A-Z0-9]/g,""),tipoEntidad:v("tipoEntidad"),modalidad:Number(v("modalidad")),pais:v("pais").toUpperCase()}});
+      const bad=fichas.find(f=>!/^4[01]0\d+$/.test(f.cuenta)||!f.nombre),dup=fichas.find((f,i)=>fichas.findIndex(g=>g.cuenta===f.cuenta)!==i||amSupplier(f.cuenta)&&!missing[f.index].account);
+      if(bad||dup){const row=shade.querySelector(`tr[data-am-new="${(bad||dup).index}"]`);row?.classList.add("am-new-bad");setTimeout(()=>row?.classList.remove("am-new-bad"),1200);const box=shade.querySelector(".app-confirm-sub");box.textContent=bad?"Cada cuenta necesita un código 400/410 y la razón social.":`La cuenta ${dup.cuenta} está repetida o ya existe.`;box.classList.add("am-new-error");return}
+      done(fichas);
+    });
+    document.addEventListener("keydown",keys);document.body.append(shade);shade.querySelector('[data-am="ok"]').focus();
+  });
+}
+async function amCreateMissingAccounts(groups,client){
+  const missing=amMissingAccounts(groups);if(!missing.length)return true;
+  const result=await amCreateAccountsDialog(missing);
+  if(result===null)return false;if(result==="skip")return true;
+  const fichas=result.map(f=>{const item=missing[f.index];return{...f,gasto:amAccount(item.record.expenseAccount)}});
+  // El borrador pasa a usar la cuenta nueva en todas las líneas de esas facturas.
+  result.forEach(f=>{const keys=new Set(missing[f.index].groups.map(group=>group.key));invoiceDraftRecords.forEach((record,index)=>{if(!keys.has(record.group||`fila-${index}`))return;const input=document.querySelector(`#invoiceDraftRows input[data-invoice-row="${index}"][data-invoice-field="supplierAccount"]`);if(input){input.value=f.cuenta;input.classList.remove("needs-account")}const name=document.querySelector(`#invoiceDraftRows input[data-invoice-row="${index}"][data-invoice-field="supplier"]`);if(name&&!name.value.trim())name.value=f.nombre})});
+  try{
+    const response=await fetch("/api/contabilidad/fichas",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({client,fichas})});
+    if(response.ok){invoiceAccounting.data=await response.json();renderInvoiceAccountingStatus?.()}
+    else throw new Error();
+  }catch{const list=invoiceAccounting.data.proveedores||(invoiceAccounting.data.proveedores=[]);fichas.forEach(f=>list.push({...f,nueva:true,facturas:0}))}
+  invoiceAccounting.created=[...(invoiceAccounting.created||[]),...fichas];
+  return true;
+}
 async function confirmInvoiceDraft(client){
-  const records=readInvoiceDraft(),received=invoiceReceivedMode(),kind=received?"RECIBIDAS":"EMITIDAS",groups=invoiceDocumentGroups(records);
+  let records=readInvoiceDraft(),groups=invoiceDocumentGroups(records);const received=invoiceReceivedMode(),kind=received?"RECIBIDAS":"EMITIDAS";
   if(!groups.length&&!invoiceIgnoredDocs.length){alert("No hay facturas en el borrador.");return""}
   const self=groups.filter(group=>invoiceSelfParty(group.record));
   if(self.length){alert(`${received?"El proveedor":"El cliente"} de ${self.length===1?"la factura":"las facturas"} ${self.map(group=>group.record.number||group.record.file).slice(0,8).join(", ")} es ${client}, que es quien ${received?"recibe":"emite"} las facturas. Corrige ${received?"el proveedor":"el cliente"} (nombre y NIF) antes de confirmar.`);return""}
   const noDate=groups.filter(group=>!invoiceDateParts(group.record.date));
   if(noDate.length){alert(`Corrige la fecha (DD/MM/AAAA) de ${noDate.length===1?"la factura":"las facturas"} ${noDate.map(group=>group.record.number||group.record.supplier||group.record.file).slice(0,8).join(", ")}${noDate.length>8?"…":""}: hace falta para guardarla en su trimestre.`);return""}
-  const others=otherDocumentGroups(groups);
   let entries=null;
+  if(received&&groups.length&&!invoiceWithoutAccounting()&&invoiceAccounting.data?.proveedores?.length){if(!await amCreateMissingAccounts(groups,client))return"";records=readInvoiceDraft();groups=invoiceDocumentGroups(records)}
+  const others=otherDocumentGroups(groups);
   if(received&&groups.length&&!invoiceWithoutAccounting()){entries=amcomtaEntriesText(records);if(entries.missing&&!await appConfirm({eyebrow:"FALTAN CUENTAS",title:`${entries.missing} de ${entries.invoices} ${entries.invoices===1?"factura no tiene":"facturas no tienen"} cuenta`,message:"Les falta la cuenta de proveedor, de gasto o de retención. Se importarán con la cuenta vacía.",ok:"Continuar igualmente",cancel:"Revisar"}))return""}
   const otherText=others.length?` y ${others.length} ${others.length===1?"documento":"documentos"} en OTROS DOCUMENTOS`:"";
   const steps=[];
   if(entries)steps.push(["⇪",`${entries.invoices} ${entries.invoices===1?"asiento":"asientos"} a la carpeta de importación de AMCOMTA`]);
+  const newAccounts=(invoiceAccounting.created||[]).filter(f=>records.some(record=>amAccount(record.supplierAccount)===f.cuenta));
+  if(entries&&newAccounts.length)steps.push(["＋",`${newAccounts.length===1?"Cuenta nueva":"Cuentas nuevas"}: ${newAccounts.map(f=>`${f.cuenta} ${f.nombre}${f.nif?` (${f.nif})`:""} · ${AM_MODALIDADES[f.modalidad]||""}`).join(" · ")}`]);
   else if(!received&&groups.length)steps.push(["⤓","Se descargará el Excel de las facturas"]);
   if(groups.length)steps.push(["▤",`${groups.length} ${groups.length===1?"factura":"facturas"} a CLIENTES / ${client} / CONTABILIDAD / ${kind}`],["✓","Se anotarán en el libro de "+(received?"recibidas":"emitidas")+" para las declaraciones"]);
   if(others.length)steps.push(["＋",`${others.length} ${others.length===1?"documento":"documentos"} a OTROS DOCUMENTOS`]);

@@ -249,11 +249,12 @@ module.exports = function ({ dataDirectory }) {
   async function save(client, buffer, user, force = false) {
     const summary = await summarize(buffer);
     if (!force && !sameCompany(client, summary.empresa)) throw Object.assign(new Error(`Esta base de datos es de «${summary.empresa}», no de «${client}».`), { status: 409, empresa: summary.empresa });
-    const record = { client, ...summary, version: VERSION, actualizado: new Date().toISOString(), actualizadoPor: user?.name || "" };
+    let previous = null;try { previous = JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch {}
+    const record = { client, ...summary, fichasNuevas: previous?.fichasNuevas || [], version: VERSION, actualizado: new Date().toISOString(), actualizadoPor: user?.name || "" };
     fs.mkdirSync(directory, { recursive: true });
     fs.writeFileSync(mdbFor(client), buffer);
     fs.writeFileSync(fileFor(client), JSON.stringify(record));
-    return record;
+    return withNewAccounts(record);
   }
   async function load(client) {
     let record = null;
@@ -279,10 +280,29 @@ module.exports = function ({ dataDirectory }) {
         fs.writeFileSync(fileFor(client), JSON.stringify(record));
       } catch (error) { console.error("Recalcular base de AMCOMTA:", error.message); }
     }
-    return record;
+    return withNewAccounts(record);
+  }
+  // Fichas creadas desde la app y aún no leídas de la base: se suman a los proveedores hasta que
+  // AMCOMTA las tenga (al subir de nuevo el .MDB, la ficha de la base manda y la provisional desaparece).
+  function withNewAccounts(record) {
+    if (!record) return record;
+    const known = new Set((record.proveedores || []).filter(item => !item.nueva).map(item => item.cuenta));
+    const pending = (record.fichasNuevas || []).filter(item => !known.has(item.cuenta));
+    return { ...record, fichasNuevas: pending, proveedores: [...(record.proveedores || []).filter(item => !item.nueva), ...pending.map(item => ({ ...item, nueva: true, facturas: 0 }))].sort((a, b) => a.cuenta.localeCompare(b.cuenta)) };
+  }
+  function addAccounts(client, fichas) {
+    let record = null;try { record = JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch { return null; }
+    const list = new Map((record.fichasNuevas || []).map(item => [item.cuenta, item]));
+    for (const item of fichas) {
+      const cuenta = text(item.cuenta).replace(/\D/g, "");if (!/^4\d{5,11}$/.test(cuenta)) continue;
+      list.set(cuenta, { cuenta, nombre: text(item.nombre).slice(0, 100), nif: nif(item.nif).slice(0, 20), gasto: text(item.gasto).replace(/\D/g, ""), tipoEntidad: text(item.tipoEntidad).slice(0, 20), modalidad: Number(item.modalidad) || 0, pais: text(item.pais).toUpperCase().slice(0, 2), creada: new Date().toISOString() });
+    }
+    record.fichasNuevas = [...list.values()];
+    fs.writeFileSync(fileFor(client), JSON.stringify(record));
+    return withNewAccounts(record);
   }
   function remove(client) {
     for (const file of [fileFor(client), mdbFor(client)]) { try { fs.unlinkSync(file); } catch {} }
   }
-  return { save, load, remove, summarize, sameCompany };
+  return { save, load, remove, summarize, sameCompany, addAccounts };
 };
