@@ -3308,15 +3308,13 @@ async function openInvoicePreview(index){
     }catch(error){console.error("Vista previa",error);const page=String(segment.pages||"").match(/\d+/)?.[0];container.insertAdjacentHTML("beforeend",`<iframe title="${escapeHtml(segment.title||`Factura ${record.number||""}`)}" src="${url}#${page?`page=${page}&`:""}view=FitH"></iframe>`)}
   }
 }
-/* Barra de avance de «Leer facturas»: cada archivo en lectura avanza poco a poco (la IA no informa de su progreso)
+/* Avance de «Leer facturas» en el propio botón: cada archivo en lectura avanza poco a poco (la IA no informa de su progreso)
    y salta a su parte completa al terminar; el total va de 0 a 100 %. */
 const invoiceProgress=(()=>{
   let state=null;
-  const el=()=>{const actions=document.querySelector("#invoiceProcessor .invoice-processor-actions");if(!actions)return null;let bar=document.querySelector("#invoiceProcessor .invoice-readbar");if(!bar){bar=document.createElement("div");bar.className="invoice-readbar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax","100");bar.innerHTML='<div class="invoice-readbar-track"><i></i></div><b>0 %</b>';actions.before(bar)}return bar};
   function percent(){if(!state)return 0;const now=Date.now();let partial=0;state.active.forEach(start=>{partial+=0.92*(1-Math.exp(-(now-start)/state.expected))});return Math.min(100,(state.done+partial)/state.total*100)}
   function paint(){
-    if(!state)return;const bar=el(),button=document.querySelector("#processInvoices"),value=Math.max(state.shown,Math.floor(percent()));state.shown=value;
-    if(bar){bar.hidden=false;bar.classList.toggle("done",value>=100);bar.style.setProperty("--p",value+"%");bar.setAttribute("aria-valuenow",String(value));bar.querySelector("b").textContent=`${value} %`}
+    if(!state)return;const button=document.querySelector("#processInvoices"),value=Math.max(state.shown,Math.floor(percent()));state.shown=value;
     if(button){button.classList.add("invoice-reading");button.style.setProperty("--p",value+"%");button.innerHTML=`<span class="invoice-reading-spin" aria-hidden="true"></span>${value>=100?"Preparando borrador":"Leyendo"} ${value} %`}
   }
   return{
@@ -3324,8 +3322,8 @@ const invoiceProgress=(()=>{
     begin(i){if(state){state.active.set(i,Date.now());paint()}},
     end(i){if(state){state.active.delete(i);state.done++;paint()}},
     finish(label){if(!state)return;state.active.clear();state.done=state.total;paint();clearInterval(state.timer);state=null;
-      const button=document.querySelector("#processInvoices");setTimeout(()=>{if(state)return;if(button){button.classList.remove("invoice-reading");button.style.removeProperty("--p");button.textContent=label}const bar=document.querySelector("#invoiceProcessor .invoice-readbar");if(bar)bar.hidden=true},900)},
-    reset(){if(state)clearInterval(state.timer);state=null;const bar=document.querySelector("#invoiceProcessor .invoice-readbar");if(bar)bar.hidden=true;const button=document.querySelector("#processInvoices");button?.classList.remove("invoice-reading")}
+      const button=document.querySelector("#processInvoices");setTimeout(()=>{if(state)return;if(button){button.classList.remove("invoice-reading");button.style.removeProperty("--p");button.textContent=label}},900)},
+    reset(){if(state)clearInterval(state.timer);state=null;const button=document.querySelector("#processInvoices");button?.classList.remove("invoice-reading")}
   };
 })();
 async function processInvoiceFiles(client){

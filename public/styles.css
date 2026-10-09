@@ -5914,16 +5914,7 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .am-new input.needs-account{border-color:#f0a3a3;background:#fff4f4}
 .am-new tr.am-new-bad td{background:#fff1f1}
 .app-confirm-sub.am-new-error{color:#b42318;font-weight:600}
-/* Barra de avance de «Leer facturas» */
-.invoice-readbar{display:flex;align-items:center;gap:12px;margin:14px 0 2px}
-.invoice-readbar[hidden]{display:none}
-.invoice-readbar-track{flex:1;height:10px;border-radius:999px;background:#e8ecf5;overflow:hidden;box-shadow:inset 0 1px 2px rgba(15,23,42,.08)}
-.invoice-readbar-track i{display:block;height:100%;width:var(--p,0%);border-radius:inherit;background:linear-gradient(90deg,#1f3a93,#3557d6);position:relative;transition:width .35s ease;overflow:hidden}
-.invoice-readbar-track i::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.45) 50%,transparent 70%);background-size:200% 100%;animation:invoiceShine 1.4s linear infinite}
-.invoice-readbar.done .invoice-readbar-track i{background:linear-gradient(90deg,#15803d,#22a35a)}
-.invoice-readbar b{min-width:48px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:#1f3a93}
-.invoice-readbar.done b{color:#15803d}
-#processInvoices.invoice-reading{position:relative;overflow:hidden;opacity:1;cursor:progress;background:linear-gradient(90deg,#1f3a93 var(--p,0%),#7d8fc9 var(--p,0%));font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:8px;transition:background .35s}
+/* Avance de «Leer facturas» en el botón */
+#processInvoices.invoice-reading{position:relative;overflow:hidden;opacity:1;cursor:progress;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:8px}
 .invoice-reading-spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:invoiceSpin .8s linear infinite;flex:none}
 @keyframes invoiceSpin{to{transform:rotate(360deg)}}
-@keyframes invoiceShine{from{background-position:200% 0}to{background-position:-200% 0}}
