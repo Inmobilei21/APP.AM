@@ -51,14 +51,19 @@ function calc(period){
   const prev=[];for(let i=1;i<q;i++)prev.push(calc(`${i}T`));
   // Lo que sale de la documentación (contabilidad); si se escribe un importe a mano, manda el manual.
   const manual=f=>m[f]!==undefined&&m[f]!==""&&m[f]!==null;
-  const auto={ingresos:tdRound(ing.reduce((s,a)=>s+a.acum,0)),gastos:tdRound(gas.reduce((s,a)=>s+a.acum,0)),ret:tdSum(ret,"retencion")};
+  // Acumulado: lo del trimestre anterior (calculado o escrito a mano) más lo de este trimestre.
+  const own=list=>tdRound(list.reduce((s,a)=>s+(a.tri?.[q-1]||0),0)),last=prev[prev.length-1];
+  const retQ=tdSum(ret.filter(item=>Math.ceil(Number(String(item.fecha).slice(5,7))/3)===q),"retencion");
+  const auto={ingresos:tdRound((last?last.ingresos:0)+own(ing)),gastos:tdRound((last?last.gastosContables:0)+own(gas)),ret:tdRound((last?last.retTotal:0)+retQ),
+    ingQ:own(ing),gasQ:own(gas),retQ,ingPrev:last?last.ingresos:0,gasPrev:last?last.gastosContables:0,retPrev:last?last.retTotal:0};
   const ingresos=manual("o01")?tdRound(num(m.o01)):auto.ingresos,gastosContables=manual("oGastos")?tdRound(num(m.oGastos)):auto.gastos;
   const totalGastos=tdRound(gastosContables+variacion),previo=tdRound(ingresos-totalGastos);
   const dificil=modalidad==="simplificada"?tdRound(Math.min(Math.max(0,previo)*pct/100,LIMITE_DIFICIL)):0;
   const c={};
   c["01"]=secI?ingresos:0;c["02"]=secI?tdRound(totalGastos+dificil):0;c["03"]=tdRound(c["01"]-c["02"]);c["04"]=c["03"]>0?tdRound(c["03"]*0.2):0;
   c["05"]=secI?Math.max(0,tdRound(prev.reduce((s,p)=>s+Math.max(0,p.c["07"]),0)-prev.reduce((s,p)=>s+p.c["16"],0))):0;
-  c["06"]=secI?(manual("o06")?tdRound(num(m.o06)):auto.ret):0;c["07"]=tdRound(c["04"]-c["05"]-c["06"]);
+  const retTotal=manual("o06")?tdRound(num(m.o06)):auto.ret;
+  c["06"]=secI?retTotal:0;c["07"]=tdRound(c["04"]-c["05"]-c["06"]);
   c["08"]=secII?tdRound(num(m.c08)):0;c["09"]=tdRound(c["08"]*0.02);c["10"]=secII?tdRound(num(m.c10)):0;c["11"]=tdRound(c["09"]-c["10"]);
   c["12"]=Math.max(0,tdRound((secI?c["07"]:0)+(secII?c["11"]:0)));c["13"]=tdRound(num(m.c13));c["14"]=tdRound(c["12"]-c["13"]);
   // Resultados negativos de trimestres anteriores aún sin compensar (con el máximo de la diferencia).
@@ -68,7 +73,7 @@ function calc(period){
   c["16"]=c["14"]>0?tdRound(Math.min(num(m.c16),topeVivienda,Math.max(0,c["14"]-c["15"]))):0;
   c["17"]=tdRound(c["14"]-c["15"]-c["16"]);
   const compl=tdCompl(M,period);c["18"]=compl.deducir;c["19"]=tdRound(c["17"]-c["18"]);
-  return{c,q,auto,manual,fuente,emit,recib,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
+  return{c,q,auto,retTotal,manual,fuente,emit,recib,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
     pago:{forma:m.formaPago==="efectivo"&&!fisica()?"adeudo":m.formaPago||"domiciliacion",iban:m.iban??((taxDrafts.clientData?.bank?.ibans||[]).find(Boolean)||""),nrc:m.nrc||"",aDeducir:m.aDeducir===true}};
 }
 const LABELS={
@@ -179,7 +184,8 @@ function sideHtml(kind,draft){
   const r=draft.calc||calc(draft.period),q=r.q;
   const tipo=titulo=>titulo.includes("emitidas")?"EMITIDAS":"RECIBIDAS";
   const facturas=(list,titulo)=>list.length?`<h4 class="td-list-title">${titulo} (${list.length})</h4><table class="td-list m130-fact"><thead><tr><th class="center"></th><th>Fecha</th><th>Factura</th><th>${titulo.includes("emitidas")?"Cliente":"Proveedor"}</th><th class="num">Base</th><th class="num">IVA</th><th class="num">Retención</th><th class="num">Total</th></tr></thead><tbody>${list.map(item=>`<tr><td class="center">${/\.(xlsx?|xlsm|csv|ods)$/i.test(item.archivo||"")&&!item.ruta?`<span class="td-eye off" title="Factura importada de un Excel: no hay PDF">${tdEyeOff}</span>`:`<button type="button" class="td-eye" data-m130-doc="${encodeURIComponent(JSON.stringify({ruta:item.ruta||"",fecha:item.fecha,nombre:item.nombre,numero:item.numero,tipo:tipo(titulo)}))}" title="Ver la factura">${tdEye}</button>`}</td><td>${tdDate(item.fecha)}</td><td>${escapeHtml(item.numero)}</td><td>${escapeHtml(item.nombre)}<small>${escapeHtml(item.nif)}</small></td><td class="num">${tdEur(item.base)}</td><td class="num">${tdEur(item.cuota)}</td><td class="num">${item.retencion?tdEur(item.retencion):""}</td><td class="num">${tdEur(item.total)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="4">Total</td><td class="num">${tdEur(tdSum(list,"base"))}</td><td class="num">${tdEur(tdSum(list,"cuota"))}</td><td class="num">${tdEur(tdSum(list,"retencion"))}</td><td class="num">${tdEur(tdSum(list,"total"))}</td></tr></tfoot></table>`:"";
-  if(kind==="ing130")return accountsTable(r.ing,q,r.auto.ingresos)+(r.fuente==="facturas"?facturas(r.emit,"Facturas emitidas"):"");
+  const cumul=(prev,cur,total,what)=>q>1?`<div class="m130-calc"><div class="m130-calc-row"><span>${what} acumulados hasta el ${q-1}T (declarados en el trimestre anterior)</span><b>${tdEur(prev)}</b></div><div class="m130-calc-row"><span>${what} del ${q}T</span><b>${tdEur(cur)}</b></div><div class="m130-calc-row strong"><span>Acumulado a ${FIN[q-1]}</span><b>${tdEur(total)}</b></div></div>`:"";
+  if(kind==="ing130")return cumul(r.auto.ingPrev,r.auto.ingQ,r.auto.ingresos,"Ingresos")+accountsTable(r.ing,q,r.auto.ingresos)+(r.fuente==="facturas"?facturas(r.emit,"Facturas emitidas"):"");
   if(kind==="gas130"){
     const row=(label,value,cls="",input="")=>`<div class="m130-calc-row ${cls}"><span>${label}</span>${input||`<b>${tdEur(value)}</b>`}</div>`;
     return `<div class="m130-calc">
@@ -193,7 +199,7 @@ function sideHtml(kind,draft){
       ${row("Gastos fiscalmente deducibles (casilla 02)",r.c["02"],"strong green")}
       ${row("Diferencia = rendimiento neto (casilla 03)",r.c["03"],"strong green")}
       ${row("20 % del rendimiento neto (casilla 04)",r.c["04"],"strong blue")}
-    </div><h4 class="td-list-title">${r.fuente==="contabilidad"?"Cuentas de gastos":"Gastos por trimestre"}</h4>${accountsTable(r.gas,q,r.auto.gastos)}${r.fuente==="facturas"?facturas(r.recib,"Facturas recibidas"):""}`;
+    </div><h4 class="td-list-title">${r.fuente==="contabilidad"?"Cuentas de gastos":"Gastos por trimestre"}</h4>${cumul(r.auto.gasPrev,r.auto.gasQ,r.auto.gastos,"Gastos")}${accountsTable(r.gas,q,r.auto.gastos)}${r.fuente==="facturas"?facturas(r.recib,"Facturas recibidas"):""}`;
   }
   if(kind==="ret130"){
     const pagos=(taxDrafts.base?.pagosACuenta||[]).filter(item=>inYearTo(item.fecha,q));

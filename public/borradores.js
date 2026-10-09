@@ -298,7 +298,8 @@ function renderTaxDraftMain(){
     const status=noob?["Sin obligación","noob"]:control.submitted?["Presentado","pres"]:control.draft?["Borrador confirmado","conf"]:["Pendiente","pend"];
     const doc=taxDrafts.documents.get(period),eye=doc?`<button type="button" class="td-decl" data-preview-document="${registerPreviewDocument(doc)}" title="Ver la declaración presentada (${escapeHtml(doc.name)})" aria-label="Ver la declaración presentada del ${period}">${tdEye}</button>`:control.draft?`<button type="button" class="td-decl td-decl-draft" data-tax-draft="${escapeHtml(declarationKey(model,period,taxDrafts.client,year))}" title="Ver el borrador confirmado (hasta que la declaración presentada esté en su carpeta)" aria-label="Ver el borrador confirmado del ${period}">${tdEye}</button>`:`<button type="button" class="td-decl" disabled title="${taxDrafts.docsFolder===false?"Este equipo no tiene conectada la carpeta de declaraciones":"La declaración presentada aún no está en la carpeta de declaraciones"}" aria-label="Sin declaración presentada">${tdLock}</button>`;
     const open=!noob&&taxDrafts.open===period;
-    return `<tr class="td-q${open?" open":""}${noob?" td-noob":""}" data-td-period="${period}" tabindex="0" aria-expanded="${open}"${noob?' title="Sin obligación de presentar este trimestre"':""}><td><span class="td-caret">›</span> ${period[0]}.º Trimestre</td><td class="num">${draft.summary.perceptores}</td><td class="num">${tdEur(draft.summary.base)}</td><td class="num"><b>${tdEur(draft.summary.retencion)}</b></td><td class="num">${controlCell}</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td class="center td-noob-cell"><input type="checkbox" data-td-noob="${period}"${noob?" checked":""}${control.submitted&&!noob?" disabled":""} title="Sin obligación de presentar este trimestre (se marca también en Control de declaraciones)" aria-label="Sin obligación ${period}"></td><td class="center">${noob?`<button type="button" class="td-decl" disabled title="Sin obligación">${tdLock}</button>`:eye}</td></tr>${open?`<tr class="td-detail"><td colspan="8"><div class="td-card">${taxDraftDetail(draft,control)}</div></td></tr>`:""}`;
+    const flash=taxDrafts.flash===period;
+    return `<tr class="td-q${open?" open":""}${noob?" td-noob":""}${flash?" td-flash":""}" data-td-period="${period}" tabindex="0" aria-expanded="${open}"${noob?' title="Sin obligación de presentar este trimestre"':""}><td><span class="td-caret">›</span> ${period[0]}.º Trimestre</td><td class="num">${draft.summary.perceptores}</td><td class="num">${tdEur(draft.summary.base)}</td><td class="num"><b>${tdEur(draft.summary.retencion)}</b></td><td class="num">${controlCell}</td><td><span class="td-pill ${status[1]}">${status[0]}</span></td><td class="center td-noob-cell"><input type="checkbox" data-td-noob="${period}"${noob?" checked":""}${control.submitted&&!noob?" disabled":""} title="Sin obligación de presentar este trimestre (se marca también en Control de declaraciones)" aria-label="Sin obligación ${period}"></td><td class="center">${noob?`<button type="button" class="td-decl" disabled title="Sin obligación">${tdLock}</button>`:eye}</td></tr>${open?`<tr class="td-detail"><td colspan="8"><div class="td-card">${taxDraftDetail(draft,control)}</div></td></tr>`:""}`;
   }).join("");
   box.innerHTML=`<div class="td-card-head"><span class="td-chip m${escapeHtml(model)}">${escapeHtml(tdModelName(model))}</span><strong>${escapeHtml(title)} · trimestral · ${year}</strong><span class="td-data-pill" title="Calculado con la base de AMCOMTA del cliente">Datos de contabilidad</span></div>
     <div class="td-table-wrap"><table class="td-table"><thead><tr><th>Período</th><th class="num">Perceptores</th><th class="num">${model==="111"?"Percepciones":"Base"}</th><th class="num">Retenciones</th><th class="num" title="Importe anotado en Control de declaraciones">Control decl.</th><th>Estado</th><th class="center" title="Sin obligación de presentar el trimestre (igual que «No obligada» en Control de declaraciones)">Sin obligación</th><th class="center" title="Declaración presentada en la carpeta de declaraciones">Presentada</th></tr></thead><tbody>${rows}</tbody>
@@ -310,6 +311,7 @@ function renderTaxDraftMain(){
     const toggle=event=>{if(event.target.closest(".td-decl,.td-noob-cell")||row.classList.contains("td-noob"))return;const period=row.dataset.tdPeriod;taxDrafts.open=taxDrafts.open===period?"":period;renderTaxDraftMain()};
     row.addEventListener("click",toggle);row.addEventListener("keydown",event=>{if(event.key==="Enter")toggle(event)});
   });
+  if(taxDrafts.flash){const flashed=box.querySelector("tr.td-flash");taxDrafts.flash="";if(flashed)setTimeout(()=>flashed.scrollIntoView({block:"nearest",behavior:"smooth"}),50)}
   box.querySelectorAll("[data-td-noob]").forEach(input=>input.addEventListener("change",()=>{
     const period=input.dataset.tdNoob,year=taxDraftYear(),key=declarationKey(model,period,taxDrafts.client,year),data=declarationData(model,period,taxDrafts.client,year);
     data.notRequired=input.checked;localStorage.setItem(key,JSON.stringify(data));if(input.checked&&taxDrafts.open===period)taxDrafts.open="";renderTaxDraftMain();
@@ -385,6 +387,8 @@ function confirmTaxDraft(){
   data.prepared=iso;data.amount=draft.result.toFixed(2);
   data.draft={model,period,year,client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",title:draft.title,boxes:draft.boxes,result:draft.result,signature:taxDraftSignature(draft),lists:draft.lists,complementaria:draft.complementaria||null,confirmedAt:new Date().toISOString(),confirmedBy:typeof signedInUser!=="undefined"&&signedInUser?.name||""};
   localStorage.setItem(key,JSON.stringify(data));
+  // Al confirmar se pliega el trimestre y su fila se resalta un momento.
+  taxDrafts.flash=period;taxDrafts.open="";
   renderTaxDraftMain();
 }
 
@@ -634,3 +638,10 @@ document.addEventListener("click",event=>{const button=event.target.closest("[da
   syncClientPortalAccessBlock=function(){const r=previo.apply(this,arguments);try{refrescar()}catch{}return r};
   if(typeof setClientViewMode==="function"){const previoModo=setClientViewMode;setClientViewMode=function(){const r=previoModo.apply(this,arguments);const input=document.querySelector("[data-cab-file]");if(input)input.disabled=false;return r}}
 })();
+
+// Respuesta visual al pulsar los botones del borrador (fichero, copiar, ver, confirmar).
+document.addEventListener("click",event=>{
+  const button=event.target.closest("#tdMain .td-actions button, #tdMain [data-aeat-file], #tdMain [data-m303-file], #tdMain [data-m130-file], #tdMain [data-m349-file], #tdMain [data-m349-view]");if(!button||button.disabled)return;
+  button.classList.remove("td-pressed");void button.offsetWidth;button.classList.add("td-pressed");
+  if(button.matches("[data-aeat-file],[data-m303-file],[data-m130-file],[data-m349-file]")&&!button.dataset.label){button.dataset.label=button.textContent;button.textContent="✓ Descargado";button.classList.add("td-done");setTimeout(()=>{button.textContent=button.dataset.label;delete button.dataset.label;button.classList.remove("td-done")},1600)}
+},true);

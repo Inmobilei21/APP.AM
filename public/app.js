@@ -2632,7 +2632,9 @@ async function setupInvoiceProcessor(){
     if(select.value&&!typeSelect.value){showInvoiceProcessorBanner("Elige si son facturas recibidas o emitidas");typeSelect.focus();return}
     invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();processInvoiceFiles(select.value);
   });
-  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",()=>downloadInvoiceExcel(readInvoiceDraft(),select.value));
+  // Descargar el Excel también anota las facturas en el libro del cliente para los modelos (303, 130…).
+  panel.querySelector("#downloadInvoiceDraft").addEventListener("click",async()=>{const records=readInvoiceDraft();downloadInvoiceExcel(records,select.value);
+    const groups=invoiceDocumentGroups(records).filter(group=>invoiceDateParts(group.record.date));if(select.value&&groups.length){const libro=await saveInvoiceBook(groups,select.value,invoiceReceivedMode()?"RECIBIDAS":"EMITIDAS");if(libro)panel.querySelector("#invoiceProcessStatus").textContent=`Excel descargado. ${libro}.`}});
   panel.querySelector("#confirmInvoiceDraft").addEventListener("click",async event=>{
     const button=event.currentTarget,label=button.textContent;button.disabled=true;button.textContent="Guardando…";
     try{const summary=await confirmInvoiceDraft(select.value);if(summary){resetProcessor();panel.querySelector("#invoiceProcessStatus").textContent=summary}}
@@ -3035,8 +3037,8 @@ function renderInvoiceIgnoredDocs(){
 const INVOICE_EYE_ICON='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 // Persona física sin contabilidad de AMCOMTA: sin cuentas (proveedor ni contrapartida) ni asientos.
 function invoiceWithoutAccounting(){const data=invoiceAccounting.data;return Boolean(invoiceAccounting.client&&invoiceAccounting.fisica&&!(data&&(data.empresa||data.actualizado)))}
-// Borrador en orden alfabético de proveedor o cliente (y por fecha y número dentro de cada uno); las
-// líneas de una misma factura siguen juntas. Las filas sin nombre van al final.
+// Borrador por fecha, de la más antigua a la más reciente (así se ve si alguna es de otro trimestre); en el mismo
+// día, por proveedor o cliente y número. Las líneas de una misma factura siguen juntas; sin fecha, al final.
 // Claves de operación del modelo 349: primero las habituales de emitidas (entregas y servicios prestados) o de
 // recibidas (adquisiciones de bienes y servicios).
 const INVOICE_INTRA_KEYS={E:"Entrega intracomunitaria de bienes",S:"Prestación de servicios",A:"Adquisición de bienes",I:"Adquisición de servicios",T:"Operación triangular",M:"Entrega tras importación exenta",H:"Entrega tras importación exenta (repr. fiscal)",R:"Transferencia en consigna",D:"Devolución en consigna",C:"Sustitución en consigna"};
@@ -3044,7 +3046,7 @@ function invoiceIntraKeys(received){return(received?["A","I","E","S","T","M","H"
 function sortInvoiceRecords(records){
   const day=value=>{const d=invoiceDateParts(value);return d?`${d.year}${d.month}${d.day}`:"99999999"};
   const keyed=records.map((record,index)=>({record,index,name:String(record.supplier||"").trim()}));
-  keyed.sort((a,b)=>(!a.name)-(!b.name)||a.name.localeCompare(b.name,"es",{sensitivity:"base"})||day(a.record.date).localeCompare(day(b.record.date))||String(a.record.number||"").localeCompare(String(b.record.number||""),"es",{numeric:true})||a.index-b.index);
+  keyed.sort((a,b)=>day(a.record.date).localeCompare(day(b.record.date))||(!a.name)-(!b.name)||a.name.localeCompare(b.name,"es",{sensitivity:"base"})||String(a.record.number||"").localeCompare(String(b.record.number||""),"es",{numeric:true})||a.index-b.index);
   records.splice(0,records.length,...keyed.map(item=>item.record));return records;
 }
 function renderInvoiceDraft(records){

@@ -5891,3 +5891,9 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
   .td-main .td-table:not(.m347-table) tr.td-q>td:nth-child(7),.td-main .td-table:not(.m347-table) tfoot tr.td-annual>td:nth-child(7){display:none}
   .td-main .td-table:not(.m347-table) tr.td-q>td:nth-child(8),.td-main .td-table:not(.m347-table) tfoot tr.td-annual>td:nth-child(8){display:block;grid-area:eye;justify-self:end}
 }
+/* Borradores: respuesta al pulsar y fila recién confirmada */
+.td-pressed{animation:tdPress .35s ease-out}
+@keyframes tdPress{0%{transform:scale(1)}35%{transform:scale(.94);box-shadow:0 0 0 4px rgba(20,39,155,.18)}100%{transform:scale(1);box-shadow:none}}
+.td-done{background:#e9f7ec!important;border-color:#16784a!important;color:#16784a!important}
+.td-table tr.td-q.td-flash>td{animation:tdFlash 2.2s ease-out}
+@keyframes tdFlash{0%,35%{background:#dff3e6}100%{background:transparent}}
