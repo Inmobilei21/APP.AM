@@ -22,7 +22,8 @@ const SCHEMA = {
           numero: { type: "string", description: "Número o serie+número que identifica la factura, tal como aparece (normalmente lleva dígitos). Nunca el tipo de documento (ALB-FACT, FACTURA, FRA, TICKET…) ni el número de pedido, de cliente, de albarán de reparto o de ruta." },
           paginas: { type: "string", description: "Páginas del documento donde aparece esta factura (p. ej. \"1-2\" o \"3\")." },
           fecha: { type: "string", description: "Fecha de expedición en formato DD/MM/AAAA. Vacío si no aparece." },
-          emisor_nombre: { type: "string", description: "Razón social o nombre de quien emite la factura (el proveedor)." },
+          emisor_nombre: { type: "string", description: "Razón social o nombre y apellidos del TITULAR que emite la factura (el que corresponde a emisor_nif). Si el logotipo muestra un nombre comercial distinto y el titular es una persona (p. ej. «el firmante… ANTONIO PÉREZ… DNI»), pon aquí la persona, no la marca." },
+          emisor_nombre_comercial: { type: "string", description: "Nombre comercial o marca del emisor si es distinto del titular (el del logotipo). Vacío si coincide." },
           emisor_nif: { type: "string", description: "NIF/CIF/VAT del emisor, sin espacios ni guiones. Un NIF español empieza por letra (sociedades: B12345678; NIE: X1234567L) o acaba en letra (personas físicas: 25992147P). Nunca un teléfono, fax, código postal ni nº de cliente (sólo dígitos)." },
           emisor_pais: { type: "string", description: "País de la dirección del emisor, en código ISO de 2 letras (ES, FR, IT, US, AU…). Vacío si no aparece." },
           receptor_pais: { type: "string", description: "País de la dirección del receptor, en código ISO de 2 letras. Vacío si no aparece." },
@@ -128,6 +129,7 @@ async function readInvoice(buffer, name, contentType, client, extra = {}) {
     `Nombre del archivo: ${name}`,
     "Reglas:",
     "- Copia el número de factura, nombres y NIF exactamente como aparecen.",
+    "- El emisor fiscal es el TITULAR identificado por el NIF/DNI, no la marca del logotipo. Muchos autónomos usan un nombre comercial (p. ej. «ARV Laboratorios») y su nombre y DNI aparecen en letra pequeña en el pie, en el registro sanitario o junto a «el firmante»: en ese caso emisor_nombre es la persona, emisor_nif su DNI y la marca va en emisor_nombre_comercial.",
     "- El NIF tiene formato fijo: empieza por letra si es persona jurídica o NIE (B23749880, X1234567L) o acaba en letra si es persona física (25992147P, también tras «DNI»). Un número sólo de dígitos (teléfono, fax, código de cliente, código postal) NUNCA es un NIF. El NIF de cada parte debe ser el que va junto a SU nombre: no mezcles datos del recuadro del cliente (Datos fiscales, Facturar a, Cliente) con los del emisor. Si no encuentras el NIF del emisor, búscalo en el pie, en el registro mercantil o junto a «el firmante» / «DNI»; si no aparece, déjalo vacío.",
     "- El número de factura es el identificador del documento, no su tipo: si en la casilla «Documento» pone un código como ALB-FACT, FACT o FRA, eso es el tipo y el número está en «Nº», «Número», «Doc. Origen» o similar (en los albaranes-factura suele ser «Doc. Origen»). No uses el número de pedido, de cliente, de reparto ni de ruta. Si dudas entre varios, elige el que se repite en el documento y dilo en observaciones.",
     "- Si el NIF/VAT del emisor es extranjero, conserva su prefijo de país (IT, FR, DE, GB…). Copia el tipo de IVA tal como aparece aunque no sea español (p. ej. 22 %).",
@@ -164,9 +166,57 @@ async function readInvoice(buffer, name, contentType, client, extra = {}) {
   }
   const use = (data.content || []).find(item => item.type === "tool_use" && item.name === "guardar_facturas");
   if (!use) { const e = new Error("El lector no ha devuelto datos de factura."); e.status = 502; throw e; }
-  const facturas = await Promise.all((Array.isArray(use.input?.facturas) ? use.input.facturas : []).map(convertToEuros));
+  let facturas = await Promise.all((Array.isArray(use.input?.facturas) ? use.input.facturas : []).map(convertToEuros));
+  facturas = facturas.map(f => ({ ...f, emisor_nif: cleanTaxId(f.emisor_nif), receptor_nif: cleanTaxId(f.receptor_nif) }));
+  // Si falta el NIF del proveedor se hace una segunda lectura centrada sólo en identificar al emisor.
+  if (extra.tipo !== "emitidas" && facturas.some(f => !taxIdValid(f.emisor_nif))) {
+    try {
+      const issuer = await readIssuer(block, base.model, client, extra);
+      if (issuer && taxIdValid(issuer.nif)) facturas = facturas.map(f => taxIdValid(f.emisor_nif) ? f : {
+        ...f, emisor_nif: issuer.nif, emisor_nombre: issuer.nombre || f.emisor_nombre,
+        emisor_nombre_comercial: issuer.nombre_comercial || f.emisor_nombre_comercial || (issuer.nombre && f.emisor_nombre && issuer.nombre !== f.emisor_nombre ? f.emisor_nombre : "")
+      });
+    } catch (_) { /* la primera lectura sigue valiendo */ }
+  }
+  facturas = facturas.map(f => f.emisor_nombre_comercial && f.emisor_nombre_comercial !== f.emisor_nombre ? { ...f, observaciones: [`Nombre comercial: ${f.emisor_nombre_comercial}`, f.observaciones].filter(Boolean).join(". ") } : f);
   const otros_documentos = (Array.isArray(use.input?.otros_documentos) ? use.input.otros_documentos : []).map(item => ({ tipo: String(item?.tipo || "otro"), paginas: String(item?.paginas || ""), fecha: String(item?.fecha || ""), descripcion: String(item?.descripcion || ""), factura_relacionada: String(item?.factura_relacionada || ""), importe: Number(item?.importe) || 0 }));
   return { facturas, otros_documentos, total_documento: Number(use.input?.total_documento) || 0, modelo: data.model || base.model };
+}
+
+// NIF: empieza por letra (sociedad, NIE) o acaba en letra (persona física); un número sólo de dígitos es un teléfono u otro dato.
+function cleanTaxId(value) {
+  const n = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return /^\d+$/.test(n) ? "" : n;
+}
+function taxIdValid(value) {
+  const n = cleanTaxId(value).replace(/^ES(?=[A-Z0-9]{9}$)/, ""), L = "TRWAGMYFPDXBNJZSQVHLCKE";
+  if (/^\d{8}[A-Z]$/.test(n)) return L[Number(n.slice(0, 8)) % 23] === n[8];
+  if (/^[XYZ]\d{7}[A-Z]$/.test(n)) return L[Number("XYZ".indexOf(n[0]) + n.slice(1, 8)) % 23] === n[8];
+  if (/^[KLM]\d{7}[A-Z]$/.test(n) || /^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/.test(n)) return true;
+  return /^(?!ES)[A-Z]{2}[0-9A-Z]{2,13}$/.test(n);
+}
+
+async function readIssuer(block, model, client, extra) {
+  const tool = { name: "datos_emisor", description: "Identifica al emisor de la factura.", input_schema: { type: "object", properties: {
+    nombre: { type: "string", description: "Nombre y apellidos o razón social del titular que emite la factura." },
+    nif: { type: "string", description: "Su NIF/DNI/CIF sin espacios ni guiones (empieza o acaba en letra)." },
+    nombre_comercial: { type: "string", description: "Marca o nombre comercial del logotipo si es distinto. Vacío si coincide." }
+  }, required: ["nombre", "nif"] } };
+  const text = [
+    `Busca SÓLO quién emite (vende) esta factura${client ? `, que NO es "${client}"${extra.nif ? ` (NIF ${extra.nif})` : ""}, el cliente que la recibe` : ""}.`,
+    "Lee con atención la letra pequeña de todo el documento: pie de página, textos verticales del margen, registro mercantil o sanitario, frases como «el firmante reconoce…» seguidas de un nombre y «DNI:» o «NIF:», sellos y firmas.",
+    "El NIF de una persona física son 8 dígitos y una letra (p. ej. 25992147P); el de una sociedad empieza por letra (B23749880). Un teléfono no es un NIF.",
+    "Si el logotipo es una marca y aparece una persona con DNI como titular, el emisor es esa persona. Si no lo encuentras, deja nif vacío."
+  ].join("\n");
+  const body = { model, max_tokens: 1024, tools: [tool], messages: [{ role: "user", content: [block, { type: "text", text }] }] };
+  let data;
+  try { data = await callClaude({ ...body, tool_choice: { type: "tool", name: "datos_emisor" } }); }
+  catch (error) { if (error.status !== 400) throw error; data = await callClaude({ ...body, tool_choice: { type: "auto" } }); }
+  const use = (data.content || []).find(item => item.type === "tool_use" && item.name === "datos_emisor");
+  if (!use) return null;
+  const nif = cleanTaxId(use.input?.nif);
+  if (extra.nif && nif.replace(/^ES/, "") === String(extra.nif).toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^ES/, "")) return null;
+  return { nombre: String(use.input?.nombre || "").trim(), nif, nombre_comercial: String(use.input?.nombre_comercial || "").trim() };
 }
 
 // Facturas en otra moneda: se pasan a euros con el cambio que muestre la propia
