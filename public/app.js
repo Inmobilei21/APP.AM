@@ -2616,7 +2616,7 @@ async function setupInvoiceProcessor(){
     invoiceDraftRecords=[];invoiceIgnoredDocs=[];panel.querySelector("#invoiceDraft").hidden=true;renderFiles()};
   open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
   const typeSelect=panel.querySelector("#invoiceType");
-  const resetProcessor=()=>{clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();select.value="";typeSelect.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraftRows").innerHTML="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";const button=panel.querySelector("#processInvoices");button.disabled=false;button.textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()};
+  const resetProcessor=()=>{clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();select.value="";typeSelect.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraftRows").innerHTML="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";invoiceProgress.reset();const button=panel.querySelector("#processInvoices");button.disabled=false;button.textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()};
   panel.querySelector("#closeInvoiceProcessor").addEventListener("click",async()=>{
     const progress=invoiceProcessorFiles.length||invoiceDraftRecords.length||select.value||typeSelect.value;
     if(progress&&!await appConfirm({eyebrow:"PROCESAR FACTURAS",title:"¿Cerrar sin terminar?",message:"Se borrarán los avances: el cliente, las facturas añadidas y el borrador.",ok:"Cerrar",cancel:"Seguir trabajando",danger:true}))return;
@@ -3308,12 +3308,32 @@ async function openInvoicePreview(index){
     }catch(error){console.error("Vista previa",error);const page=String(segment.pages||"").match(/\d+/)?.[0];container.insertAdjacentHTML("beforeend",`<iframe title="${escapeHtml(segment.title||`Factura ${record.number||""}`)}" src="${url}#${page?`page=${page}&`:""}view=FitH"></iframe>`)}
   }
 }
+/* Barra de avance de «Leer facturas»: cada archivo en lectura avanza poco a poco (la IA no informa de su progreso)
+   y salta a su parte completa al terminar; el total va de 0 a 100 %. */
+const invoiceProgress=(()=>{
+  let state=null;
+  const el=()=>{const actions=document.querySelector("#invoiceProcessor .invoice-processor-actions");if(!actions)return null;let bar=document.querySelector("#invoiceProcessor .invoice-readbar");if(!bar){bar=document.createElement("div");bar.className="invoice-readbar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax","100");bar.innerHTML='<div class="invoice-readbar-track"><i></i></div><b>0 %</b>';actions.before(bar)}return bar};
+  function percent(){if(!state)return 0;const now=Date.now();let partial=0;state.active.forEach(start=>{partial+=0.92*(1-Math.exp(-(now-start)/state.expected))});return Math.min(100,(state.done+partial)/state.total*100)}
+  function paint(){
+    if(!state)return;const bar=el(),button=document.querySelector("#processInvoices"),value=Math.max(state.shown,Math.floor(percent()));state.shown=value;
+    if(bar){bar.hidden=false;bar.classList.toggle("done",value>=100);bar.style.setProperty("--p",value+"%");bar.setAttribute("aria-valuenow",String(value));bar.querySelector("b").textContent=`${value} %`}
+    if(button){button.classList.add("invoice-reading");button.style.setProperty("--p",value+"%");button.innerHTML=`<span class="invoice-reading-spin" aria-hidden="true"></span>${value>=100?"Preparando borrador":"Leyendo"} ${value} %`}
+  }
+  return{
+    start(total,expected=16000){state={total:Math.max(1,total),done:0,active:new Map(),expected,shown:0,timer:setInterval(paint,200)};paint()},
+    begin(i){if(state){state.active.set(i,Date.now());paint()}},
+    end(i){if(state){state.active.delete(i);state.done++;paint()}},
+    finish(label){if(!state)return;state.active.clear();state.done=state.total;paint();clearInterval(state.timer);state=null;
+      const button=document.querySelector("#processInvoices");setTimeout(()=>{if(state)return;if(button){button.classList.remove("invoice-reading");button.style.removeProperty("--p");button.textContent=label}const bar=document.querySelector("#invoiceProcessor .invoice-readbar");if(bar)bar.hidden=true},900)},
+    reset(){if(state)clearInterval(state.timer);state=null;const bar=document.querySelector("#invoiceProcessor .invoice-readbar");if(bar)bar.hidden=true;const button=document.querySelector("#processInvoices");button?.classList.remove("invoice-reading")}
+  };
+})();
 async function processInvoiceFiles(client){
   const status=document.querySelector("#invoiceProcessStatus"),button=document.querySelector("#processInvoices");
   if(!client){status.textContent="";showInvoiceProcessorBanner("Selecciona primero un cliente");document.querySelector("#invoiceClient")?.focus();return}if(!invoiceProcessorFiles.length){status.textContent="Añade al menos una factura.";return}
-  button.disabled=true;button.textContent="Leyendo…";status.textContent="Analizando cada factura y comprobando sus importes…";
-  const records=[];let failed=0;for(let index=0;index<invoiceProcessorFiles.length;index++){const file=invoiceProcessorFiles[index];try{records.push(invoiceRecordChecked(file,await invoiceFileText(file,()=>{status.textContent=`Factura ${index+1} de ${invoiceProcessorFiles.length}: imagen detectada, aplicando OCR…`}),client))}catch(error){failed++;console.error("No se pudo leer la factura",file.name,error);records.push({...invoiceRecordChecked(file,"",client),observation:"No se pudo leer automáticamente"})}}
-  await closeInvoiceOcrWorker();sortInvoiceRecords(records);invoiceDraftRecords=records;renderInvoiceDraft(records);status.textContent=failed?`No se han podido leer ${failed} ${failed===1?"factura":"facturas"}. Revisa las filas marcadas.`:`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Confirma o corrige los datos antes de descargar.`;button.disabled=false;button.textContent="Volver a leer facturas";
+  button.disabled=true;status.textContent="Analizando cada factura y comprobando sus importes…";invoiceProgress.start(invoiceProcessorFiles.length,4000);
+  const records=[];let failed=0;for(let index=0;index<invoiceProcessorFiles.length;index++){const file=invoiceProcessorFiles[index];invoiceProgress.begin(index);try{records.push(invoiceRecordChecked(file,await invoiceFileText(file,()=>{status.textContent=`Factura ${index+1} de ${invoiceProcessorFiles.length}: imagen detectada, aplicando OCR…`}),client))}catch(error){failed++;console.error("No se pudo leer la factura",file.name,error);records.push({...invoiceRecordChecked(file,"",client),observation:"No se pudo leer automáticamente"})}invoiceProgress.end(index)}
+  await closeInvoiceOcrWorker();sortInvoiceRecords(records);invoiceDraftRecords=records;renderInvoiceDraft(records);status.textContent=failed?`No se han podido leer ${failed} ${failed===1?"factura":"facturas"}. Revisa las filas marcadas.`:`Borrador preparado con ${records.length} ${records.length===1?"factura":"facturas"}. Confirma o corrige los datos antes de descargar.`;button.disabled=false;invoiceProgress.finish("Volver a leer facturas");
 }
 
 function setupClientFolderDropZone(){
@@ -4748,24 +4768,25 @@ setInterval(refreshSuggestions,15000);
     if(!client||!invoiceProcessorFiles.length||!(await lectorActivo()))return lectorAntiguo.apply(this,arguments);
     const status=document.querySelector("#invoiceProcessStatus"),button=document.querySelector("#processInvoices");
     const files=[...invoiceProcessorFiles],resultados=new Array(files.length),otrosDocs=[];let hechas=0,fallos=0,siguiente=0;
-    button.disabled=true;button.textContent="Leyendo…";
-    const pintar=()=>{status.textContent=`Leyendo con IA: ${hechas} de ${files.length} ${files.length===1?"factura":"facturas"}…`};pintar();
+    button.disabled=true;invoiceProgress.start(files.length);
+    const pintar=()=>{status.textContent=`Leyendo con IA: ${hechas} de ${files.length} ${files.length===1?"archivo":"archivos"}…`};pintar();
     async function trabajador(){
       while(siguiente<files.length){
-        const i=siguiente++,file=files[i];
+        const i=siguiente++,file=files[i];invoiceProgress.begin(i);
         if(!ADMITIDOS.test(file.name))resultados[i]=[await leerAntiguo(file,client,"Leído con el lector anterior (formato no admitido por la IA)")];
         else try{const leido=await leerConIA(file,client);resultados[i]=leido.filas;otrosDocs.push(...leido.otros)}
         catch(error){console.error("Lector con IA",file.name,error);fallos++;resultados[i]=[await leerAntiguo(file,client,`La IA no pudo leerla (${error.message}); leído con el lector anterior`)]}
-        hechas++;pintar();
+        hechas++;invoiceProgress.end(i);pintar();
       }
     }
     try{await Promise.all(Array.from({length:Math.min(3,files.length)},trabajador))}
+    catch(error){invoiceProgress.reset();button.disabled=false;button.textContent="Leer facturas";throw error}
     finally{await closeInvoiceOcrWorker().catch(()=>{})}
     const records=resultados.flat();
     enlazarPagos(records,otrosDocs);invoiceIgnoredDocs=otrosDocs;
     sortInvoiceRecords(records);invoiceDraftRecords=records;renderInvoiceDraft(records);
     status.textContent=fallos?`${fallos} ${fallos===1?"archivo no se ha podido":"archivos no se han podido"} leer con IA. Revisa las filas marcadas.`:(()=>{const n=new Set(records.map(r=>r.file+"|"+r.number)).size;return `Borrador preparado con ${n} ${n===1?"factura":"facturas"}${records.length>n?` (${records.length} líneas, una por tipo de IVA)`:""}${otrosDocs.length?` y ${otrosDocs.length} ${otrosDocs.length===1?"documento ignorado":"documentos ignorados"} que no ${otrosDocs.length===1?"es factura":"son facturas"}`:""}. Revisa las observaciones antes de confirmar.`})();
-    button.disabled=false;button.textContent="Volver a leer facturas";
+    button.disabled=false;invoiceProgress.finish("Volver a leer facturas");
   };
 })();
 /* ===== Tareas en escritorio: tarjetas superpuestas y desplazamiento dentro de cada etapa ===== */
