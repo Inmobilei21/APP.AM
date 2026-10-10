@@ -2807,7 +2807,7 @@ function invoiceAccountLists(){
 }
 function invoiceAccountTitle(field,value){
   const account=amAccount(value),item=field==="supplierAccount"?amSupplier(account):amExpense(account);
-  return item?`${account} · ${item.nombre}`:(account?`${account} · no existe en la contabilidad cargada`:"Sin cuenta");
+  return item?`${account} · ${item.nombre}`:(account?`${account} · no existe en la contabilidad cargada`:"Sin cuenta: escribe p. ej. 410.98 y se completa con ceros");
 }
 function renderInvoiceAccountingStatus(){
   const box=document.querySelector("#invoiceAccounting");if(!box)return;
@@ -3037,13 +3037,15 @@ function amCreateAccountsDialog(missing){
   return new Promise(resolve=>{
     const codes=amNextAccounts(missing.length);
     const rows=missing.map((item,index)=>{const d=amNewAccountDefaults(item.record),code=item.account||codes[index];
-      return `<tr data-am-new="${index}"><td><input data-f="cuenta" value="${escapeHtml(code)}" inputmode="numeric" maxlength="12"></td><td><input data-f="nombre" value="${escapeHtml(String(item.record.supplier||"").toUpperCase())}" maxlength="100"></td><td><input data-f="nif" value="${escapeHtml(d.nif)}" maxlength="20"${invoiceTaxIdValid(d.nif)?"":' class="needs-account" title="Revisa el NIF"'}></td><td><select data-f="tipoEntidad">${AM_ENTIDADES.map(([v,l])=>`<option value="${v}"${v===d.tipoEntidad?" selected":""}>${l}</option>`).join("")}</select></td><td><select data-f="modalidad">${AM_MODALIDADES.map((l,i)=>`<option value="${i}"${i===d.modalidad?" selected":""}>${escapeHtml(l)}</option>`).join("")}</select></td><td><input data-f="pais" value="${escapeHtml(d.pais)}" maxlength="2" class="am-new-pais"></td><td class="am-new-n">${item.groups.length}</td></tr>`}).join("");
+      return `<tr data-am-new="${index}"><td><input data-f="cuenta" value="${escapeHtml(code)}" inputmode="decimal" maxlength="12" title="Escribe 410.98 y se completa con ceros"></td><td><input data-f="nombre" value="${escapeHtml(String(item.record.supplier||"").toUpperCase())}" maxlength="100"></td><td><input data-f="nif" value="${escapeHtml(d.nif)}" maxlength="20"${invoiceTaxIdValid(d.nif)?"":' class="needs-account" title="Revisa el NIF"'}></td><td><select data-f="tipoEntidad">${AM_ENTIDADES.map(([v,l])=>`<option value="${v}"${v===d.tipoEntidad?" selected":""}>${l}</option>`).join("")}</select></td><td><select data-f="modalidad">${AM_MODALIDADES.map((l,i)=>`<option value="${i}"${i===d.modalidad?" selected":""}>${escapeHtml(l)}</option>`).join("")}</select></td><td><input data-f="pais" value="${escapeHtml(d.pais)}" maxlength="2" class="am-new-pais"></td><td class="am-new-n">${item.groups.length}</td></tr>`}).join("");
     const shade=document.createElement("div");shade.className="app-confirm";shade.setAttribute("role","dialog");shade.setAttribute("aria-modal","true");
     shade.innerHTML=`<div class="app-confirm-box am-new-box"><header><p class="eyebrow">CUENTAS NO CREADAS</p><h3>${missing.length===1?"1 proveedor no tiene":`${missing.length} proveedores no tienen`} cuenta en AMCOMTA</h3><p class="app-confirm-sub">¿Crearlas? Revisa los datos de la ficha: el asiento se importará con esta cuenta, su nombre y su NIF.</p></header>
       <div class="am-new-wrap"><table class="am-new"><thead><tr><th>Cuenta</th><th>Razón social</th><th>NIF</th><th>Tipo entidad</th><th>Modalidad fiscal</th><th>País</th><th>Fras.</th></tr></thead><tbody>${rows}</tbody></table></div>
       <footer><button type="button" class="secondary-button" data-am="cancel">Revisar</button><button type="button" class="secondary-button" data-am="skip">Importar sin crear</button><button type="button" class="primary blue-button" data-am="ok">Crear cuentas y continuar</button></footer></div>`;
     const done=value=>{document.removeEventListener("keydown",keys);shade.classList.add("out");setTimeout(()=>shade.remove(),160);resolve(value)};
     const keys=event=>{if(event.key==="Escape")done(null)};
+    shade.addEventListener("focusout",event=>{const el=event.target;if(el.dataset?.f==="cuenta")el.value=amAccount(el.value)});
+    shade.addEventListener("keydown",event=>{const el=event.target;if(event.key==="Enter"&&el.dataset?.f==="cuenta"){event.preventDefault();el.value=amAccount(el.value)}});
     shade.addEventListener("input",event=>{const el=event.target;if(el.dataset.f==="nif"){const d=amNewAccountDefaults({supplierNif:el.value});el.classList.toggle("needs-account",!invoiceTaxIdValid(el.value));const row=el.closest("tr");row.querySelector('[data-f="tipoEntidad"]').value=d.tipoEntidad;row.querySelector('[data-f="pais"]').value=d.pais}if(el.dataset.f==="pais")el.value=el.value.toUpperCase()});
     shade.addEventListener("click",event=>{
       const button=event.target.closest("[data-am]");if(!button){if(event.target===shade)done(null);return}
@@ -3156,7 +3158,7 @@ function renderInvoiceDraft(records){
   table.querySelector("#invoiceDraftHead").innerHTML=`<tr>${columns.map(([field,label])=>`<th${numericField(field)?' class="num"':""}${titles[field]?` title="${titles[field]}"`:""}>${label}</th>`).join("")}</tr>`;
   const safeValue=value=>escapeHtml(value).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const input=(index,field,value,extra="")=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(value)}" title="${safeValue(value)}" ${numericField(field)?`class="num${field==="total"?" total-input":""}" inputmode="decimal"`:""} ${extra}>`;
-  const accountInput=(index,field,value)=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(amAccount(value))}" title="${safeValue(invoiceAccountTitle(field,value))}" list="${field==="supplierAccount"?"invoiceSupplierAccounts":received?"invoiceExpenseAccounts":"invoiceIncomeAccounts"}" inputmode="numeric" placeholder="${withBase?"Sin relacionar":"—"}" class="account${withBase&&!value?" needs-account":""}">`;
+  const accountInput=(index,field,value)=>`<input data-invoice-row="${index}" data-invoice-field="${field}" value="${safeValue(amAccount(value))}" title="${safeValue(invoiceAccountTitle(field,value))}" list="${field==="supplierAccount"?"invoiceSupplierAccounts":received?"invoiceExpenseAccounts":"invoiceIncomeAccounts"}" inputmode="decimal" placeholder="${withBase?"Sin relacionar":"—"}" class="account${withBase&&!value?" needs-account":""}">`;
   const retentionCell=(index,record)=>{
     const rate=invoiceParseNumber(record.retentionRate)||0,account=amAccount(record.retentionAccount),list=invoiceAccounting.data?.retenciones||[];
     const options=[`<option value="">${list.length?"Sin cuenta":"Sin cuentas 4751"}</option>`,...list.map(item=>`<option value="${safeValue(item.cuenta)}"${item.cuenta===account?" selected":""}>${safeValue(item.cuenta+" · "+item.nombre)}</option>`)];
@@ -3183,6 +3185,7 @@ function renderInvoiceDraft(records){
   if(!body.dataset.bound){
     body.dataset.bound="1";
     const rowField=(row,field)=>body.querySelector(`[data-invoice-row="${row}"][data-invoice-field="${field}"]`);
+    body.addEventListener("keydown",event=>{const el=event.target;if(event.key==="Enter"&&el.classList?.contains("account")){event.preventDefault();el.value=amAccount(el.value);el.dispatchEvent(new FocusEvent("focusout",{bubbles:true}))}});
     body.addEventListener("focusout",event=>{const el=event.target;if(!el.matches?.("input[data-invoice-field]"))return;
       const field=el.dataset.invoiceField,row=el.dataset.invoiceRow;
       if(field==="retentionRate"){
@@ -3250,7 +3253,7 @@ function invoiceToggleVatToBase(box,rowField){
 // Un nº de factura sin dígitos (ALB-FACT, FACTURA…) casi siempre es el tipo de documento y no el número.
 function invoiceNumberSuspicious(value){const text=String(value||"").trim();return!text||!/\d/.test(text)}
 function numericField(field){return INVOICE_MONEY_FIELDS.includes(field)||INVOICE_RATE_FIELDS.includes(field)}
-function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows [data-invoice-field]").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim(),record=records[Number(input.dataset.invoiceRow)];if(!field||!record)return;if(input.type==="checkbox"){record[field]=input.checked;return}if(numericField(field)||field==="retentionRate"){const number=invoiceParseNumber(value);record[field]=number===null?value:String(number)}else record[field]=value});return records}
+function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows [data-invoice-field]").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim(),record=records[Number(input.dataset.invoiceRow)];if(!field||!record)return;if(input.type==="checkbox"){record[field]=input.checked;return}if(numericField(field)||field==="retentionRate"){const number=invoiceParseNumber(value);record[field]=number===null?value:String(number)}else record[field]=input.classList.contains("account")?amAccount(value):value});return records}
 /* Vista previa de la factura original con su concepto */
 const invoicePreviewUrls=new Map();
 // Zoom de las vistas previas: botones − / + centrados arriba.
