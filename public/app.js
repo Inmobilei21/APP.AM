@@ -3149,7 +3149,7 @@ function renderInvoiceDraft(records){
   const issued=invoiceProcessorType()==="emitidas";
   if(issued&&invoiceAccounting.data?.ingresoHabitual)records.forEach(record=>{if(!record.expenseAccount)record.expenseAccount=invoiceAccounting.data.ingresoHabitual});
   const columns=received
-    ?[["preview","",3.5],["number","Nº factura",7.5],["date","Fecha",7],["supplier","Proveedor",9],["supplierNif","NIF/CIF",7.5],["supplierAccount","Cta. proveedor",8],["expenseAccount","Cta. contrapartida",8.5],["base","Base imponible",7],["vatRate","IVA",6.5],["vat","Cuota IVA",6.5],["retention","Retención",11],["intra","Intracom. (349)",8.5],["total","Total",7.5]]
+    ?[["preview","",3.5],["number","Nº factura",7],["date","Fecha",7],["supplier","Proveedor",8],["supplierNif","NIF/CIF",7.5],["supplierAccount","Cta. proveedor",10],["expenseAccount","Cta. contrapartida",10],["base","Base imponible",7],["vatRate","IVA",6.5],["vat","Cuota IVA",6.5],["retention","Retención",10],["intra","Intracom. (349)",7.5],["total","Total",7.5]]
     :[["preview","",4],["number","Nº factura",10],["date","Fecha",9],["supplier",issued?"Cliente":"Proveedor",15],["supplierNif","NIF/CIF",9],["expenseAccount","Cta. contrapartida",10],["base","Base imponible",9.5],["vatRate","IVA",6.5],["vat","Cuota IVA",8.5],["intra","Intracom. (349)",9],["total","Total",10.5]];
   if(invoiceWithoutAccounting()){const removed=columns.filter(([field])=>field==="supplierAccount"||field==="expenseAccount");if(removed.length){const extra=removed.reduce((sum,[,,width])=>sum+width,0);for(let i=columns.length-1;i>=0;i--)if(columns[i][0]==="supplierAccount"||columns[i][0]==="expenseAccount")columns.splice(i,1);const supplier=columns.find(([field])=>field==="supplier");if(supplier)supplier[2]+=extra}}
   const table=body.closest("table");table.classList.toggle("received",received);
@@ -3166,7 +3166,7 @@ function renderInvoiceDraft(records){
     return `<div class="invoice-retention-cell"><input data-invoice-row="${index}" data-invoice-field="retentionRate" class="num retention-rate" inputmode="decimal" value="${rate?safeValue(String(rate).replace(".",",")):""}" placeholder="%" title="Tipo de retención (%)"><select data-invoice-row="${index}" data-invoice-field="retentionAccount" class="${rate&&withBase&&!account?"needs-account":""}" title="${safeValue(account?(amWithholding(account)?.nombre||account):"Cuenta de retención (4751)")}"${rate?"":" disabled"}>${options.join("")}</select></div>`;
   };
   const cell=(index,record,field)=>{
-    if(field==="supplierAccount"||field==="expenseAccount")return `<td>${accountInput(index,field,record[field]||"")}</td>`;
+    if(field==="supplierAccount"||field==="expenseAccount")return `<td><span class="acc-cell">${accountInput(index,field,record[field]||"")}${invoiceAccounting.data?`<button type="button" class="acc-search" data-acc-search title="Buscar cuenta" aria-label="Buscar cuenta"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>`:""}</span></td>`;
     if(field==="retention")return `<td>${retentionCell(index,record)}</td>`;
     if(field==="intra"){const keys=invoiceIntraKeys(received),key=record.intraKey||keys[0][0];return `<td><div class="invoice-intra-cell${record.intra?" on":""}"><label title="Marca si es una operación intracomunitaria: irá al modelo 349"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="intra"${record.intra?" checked":""}><span>Sí</span></label><select data-invoice-row="${index}" data-invoice-field="intraKey" title="Clave de operación del modelo 349"${record.intra?"":" disabled"}>${keys.map(([value,label])=>`<option value="${value}"${value===key?" selected":""}>${safeValue(`${value} · ${label}`)}</option>`).join("")}</select></div></td>`}
     if(field==="vatRate"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""),record.vatWarning&&!record.vatToBase?'data-vat-warning="1"':"")}<label title="Sumar el IVA a la base imponible (IVA extranjero o no deducible): el IVA pasa a ser del 0 %"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="vatToBase"${record.vatToBase?" checked":""}>a base</label></div></td>`;
@@ -5777,4 +5777,39 @@ homeActivityEmpty=function(icon,title,text){
     const more=swap(overlay,"[data-request-client-service]",()=>showForm(overlay,service));if(more)more.textContent="Más información";
     return result;
   };
+})();
+
+/* Lupa de las cuentas del borrador: buscador por código, nombre o NIF entre las cuentas de la contabilidad cargada */
+(function(){
+  let pop=null;
+  const close=()=>{pop?.remove();pop=null;document.removeEventListener("mousedown",outside,true);document.removeEventListener("keydown",keys,true)};
+  const outside=event=>{if(pop&&!pop.contains(event.target)&&!event.target.closest?.("[data-acc-search]"))close()};
+  const keys=event=>{if(!pop)return;if(event.key==="Escape"){event.preventDefault();close();return}
+    const items=[...pop.querySelectorAll("[data-acc]")];let i=items.findIndex(x=>x.classList.contains("on"));
+    if(event.key==="ArrowDown"||event.key==="ArrowUp"){event.preventDefault();items[i]?.classList.remove("on");i=event.key==="ArrowDown"?Math.min(items.length-1,i+1):Math.max(0,i-1);items[i]?.classList.add("on");items[i]?.scrollIntoView({block:"nearest"})}
+    if(event.key==="Enter"&&items[Math.max(0,i)]){event.preventDefault();items[Math.max(0,i)].click()}};
+  function open(button){
+    const input=button.parentElement.querySelector("input");if(!input)return;
+    if(pop&&pop.dataset.for===input.dataset.invoiceRow+input.dataset.invoiceField){close();return}close();
+    const field=input.dataset.invoiceField,data=invoiceAccounting.data||{},received=invoiceReceivedMode();
+    const list=field==="supplierAccount"?(data.proveedores||[]):received?(data.gastos||[]):(data.ingresos||[]);
+    pop=document.createElement("div");pop.className="acc-pop";pop.dataset.for=input.dataset.invoiceRow+field;
+    pop.innerHTML=`<label class="acc-pop-search"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><input type="search" placeholder="${field==="supplierAccount"?"Buscar proveedor, NIF o cuenta…":"Buscar cuenta o nombre…"}" autocomplete="off"></label><div class="acc-pop-list"></div>`;
+    document.body.append(pop);
+    const r=button.closest("td").getBoundingClientRect(),w=Math.max(360,r.width);pop.style.width=w+"px";
+    pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-w-8))+"px";
+    const below=window.innerHeight-r.bottom>300;pop.style.top=(below?r.bottom+4:Math.max(8,r.top-4-320))+"px";
+    const box=pop.querySelector(".acc-pop-list"),search=pop.querySelector("input"),current=amAccount(input.value);
+    const norm=v=>normalizeFiscalText(String(v||""));
+    const paint=()=>{const q=norm(search.value).trim(),digits=search.value.replace(/\D/g,""),words=q.split(/\s+/).filter(Boolean);
+      const found=list.filter(item=>!q||(digits&&item.cuenta.includes(digits))||(digits&&amAccount(search.value)===item.cuenta)||words.every(w=>norm(item.nombre).includes(w)||norm(item.nif).includes(w))).slice(0,150);
+      box.innerHTML=found.length?found.map(item=>`<button type="button" data-acc="${escapeHtml(item.cuenta)}" class="${item.cuenta===current?"cur":""}"><b>${escapeHtml(item.cuenta)}</b><span>${escapeHtml(item.nombre||"")}${item.nif?` · ${escapeHtml(item.nif)}`:""}${item.nueva?" · nueva":""}</span></button>`).join(""):`<p>No hay cuentas que coincidan.</p>`;
+      box.querySelector("[data-acc]")?.classList.add("on")};
+    search.addEventListener("input",paint);paint();
+    box.addEventListener("click",event=>{const b=event.target.closest("[data-acc]");if(!b)return;input.value=b.dataset.acc;close();input.dispatchEvent(new FocusEvent("focusout",{bubbles:true}));input.focus()});
+    document.addEventListener("mousedown",outside,true);document.addEventListener("keydown",keys,true);search.focus();
+    box.querySelector(".cur")?.scrollIntoView({block:"nearest"});
+  }
+  document.addEventListener("click",event=>{const b=event.target.closest?.("[data-acc-search]");if(b){event.preventDefault();open(b)}});
+  document.addEventListener("scroll",event=>{if(pop&&!pop.contains(event.target))close()},true);
 })();

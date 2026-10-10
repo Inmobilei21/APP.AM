@@ -5918,3 +5918,20 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 #processInvoices.invoice-reading{position:relative;overflow:hidden;opacity:1;cursor:progress;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:8px}
 .invoice-reading-spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:invoiceSpin .8s linear infinite;flex:none}
 @keyframes invoiceSpin{to{transform:rotate(360deg)}}
+/* Lupa de cuentas en el borrador de facturas */
+.acc-cell{position:relative;display:block}
+.invoice-draft .acc-cell input{padding:0 22px 0 5px;text-overflow:clip;letter-spacing:-.2px;font-variant-numeric:tabular-nums}
+.acc-search{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:21px;height:24px;border:0;border-radius:6px;background:transparent;color:#7a86a6;display:grid;place-items:center;cursor:pointer;padding:0}
+.acc-search:hover{background:#eef1ff;color:var(--blue)}
+.acc-pop{position:fixed;z-index:3000;background:#fff;border:1px solid #d8deea;border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,.18);overflow:hidden;animation:accPop .14s ease-out}
+@keyframes accPop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.acc-pop-search{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #eef1f6;color:#7a86a6}
+.acc-pop-search input{flex:1;border:0;outline:0;font:600 13px inherit;color:var(--ink);background:transparent;min-width:0}
+.acc-pop-list{max-height:280px;overflow:auto;padding:4px}
+.acc-pop-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;border:0;background:transparent;border-radius:9px;padding:7px 10px;cursor:pointer;color:var(--ink)}
+.acc-pop-list button b{font:700 12.5px inherit;font-variant-numeric:tabular-nums}
+.acc-pop-list button span{font-size:11.5px;color:#68748c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.acc-pop-list button.on,.acc-pop-list button:hover{background:#eef1ff}
+.acc-pop-list button.cur b{color:var(--blue)}
+.acc-pop-list button.cur b::after{content:" ✓";color:#15803d}
+.acc-pop-list p{margin:10px 12px;color:#68748c;font-size:12.5px}
