@@ -302,7 +302,52 @@ const MORE_28=`<p><b>Qué va aquí:</b> el IVA de las compras y gastos normales 
 <li>Los bienes de inversión de más de 3.005,06 € (casilla 30), las importaciones (32) y las compras intracomunitarias (36).</li>
 <li>Los abonos de proveedores, que van en la 40 y la 41.</li></ul>
 <p><b>Ojo:</b> con prorrata, la cuota se pone ya prorrateada y la base completa.</p>`;
-const HELP_MORE={"12":ISP_MORE,"13":ISP_MORE,"28":MORE_28,"29":MORE_28,"30":MORE_30,"31":MORE_30,"32":MORE_32,"33":MORE_32,"34":MORE_34,"35":MORE_34,"36":MORE_36,"37":MORE_36,"38":MORE_38,"39":MORE_38};
+const MORE_59=`<p><b>Qué va aquí:</b> las ventas sin IVA a empresas o profesionales de otro país de la UE que tienen NIF-IVA válido en el VIES. La factura va sin IVA, con la mención «Entrega intracomunitaria exenta, art. 25 LIVA» (bienes) o «Inversión del sujeto pasivo» (servicios).</p>
+<p><b>Sí, también va en el modelo 349:</b> las entregas de bienes con la clave E y las prestaciones de servicios con la clave S, con el NIF-IVA de cada cliente. Lo de esta casilla y lo del 349 del mismo periodo deben coincidir.</p>
+<p><b>Ejemplos:</b></p><ul>
+<li>Venta de mercancía a una empresa francesa o alemana, transportada a su país.</li>
+<li>Servicios de consultoría, diseño, publicidad o software prestados a una empresa de otro país de la UE.</li>
+<li>Venta de aceite o maquinaria a un distribuidor de Portugal o Italia.</li></ul>
+<p><b>Lo que no va aquí:</b> las ventas a particulares de otros países de la UE (llevan IVA español o van por el OSS, casilla 123), las ventas a empresas de la UE sin NIF-IVA válido (llevan IVA español) y las ventas fuera de la UE (casilla 60 o 120).</p>`;
+const MORE_60=`<p><b>Qué va aquí:</b> las ventas de bienes que salen de la UE (exportaciones) y las operaciones exentas asimiladas. Se justifican con el DUA de exportación.</p>
+<p><b>Ejemplos:</b></p><ul>
+<li>Venta de mercancía a un cliente de EE. UU., Reino Unido, Suiza o Marruecos.</li>
+<li>Envíos a Canarias, Ceuta o Melilla.</li>
+<li>Ventas a viajeros de fuera de la UE con devolución del IVA (tax free, con DIVA).</li>
+<li>Transportes y servicios ligados directamente a una exportación (art. 21 LIVA).</li></ul>
+<p><b>Lo que no va aquí:</b> los servicios a empresas de fuera de la UE (no sujetos, casilla 120) y las ventas a empresas de la UE (casilla 59). Las exportaciones no van en el modelo 349.</p>`;
+const MORE_120=`<p><b>Qué va aquí:</b> operaciones que no tributan en España porque, por las reglas de localización, se entienden hechas en otro país.</p>
+<p><b>Ejemplos:</b></p><ul>
+<li>Servicios de consultoría, diseño o software prestados a una empresa de EE. UU., Reino Unido o Suiza.</li>
+<li>Servicios sobre un inmueble situado en otro país (por ejemplo, la reforma de una vivienda en Francia).</li>
+<li>Una máquina vendida e instalada por nuestro cliente en una fábrica de otro país de la UE.</li></ul>
+<p><b>Lo que no va aquí:</b> los servicios a empresas de la UE, que van en la 59 (y en el 349), y las ventas a particulares de la UE declaradas por el OSS (casilla 123). Estas operaciones no van en el modelo 349.</p>`;
+const MORE_122=`<p><b>Qué va aquí:</b> las ventas de nuestro cliente en las que es el comprador quien declara el IVA (inversión del sujeto pasivo). La factura va sin IVA, con la mención «Inversión del sujeto pasivo, art. 84.Uno.2.º LIVA». Es la otra cara de la casilla 12: lo que aquí vende nuestro cliente, el comprador lo declara en su casilla 12.</p>
+<p><b>Ejemplos:</b></p><ul>
+<li>Un subcontratista de obra que factura a la constructora principal una obra de construcción o rehabilitación.</li>
+<li>La venta de una nave o un local con renuncia a la exención.</li>
+<li>Ventas de chatarra, residuos o desperdicios.</li>
+<li>Ventas de móviles, portátiles, tablets o consolas a un revendedor, o por más de 10.000 €.</li>
+<li>Ventas de oro de inversión.</li></ul>
+<p><b>Lo que no va aquí:</b> las ventas intracomunitarias, aunque la factura diga «inversión del sujeto pasivo», que van en la 59. Estas operaciones no van en el modelo 349.</p>`;
+const MORE_123=`<p><b>Qué va aquí:</b> las ventas a particulares de otros países de la UE que se declaran en el modelo 369 (ventanilla única, OSS), porque tributan en el país del comprador.</p>
+<p><b>Ejemplos:</b></p><ul>
+<li>Una tienda online que vende a particulares de Francia, Alemania o Italia, cuando las ventas a particulares de la UE superan los 10.000 € al año (o se ha optado por el OSS).</li>
+<li>Servicios digitales (cursos online, suscripciones, apps) vendidos a particulares de otros países de la UE y declarados por el OSS.</li>
+<li>Ventas de bienes importados de hasta 150 € a particulares, declaradas por el IOSS.</li></ul>
+<p><b>Lo que no va aquí:</b> las ventas a particulares de la UE por debajo de 10.000 € al año sin optar por el OSS (llevan IVA español y van en el IVA devengado) y las ventas a empresas de la UE (casilla 59). No van en el modelo 349.</p>`;
+const MORE_124=`<p><b>Qué va aquí:</b> operaciones que sí tributan en España pero se declaran por la ventanilla única (modelo 369) en lugar de en el IVA devengado del 303. Se anotan aquí solo para que cuenten en el volumen de operaciones.</p>
+<p><b>Ejemplos:</b></p><ul>
+<li>Una tienda online acogida al IOSS que vende a particulares de España productos de hasta 150 € enviados directamente desde China o EE. UU.</li>
+<li>Cualquier otra operación sujeta en España y declarada en el 369 que deba formar parte del volumen de operaciones.</li></ul>
+<p><b>Lo que no va aquí:</b> las ventas normales a clientes de España (van en el IVA devengado) y las ventas OSS a particulares de otros países de la UE (casilla 123). Es una casilla poco habitual. No va en el modelo 349.</p>`;
+const MORE_62=`<p><b>Solo si el cliente está en el régimen especial del criterio de caja (RECC):</b> declara el IVA de sus ventas cuando las cobra, no cuando las factura. Estas casillas son informativas: recogen las facturas emitidas del periodo por su fecha, como si no hubiera criterio de caja, se hayan cobrado o no.</p>
+<p><b>Ejemplo:</b> en septiembre emite una factura de 10.000 € + 2.100 € de IVA y la cobra en noviembre. En el 303 del 3T pone 10.000 en la 62 y 2.100 en la 63 (información). El IVA lo declara en el 4T, en las casillas 07 y 09, al cobrarla.</p>
+<p><b>A tener en cuenta:</b> pueden acogerse quienes facturan hasta 2 millones al año, optando en el modelo 036. Si no se cobra, el IVA se devenga igualmente el 31 de diciembre del año siguiente. Las facturas llevan la mención «régimen especial del criterio de caja».</p>`;
+const MORE_74=`<p><b>Para quien compra con criterio de caja:</b> el cliente está en el RECC, o le factura un proveedor acogido a él. El IVA de esas compras solo se deduce cuando se paga. Estas casillas son informativas: recogen las facturas recibidas del periodo por su fecha, como si no hubiera criterio de caja, se hayan pagado o no.</p>
+<p><b>Ejemplo:</b> un proveedor acogido al criterio de caja factura en julio 5.000 € + 1.050 € de IVA y se le paga en octubre. En el 303 del 3T se pone 5.000 en la 74 y 1.050 en la 75 (información). El IVA se deduce en el 4T, en las casillas 28 y 29, al pagarla.</p>
+<p><b>Cómo reconocerlo:</b> la factura del proveedor lleva la mención «régimen especial del criterio de caja».</p>`;
+const HELP_MORE={"124":MORE_124,"62":MORE_62,"63":MORE_62,"74":MORE_74,"75":MORE_74,"59":MORE_59,"60":MORE_60,"120":MORE_120,"122":MORE_122,"123":MORE_123,"12":ISP_MORE,"13":ISP_MORE,"28":MORE_28,"29":MORE_28,"30":MORE_30,"31":MORE_30,"32":MORE_32,"33":MORE_32,"34":MORE_34,"35":MORE_34,"36":MORE_36,"37":MORE_36,"38":MORE_38,"39":MORE_38};
 const FLAG_HELP={
   redeme:"Marque si está inscrito en el Registro de devolución mensual (art. 30 RIVA). Podrá solicitar la devolución en cada periodo si el resultado es negativo.",
   soloRS:"Marque si tributa exclusivamente en régimen simplificado.",conjunta:"Marque si se trata de una autoliquidación conjunta (art. 71.6 RIVA).",
