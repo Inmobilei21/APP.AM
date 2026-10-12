@@ -287,7 +287,22 @@ const MORE_38=`${INTRA_NOTE}<p><b>Ejemplos:</b></p><ul>
 <li>Maquinaria comprada a un fabricante italiano o alemán.</li>
 <li>Una furgoneta o un camión comprado a un concesionario de otro país de la UE.</li>
 <li>Estanterías industriales o equipos de más de 3.005,06 € la unidad comprados a un proveedor francés.</li></ul>${INV_NOTE.replace("<p><b>Qué es","<p><b>Recuerda qué es")}${INV_REG}`;
-const HELP_MORE={"12":ISP_MORE,"13":ISP_MORE,"30":MORE_30,"31":MORE_30,"32":MORE_32,"33":MORE_32,"34":MORE_34,"35":MORE_34,"36":MORE_36,"37":MORE_36,"38":MORE_38,"39":MORE_38};
+const MORE_28=`<p><b>Qué va aquí:</b> el IVA de las compras y gastos normales de la actividad a proveedores españoles, con IVA en la factura. Es la casilla donde va la mayoría de las facturas recibidas.</p>
+<p><b>Ejemplos:</b></p><ul>
+<li>Mercancía o materias primas compradas a un proveedor español.</li>
+<li>Suministros: luz, agua, gas, teléfono e internet del local.</li>
+<li>Alquiler del local de negocio (con su retención, en su caso).</li>
+<li>Servicios profesionales: asesoría, abogado, notario, publicidad o diseño de un proveedor español.</li>
+<li>Reparaciones y mantenimiento, material de oficina, limpieza o combustible.</li>
+<li>Equipos de 3.005,06 € o menos, como un ordenador o una silla, aunque se contabilicen en el inmovilizado.</li>
+<li>El IVA autorrepercutido por inversión del sujeto pasivo (casilla 12), cuando es deducible y no es un bien de inversión.</li></ul>
+<p><b>Lo que no va aquí:</b></p><ul>
+<li>Las facturas sin IVA (exentas o al 0 %), como seguros, servicios médicos, formación reglada o comisiones bancarias.</li>
+<li>El IVA no deducible: gastos no afectos a la actividad, atenciones a clientes, o la parte no deducible de un turismo.</li>
+<li>Los bienes de inversión de más de 3.005,06 € (casilla 30), las importaciones (32) y las compras intracomunitarias (36).</li>
+<li>Los abonos de proveedores, que van en la 40 y la 41.</li></ul>
+<p><b>Ojo:</b> con prorrata, la cuota se pone ya prorrateada y la base completa.</p>`;
+const HELP_MORE={"12":ISP_MORE,"13":ISP_MORE,"28":MORE_28,"29":MORE_28,"30":MORE_30,"31":MORE_30,"32":MORE_32,"33":MORE_32,"34":MORE_34,"35":MORE_34,"36":MORE_36,"37":MORE_36,"38":MORE_38,"39":MORE_38};
 const FLAG_HELP={
   redeme:"Marque si está inscrito en el Registro de devolución mensual (art. 30 RIVA). Podrá solicitar la devolución en cada periodo si el resultado es negativo.",
   soloRS:"Marque si tributa exclusivamente en régimen simplificado.",conjunta:"Marque si se trata de una autoliquidación conjunta (art. 71.6 RIVA).",
