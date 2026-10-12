@@ -5965,3 +5965,19 @@ body.td-side-open .td-side-body{overscroll-behavior:contain}
 .m130-pctin input:focus{outline:0;border-color:#8090e8;box-shadow:0 0 0 3px #e9edff;background:#fff}
 tr.m130-partial td{background:#fff8e8}
 tr.m130-partial .m130-pctin input{border-color:#e6b84d;color:#8a5a00}
+/* Borradores en ventana (impreso): por encima de la barra del móvil y sin mover la página de detrás */
+.td-modal{z-index:2000!important;overscroll-behavior:contain}
+.td-modal-body{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+html:has(.td-modal),body:has(.td-modal){overflow:hidden!important}
+@media(max-width:760px){
+  .td-modal{padding:0;place-items:stretch}
+  .td-modal-box,.td-form-modal{width:100%;max-height:none;height:100dvh;border-radius:0}
+  .td-form-modal header{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px calc(10px);padding-top:max(12px,env(safe-area-inset-top))}
+  .td-form-modal header>div:first-child{flex:1 1 100%;order:2;min-width:0}
+  .td-form-modal header h3{font-size:17px;margin:2px 0}.td-form-modal header p{font-size:12px;margin:0}
+  .td-form-actions{order:1;flex:1 1 100%;justify-content:flex-end;flex-wrap:nowrap}
+  .td-form-actions .secondary-button{min-height:34px;font-size:13px;padding:6px 10px;white-space:nowrap}
+  .td-form-modal .td-modal-body{padding:8px 6px calc(16px + env(safe-area-inset-bottom))}
+}
+/* La regla general del móvil oculta el primer bloque de los <header>: en ventanas y panel lateral se ve el título */
+@media(max-width:760px){.td-modal-box header>div:first-child,.td-side header>div:first-child{display:block!important}.td-modal-box header{flex:none;height:auto!important;max-height:none!important}}

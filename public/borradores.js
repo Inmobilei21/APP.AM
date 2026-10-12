@@ -561,7 +561,14 @@ const AEAT_FORM_CSS=`.aeat-form{position:relative;width:100%;max-width:820px;mar
 .aeat-form .af-ingreso b{font-family:Georgia,serif}
 .aeat-form .af-line{margin:6px 0;font-size:11.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.aeat-form .af-check{display:inline-grid;place-items:center;width:15px;height:15px;border:1px solid #6f81a8;font-style:normal;font-weight:700;font-size:11px}
 .aeat-form .af-foot{margin:6px 0 0;font-size:9.5px;color:#6a7690;text-align:center}
-@media(max-width:700px){.aeat-form .af-head{grid-template-columns:1fr 70px}.aeat-form .af-agency{display:none}.aeat-form .af-ident,.aeat-form .af-split{grid-template-columns:1fr}.aeat-form .af-cell{width:110px}}`;
+@media(max-width:700px){.aeat-form{padding:10px;font-size:11.5px}.aeat-form .af-watermark{font-size:64px}
+.aeat-form .af-head{grid-template-columns:1fr 64px;gap:6px}.aeat-form .af-agency{display:none}.aeat-form .af-title{padding:7px 9px}.aeat-form .af-title strong{font-size:13px}.aeat-form .af-title span{font-size:9.5px}.aeat-form .af-title em{font-size:10.5px}.aeat-form .af-model b{font-size:24px}.aeat-form .af-model small{font-size:9.5px}
+.aeat-form .af-sec{grid-template-columns:18px 1fr}.aeat-form .af-side{font-size:9.5px}.aeat-form .af-body{padding:7px 8px}
+.aeat-form .af-ident,.aeat-form .af-split,.aeat-form .af-g2,.aeat-form .af-g3{grid-template-columns:1fr}
+.aeat-form .af-row{flex-wrap:wrap;gap:4px 6px;margin:4px 0 8px}.aeat-form .af-label{flex:1 1 100%;padding-bottom:2px;font-size:11px;font-weight:600}
+.aeat-form .af-cell{flex:1 1 0;width:auto;min-width:0}.aeat-form .af-cell small{font-size:8px;line-height:1.15;min-height:2.3em;display:flex;align-items:flex-end;justify-content:center}
+.aeat-form .af-box{height:26px}.aeat-form .af-box b{width:22px;font-size:9.5px}.aeat-form .af-box span{font-size:11.5px;padding:4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aeat-form label span{font-size:12px}.aeat-form h5{font-size:11px;margin:10px 0 2px}}`;
 function printTaxDraftForm(html,title){
   const win=window.open("","_blank");if(!win){alert("Permite las ventanas emergentes para imprimir el borrador.");return}
   win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${AEAT_FORM_CSS}@page{size:A4;margin:10mm}body{margin:0;background:#fff}.aeat-form{border:0;max-width:none;padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>${html}<script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
