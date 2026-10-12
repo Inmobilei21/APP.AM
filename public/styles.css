@@ -5955,3 +5955,13 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .m303-tip-more ul{margin:0 0 6px;padding-left:16px}
 .m303-tip-more li{margin:2px 0}
 .m303-tip-more b{color:#fff}
+/* Panel lateral abierto: solo se desplaza el panel, la página de detrás queda quieta */
+html:has(body.td-side-open),body.td-side-open{overflow:hidden!important}
+body.td-side-open .td-side-body{overscroll-behavior:contain}
+/* 130: % de gasto deducible por factura */
+.m130-pct-note{margin:0 0 6px;font-size:12px}
+.m130-pctin{display:inline-flex;align-items:center;gap:3px;justify-content:flex-end}
+.m130-pctin input{width:52px;height:28px;border:1px solid #d6dbe6;border-radius:7px;text-align:right;padding:0 6px;font:700 12.5px inherit;background:#fffbea}
+.m130-pctin input:focus{outline:0;border-color:#8090e8;box-shadow:0 0 0 3px #e9edff;background:#fff}
+tr.m130-partial td{background:#fff8e8}
+tr.m130-partial .m130-pctin input{border-color:#e6b84d;color:#8a5a00}
