@@ -248,6 +248,18 @@ const HELP={
   "71":"Resultado de la liquidación: 71 = 69 − 70 + 109. Positivo: a ingresar. Negativo: a compensar o a devolver. Cero: resultado cero.",
   "111":"Solo en rectificativa: parte del resultado negativo que corresponde al resultado positivo de la autoliquidación rectificada (devolución de ingresos indebidos, modificación de aplazamientos o domiciliaciones…). El PRE 303 la calcula solo."
 };
+// Explicación ampliada (con ejemplos) de algunas casillas; se muestra debajo del texto de las instrucciones.
+const ISP_MORE=`<p><b>Qué significa.</b> Normalmente el proveedor repercute el IVA y lo ingresa él. En la inversión del sujeto pasivo, la factura llega sin IVA, con la mención «inversión del sujeto pasivo», y es nuestro cliente quien se autorrepercute el IVA. Lo declara como devengado en la 12 y la 13 y, si tiene derecho a deducir, lo vuelve a poner como deducible en la 28 y la 29, o en la 30 y la 31 si es un bien de inversión. Normalmente el efecto neto es cero.</p>
+<p><b>Ejemplos típicos (art. 84.Uno.2.º LIVA):</b></p><ul>
+<li><b>Obras de construcción:</b> una constructora recibe una factura de un subcontratista por una obra de urbanización, construcción o rehabilitación. Es el caso más habitual.</li>
+<li><b>Venta de inmuebles con renuncia a la exención:</b> por ejemplo, la segunda venta de una nave en la que el vendedor renuncia a la exención. También las entregas de inmuebles en un concurso o en la ejecución de una garantía.</li>
+<li><b>Proveedores de fuera de la UE que no están establecidos en España:</b> por ejemplo, un software o una suscripción facturados desde EE. UU., Reino Unido o Suiza a una empresa española.</li>
+<li><b>Chatarra, residuos y desperdicios:</b> su compra a un chatarrero.</li>
+<li><b>Oro:</b> oro sin elaborar y oro de inversión.</li>
+<li><b>Electrónica:</b> móviles, consolas, portátiles y tablets cuando el comprador es revendedor o la factura supera los 10.000 €.</li>
+<li><b>Derechos de emisión:</b> los de gases de efecto invernadero.</li></ul>
+<p><b>Lo que no va aquí:</b> los servicios y bienes de proveedores de otro país de la UE, como Google Irlanda, Amazon Luxemburgo o un proveedor alemán, son adquisiciones intracomunitarias y van en la 10 y la 11.</p>`;
+const HELP_MORE={"12":ISP_MORE,"13":ISP_MORE};
 const FLAG_HELP={
   redeme:"Marque si está inscrito en el Registro de devolución mensual (art. 30 RIVA). Podrá solicitar la devolución en cada periodo si el resultado es negativo.",
   soloRS:"Marque si tributa exclusivamente en régimen simplificado.",conjunta:"Marque si se trata de una autoliquidación conjunta (art. 71.6 RIVA).",
@@ -518,11 +530,12 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
     const key=el.dataset.m303Help,flag=key.startsWith("f:"),text=flag?FLAG_HELP[key.slice(2)]:HELP[key];if(!text)return;
     if(!tip){tip=document.createElement("div");tip.className="m303-tip";tip.setAttribute("role","tooltip");document.body.append(tip)}
     let label=flag?"":(el.closest("tr")?.querySelector(".m303-l")?.textContent||"").replace(/\s*\(.*\)\s*$/,"").trim();if(label&&text.toLowerCase().startsWith(label.slice(0,24).toLowerCase()))label="";
-    tip.innerHTML=`<div class="m303-tip-h">${flag?"<span>Identificación</span>":`<b>${escapeHtml(key)}</b><span>Casilla ${escapeHtml(key)}</span>`}</div>${label?`<p class="m303-tip-l">${escapeHtml(label)}</p>`:""}<p>${escapeHtml(text)}</p><small>Instrucciones del modelo 303 · AEAT 2026</small>`;
+    tip.innerHTML=`<div class="m303-tip-h">${flag?"<span>Identificación</span>":`<b>${escapeHtml(key)}</b><span>Casilla ${escapeHtml(key)}</span>`}</div>${label?`<p class="m303-tip-l">${escapeHtml(label)}</p>`:""}<p>${escapeHtml(text)}</p>${!flag&&HELP_MORE[key]?`<div class="m303-tip-more">${HELP_MORE[key]}</div>`:""}<small>Instrucciones del modelo 303 · AEAT 2026${!flag&&HELP_MORE[key]?" · ejemplos del despacho":""}</small>`;
+    tip.classList.toggle("wide",Boolean(!flag&&HELP_MORE[key]));
     tip.classList.add("on");
     const r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
     let left=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),top=r.top-h-10,below=false;
-    if(top<8){top=r.bottom+10;below=true}
+    if(top<8){top=r.bottom+10;below=true}if(top+h>window.innerHeight-8){top=Math.max(8,window.innerHeight-h-8);below=false;tip.classList.add("noarrow")}else tip.classList.remove("noarrow");
     tip.style.left=left+"px";tip.style.top=top+"px";tip.classList.toggle("below",below);
     tip.style.setProperty("--ax",Math.min(w-16,Math.max(16,r.left+r.width/2-left))+"px");
   }

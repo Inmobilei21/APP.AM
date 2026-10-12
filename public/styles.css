@@ -5948,3 +5948,10 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .m303-tip-l{margin:0 0 4px;font-weight:700;color:#fff}
 .m303-tip p{margin:0}
 .m303-tip small{display:block;margin-top:7px;color:#8fa2de;font-size:10px}
+.m303-tip.wide{max-width:480px}
+.m303-tip.noarrow::after{display:none}
+.m303-tip-more{margin-top:8px;padding-top:8px;border-top:1px solid rgba(169,184,236,.25)}
+.m303-tip-more p{margin:0 0 6px}
+.m303-tip-more ul{margin:0 0 6px;padding-left:16px}
+.m303-tip-more li{margin:2px 0}
+.m303-tip-more b{color:#fff}
