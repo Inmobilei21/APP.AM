@@ -259,7 +259,35 @@ const ISP_MORE=`<p><b>Qué significa.</b> Normalmente el proveedor repercute el 
 <li><b>Electrónica:</b> móviles, consolas, portátiles y tablets cuando el comprador es revendedor o la factura supera los 10.000 €.</li>
 <li><b>Derechos de emisión:</b> los de gases de efecto invernadero.</li></ul>
 <p><b>Lo que no va aquí:</b> los servicios y bienes de proveedores de otro país de la UE, como Google Irlanda, Amazon Luxemburgo o un proveedor alemán, son adquisiciones intracomunitarias y van en la 10 y la 11.</p>`;
-const HELP_MORE={"12":ISP_MORE,"13":ISP_MORE};
+const INV_NOTE=`<p><b>Qué es un bien de inversión para el IVA (art. 108 LIVA):</b> bienes que se van a usar más de un año como instrumentos de trabajo o medios de explotación. No lo son, aunque se contabilicen en el grupo 2: los que valen 3.005,06 € o menos, los accesorios y recambios, las reparaciones y el mantenimiento, los envases y embalajes, la ropa de trabajo y lo que se compra para revender.</p>`;
+const INV_REG=`<p><b>Ojo:</b> si hay prorrata, la deducción se regulariza durante 5 años (10 en inmuebles) en la casilla 43.</p>`;
+const MORE_30=`${INV_NOTE}<p><b>Ejemplos:</b></p><ul>
+<li>Compra de un local, una nave o una oficina para la actividad, con IVA.</li>
+<li>Una furgoneta o un turismo afecto a la actividad (con la deducción que corresponda, normalmente el 50 % en turismos).</li>
+<li>Maquinaria, un torno, una cámara frigorífica o la instalación de placas solares.</li>
+<li>Mobiliario o equipos informáticos por más de 3.005,06 € la unidad.</li></ul>
+<p><b>Lo que no va aquí:</b> un ordenador de 1.200 € o una silla de oficina, aunque se contabilicen en el inmovilizado, van en la 28 (corrientes).</p>${INV_REG}`;
+const IMPORT_NOTE=`<p><b>Qué es una importación:</b> la entrada en España de bienes que vienen de fuera de la UE (o de Canarias, Ceuta y Melilla). El IVA no lo cobra el proveedor, lo liquida la Aduana con el DUA, y el documento que da derecho a deducir es el DUA, no la factura del proveedor. La base es el valor en aduana más aranceles y gastos hasta el destino.</p>`;
+const MORE_32=`${IMPORT_NOTE}<p><b>Ejemplos:</b></p><ul>
+<li>Mercancía para vender comprada a un proveedor de China, EE. UU., Reino Unido o Suiza.</li>
+<li>Materias primas o envases traídos de fuera de la UE.</li>
+<li>Un paquete que llega por DHL, UPS o FedEx con «IVA de importación»: el IVA va aquí con el DUA. La comisión de despacho del transportista es un servicio interior y va en la 28.</li></ul>
+<p><b>Lo que no va aquí:</b> los servicios de fuera de la UE (son inversión del sujeto pasivo, casilla 12) y las compras a otros países de la UE (36). Si el IVA de importación está diferido, se declara también en la 77.</p>`;
+const MORE_34=`${IMPORT_NOTE}<p><b>Ejemplos:</b></p><ul>
+<li>Maquinaria industrial comprada a un fabricante de China o de Turquía.</li>
+<li>Un vehículo traído de EE. UU. para la actividad.</li>
+<li>Equipos o instalaciones de más de 3.005,06 € importados del Reino Unido o de Suiza.</li></ul>${INV_NOTE.replace("<p><b>Qué es","<p><b>Recuerda qué es")}${INV_REG}`;
+const INTRA_NOTE=`<p><b>Qué es una adquisición intracomunitaria:</b> una compra a un empresario de otro país de la UE que factura sin IVA porque nuestro cliente tiene NIF-IVA (alta en el ROI y válido en el VIES). Nuestro cliente se autorrepercute el IVA español: lo declara como devengado en la 10 y la 11 y lo deduce aquí, así que normalmente el efecto neto es cero. También se declara en el modelo 349 (clave A bienes, I servicios).</p>`;
+const MORE_36=`${INTRA_NOTE}<p><b>Ejemplos:</b></p><ul>
+<li>Mercancía comprada a un proveedor de Alemania, Italia, Francia o Portugal, sin IVA.</li>
+<li>Publicidad de Google Ads (Google Ireland) o de Meta (Meta Platforms Ireland).</li>
+<li>Comisiones de Amazon (Amazon Services Europe, Luxemburgo) o licencias de software facturadas desde Irlanda o los Países Bajos.</li></ul>
+<p><b>Lo que no va aquí:</b> si el proveedor europeo cobró el IVA de su país (porque el cliente no tenía NIF-IVA), no es intracomunitaria y ese IVA extranjero no se deduce en el 303: se pide con el modelo 360. Lo que viene de fuera de la UE es importación (32) o inversión del sujeto pasivo (12).</p>`;
+const MORE_38=`${INTRA_NOTE}<p><b>Ejemplos:</b></p><ul>
+<li>Maquinaria comprada a un fabricante italiano o alemán.</li>
+<li>Una furgoneta o un camión comprado a un concesionario de otro país de la UE.</li>
+<li>Estanterías industriales o equipos de más de 3.005,06 € la unidad comprados a un proveedor francés.</li></ul>${INV_NOTE.replace("<p><b>Qué es","<p><b>Recuerda qué es")}${INV_REG}`;
+const HELP_MORE={"12":ISP_MORE,"13":ISP_MORE,"30":MORE_30,"31":MORE_30,"32":MORE_32,"33":MORE_32,"34":MORE_34,"35":MORE_34,"36":MORE_36,"37":MORE_36,"38":MORE_38,"39":MORE_38};
 const FLAG_HELP={
   redeme:"Marque si está inscrito en el Registro de devolución mensual (art. 30 RIVA). Podrá solicitar la devolución en cada periodo si el resultado es negativo.",
   soloRS:"Marque si tributa exclusivamente en régimen simplificado.",conjunta:"Marque si se trata de una autoliquidación conjunta (art. 71.6 RIVA).",
