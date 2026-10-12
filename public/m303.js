@@ -194,10 +194,74 @@ if(typeof taxDraftLists==="function"){const previous=taxDraftLists;taxDraftLists
   return keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">Casilla ${escapeHtml(k)} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota ${tdEur(tdSum(list,"cuota"))}</h4><table class="td-list"><thead><tr><th class="center">PDF</th><th>Fecha</th><th>Factura</th><th>Cliente</th><th class="num">Base</th><th class="num">%</th><th class="num">Cuota</th>${list.some(l=>l.recargo)?'<th class="num">Recargo</th>':""}</tr></thead><tbody>${list.map(l=>`<tr><td class="center">${pdfEye(l,"EMITIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}</td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td>${list.some(x=>x.recargo)?`<td class="num">${l.recargo?tdEur(l.recargo):""}</td>`:""}</tr>`).join("")}</tbody></table>`}).join("");
 }}
 
+/* --- Ayuda de cada casilla (Instrucciones del modelo 303, AEAT 2026) --- */
+const HELP_BASE="Bases imponibles y cuotas resultantes",HELP_RE="En el espacio reservado al recargo de equivalencia se harán constar las bases imponibles gravadas, el tipo aplicable y la cuota resultante.";
+const HELP={
+  "150":"Base imponible de las operaciones gravadas al tipo del 0 %.","151":"Tipo del 0 %.","152":"Cuota resultante de las operaciones gravadas al tipo del 0 %.",
+  "165":"Base imponible de las operaciones gravadas a otro tipo distinto de los anteriores (casillas 165, 166 y 167).","166":"Tipo aplicado a la base de la casilla 165.","167":"Cuota resultante de la base de la casilla 165.",
+  "01":"Bases imponibles gravadas al tipo del 4 %.","02":"Tipo del 4 %.","03":"Cuotas resultantes de las bases gravadas al 4 %.",
+  "153":"Base imponible gravada a otro tipo distinto de los anteriores (casillas 153, 154 y 155).","154":"Tipo aplicado a la base de la casilla 153.","155":"Cuota resultante de la base de la casilla 153.",
+  "04":"Bases imponibles gravadas al tipo del 10 %.","05":"Tipo del 10 %.","06":"Cuotas resultantes de las bases gravadas al 10 %.",
+  "07":"Bases imponibles gravadas al tipo del 21 %.","08":"Tipo del 21 %.","09":"Cuotas resultantes de las bases gravadas al 21 %.",
+  "10":"Bases imponibles del total de adquisiciones intracomunitarias de bienes y servicios realizadas en el periodo de liquidación (todas, incluidas las de tipo cero).","11":"Cuota resultante de las adquisiciones intracomunitarias de bienes y servicios del periodo.",
+  "12":"Bases imponibles devengadas en el periodo por inversión del sujeto pasivo (art. 84.Uno.2.º y 4.º LIVA) cuando tengan su origen en operaciones distintas de las de las casillas 10 y 11.","13":"Cuotas devengadas por inversión del sujeto pasivo distintas de las adquisiciones intracomunitarias.",
+  "14":"Modificación de bases imponibles, con el signo que corresponda, por cualquiera de las causas del art. 80 LIVA (art. 24.1 y 2 RIVA) y cualquier otra modificación. No se desglosa por tipos; si minora la base, con signo menos. Incluye la minoración por devoluciones en régimen de viajeros.","15":"Modificación de cuotas, con el signo que corresponda (art. 80 LIVA). No se desglosa por tipos; si minora la cuota, con signo menos.",
+  "156":"Recargo de equivalencia del 1,75 %: base imponible.","157":"Tipo del recargo 1,75 %.","158":"Cuota de recargo de equivalencia al 1,75 %.",
+  "168":"Recargo de equivalencia del 0,5 %: base imponible.","169":"Tipo del recargo 0,5 %.","170":"Cuota de recargo de equivalencia al 0,5 %.",
+  "16":HELP_RE,"17":HELP_RE,"18":HELP_RE,
+  "19":"Recargo de equivalencia del 1,4 %: base imponible.","20":"Tipo del recargo 1,4 %.","21":"Cuota de recargo de equivalencia al 1,4 %.",
+  "22":"Recargo de equivalencia del 5,2 %: base imponible.","23":"Tipo del recargo 5,2 %.","24":"Cuota de recargo de equivalencia al 5,2 %.",
+  "25":"Modificación de bases imponibles del recargo de equivalencia (art. 80 LIVA; art. 24.1 y 2 RIVA). Si supone minoración, con signo menos.","26":"Modificación del recargo de equivalencia (art. 80 LIVA). Si supone minoración, con signo menos.",
+  "27":"Total cuota devengada: suma de las cuotas 152 + 167 + 03 + 155 + 06 + 09 + 11 + 13 + 15 + 158 + 170 + 18 + 21 + 24 + 26.",
+  "28":"Base de las cuotas soportadas deducibles en operaciones interiores corrientes (art. 108 LIVA). La base va siempre sin prorratear. No se incluyen adquisiciones a tipo cero o exentas.","29":"Cuotas soportadas deducibles en operaciones interiores corrientes, después de aplicar, en su caso, la regla de prorrata.",
+  "30":"Base de las cuotas soportadas deducibles en operaciones interiores con bienes de inversión (art. 108 LIVA), sin prorratear.","31":"Cuotas soportadas deducibles en operaciones interiores con bienes de inversión, después de aplicar, en su caso, la prorrata.",
+  "32":"Base de las cuotas satisfechas deducibles en importaciones de bienes corrientes, sin prorratear.","33":"Cuotas deducibles en importaciones de bienes corrientes, después de aplicar, en su caso, la prorrata.",
+  "34":"Base de las cuotas satisfechas deducibles en importaciones de bienes de inversión, sin prorratear.","35":"Cuotas deducibles en importaciones de bienes de inversión, después de aplicar, en su caso, la prorrata.",
+  "36":"Base de las cuotas deducibles en adquisiciones intracomunitarias de bienes y servicios corrientes, sin prorratear.","37":"Cuotas deducibles en adquisiciones intracomunitarias de bienes y servicios corrientes, después de aplicar, en su caso, la prorrata.",
+  "38":"Base de las cuotas deducibles en adquisiciones intracomunitarias de bienes de inversión, sin prorratear.","39":"Cuotas deducibles en adquisiciones intracomunitarias de bienes de inversión, después de aplicar, en su caso, la prorrata.",
+  "40":"Base imponible de las cuotas deducibles rectificadas, regularizadas en las autoliquidaciones del ejercicio. No se incluyen las ya regularizadas en periodos anteriores (art. 24.2.b RIVA). Si minora las deducciones, con signo negativo.","41":"Cuotas deducibles rectificadas. Si la rectificación minora las deducciones, con signo negativo.",
+  "42":"Compensaciones satisfechas a sujetos pasivos acogidos al Régimen especial de la agricultura, ganadería y pesca, después de aplicar, en su caso, la prorrata.",
+  "43":"Resultado de la regularización de las deducciones por bienes de inversión, incluida la de deducciones anteriores al inicio de la actividad. Si minora las deducciones, con signo negativo.",
+  "44":"Regularización de las deducciones provisionales del ejercicio por aplicar el porcentaje definitivo de prorrata. Solo en el 4T o mes 12, o en caso de cese de actividad.",
+  "45":"Total a deducir: 29 + 31 + 33 + 35 + 37 + 39 + 41 + 42 + 43 + 44.","46":"Resultado régimen general: total cuota devengada (27) menos total a deducir (45).",
+  "59":"Importe de las entregas intracomunitarias de bienes exentas del periodo (art. 25 LIVA) y de las prestaciones de servicios intracomunitarias del periodo.",
+  "60":"Exportaciones y operaciones asimiladas exentas del periodo: exportaciones fuera de la UE (incluidos envíos definitivos a Canarias, Ceuta y Melilla, art. 21 LIVA), bases de devoluciones en régimen de viajeros (en positivo), operaciones de los arts. 22, 23, 24 y 64 LIVA y las exentas del régimen de agencias de viajes (art. 143).",
+  "120":"Operaciones no sujetas por reglas de localización (salvo las de la casilla 123): ventas a distancia intracomunitarias no sujetas (art. 68.Cuatro), ventas a distancia de bienes importados no sujetas, servicios no sujetos (salvo los intracomunitarios de la 59), entregas con instalación o montaje en otro Estado miembro y demás no sujetas por localización.",
+  "122":"Operaciones sujetas con inversión del sujeto pasivo: entregas de oro del art. 84.Uno.2.º b) y de oro de inversión (art. 140), y entregas y servicios del art. 84.Uno.2.º a), c), d), e), f) y g) LIVA.",
+  "123":"Operaciones no sujetas por reglas de localización acogidas a los regímenes especiales de ventanilla única (Régimen de la Unión, de importación o exterior).",
+  "124":"Operaciones sujetas y acogidas a los regímenes especiales de ventanilla única (p. ej. ventas a distancia de bienes importados sujetas en el territorio de aplicación del impuesto).",
+  "62":"Criterio de caja: base imponible de las entregas y servicios a los que se aplica el régimen que se habrían devengado en el periodo por la regla general del art. 75 LIVA.","63":"Criterio de caja: cuota de esas mismas entregas y servicios devengados por la regla general del art. 75 LIVA.",
+  "74":"Criterio de caja: base imponible de las adquisiciones a las que se aplique o afecte el régimen, como si se devengaran por la regla general del art. 75 LIVA.","75":"Criterio de caja: cuota soportada de esas adquisiciones según la regla general del art. 75 LIVA.",
+  "76":"Regularización de cuotas del art. 80.Cinco.5.ª LIVA: el destinatario con prorrata de una operación impagada cuya base se ha modificado consigna las cuotas soportadas que no pudo deducirse y de las que resulta deudor.",
+  "64":"Suma de resultados: resultado régimen general (46) + resultado régimen simplificado (58) + regularización art. 80.Cinco.5.ª (76).",
+  "65":"Porcentaje del volumen de operaciones en territorio común (solo si tributa también al País Vasco o Navarra). Los demás sujetos pasivos consignan 100 %.",
+  "66":"Atribuible a la Administración del Estado antes de compensar cuotas de periodos anteriores. Coincide con la 64 salvo tributación conjunta con las Diputaciones Forales: 66 = 64 × 65.",
+  "77":"IVA a la importación liquidado por la Aduana pendiente de ingreso: cuotas de los documentos de liquidación recibidos en el periodo. Solo si se cumplen los requisitos del art. 74.1 RIVA.",
+  "110":"Cuotas a compensar pendientes de periodos anteriores, con signo positivo (si tributa a varias Administraciones, solo el saldo ante la Administración del Estado).",
+  "78":"Cuotas a compensar de periodos anteriores aplicadas en este periodo, con signo positivo. Se aplica la cuantía máxima posible: hasta la suma de 66 + 77.",
+  "87":"Cuotas de periodos previos pendientes para periodos posteriores: 110 − 78. No incluye las cuotas a compensar generadas en este periodo.",
+  "68":"Regularización anual: solo en la última autoliquidación del año (4T o mes 12), según el Concierto (País Vasco) o el Convenio (Navarra).",
+  "108":"Solo en autoliquidación rectificativa por discrepancia de criterio administrativo cuando la rectificación no pueda hacerse en otras casillas. Puede ser positiva o negativa.",
+  "69":"Resultado: 66 + 77 − 78 + 68 + 108.",
+  "70":"Solo en rectificativa: resultado a ingresar de la autoliquidación anterior. Si su casilla 69 era positiva, se pone ese importe (ingresado o no); si era cero o negativa, se deja en blanco.",
+  "109":"Solo en rectificativa: devoluciones acordadas por la AEAT de autoliquidaciones anteriores del mismo periodo. Si la 69 anterior era negativa y se acordó la devolución, se pone ese importe sin signo; si no, en blanco.",
+  "71":"Resultado de la liquidación: 71 = 69 − 70 + 109. Positivo: a ingresar. Negativo: a compensar o a devolver. Cero: resultado cero.",
+  "111":"Solo en rectificativa: parte del resultado negativo que corresponde al resultado positivo de la autoliquidación rectificada (devolución de ingresos indebidos, modificación de aplazamientos o domiciliaciones…). El PRE 303 la calcula solo."
+};
+const FLAG_HELP={
+  redeme:"Marque si está inscrito en el Registro de devolución mensual (art. 30 RIVA). Podrá solicitar la devolución en cada periodo si el resultado es negativo.",
+  soloRS:"Marque si tributa exclusivamente en régimen simplificado.",conjunta:"Marque si se trata de una autoliquidación conjunta (art. 71.6 RIVA).",
+  caja:"Marque si ha optado por el régimen especial del criterio de caja (art. 163 undecies LIVA).",destCaja:"Marque si es destinatario de operaciones a las que se aplique el régimen especial del criterio de caja.",
+  prorrata:"Opción por la prorrata especial (art. 103.Dos.1.º LIVA). Solo puede ejercitarse en la autoliquidación del último periodo del ejercicio.",revocacion:"Revocación de la prorrata especial (art. 103.Dos.1.º LIVA). Solo en la autoliquidación del último periodo del ejercicio.",
+  concurso:"Marque si ha sido declarado en concurso de acreedores en el periodo: indique la fecha del auto y si la autoliquidación es preconcursal (hechos anteriores al auto) o postconcursal (posteriores).",
+  sii:"Marque si lleva voluntariamente los Libros registro del IVA a través de la Sede electrónica de la AEAT (art. 68 bis RIVA).",
+  exonerado:"Solo en el último periodo: indique si está exonerado del modelo 390 (trimestrales que solo tributan en territorio común con régimen simplificado y/o arrendamiento de inmuebles urbanos, o quienes llevan los libros en la Sede, art. 62.6 RIVA).",
+  volumen:"Solo en el último periodo y si está exonerado del 390: indique si su volumen anual de operaciones es distinto de cero."
+};
 /* --- Pantalla: una página del modelo cada vez --- */
 const PAGES=[["ident","Identificación"],["dev","IVA devengado"],["ded","IVA deducible"],["info","Información adicional"],["res","Resultado"],["pago","Forma de pago"]];
 function moneyInput(n,r,{auto,signed}={}){const v=r.m.v[n];return `<input class="m303-in${has(v)&&auto!==undefined?" manual":""}${!has(v)&&auto?" has-auto":""}" data-m303="${n}" inputmode="decimal" value="${escapeHtml(inputValue(v))}" placeholder="${auto!==undefined?escapeHtml(inputValue(auto)||"0,00"):"0,00"}" title="${signed?"Admite importes negativos":""}">`}
-const cell=(n,content)=>`<div class="m303-cell"><span class="m303-n">${n}</span>${content}</div>`;
+const cell=(n,content)=>`<div class="m303-cell"${HELP[n]?` data-m303-help="${n}"`:""}><span class="m303-n">${n}</span>${content}</div>`;
 const out=v=>`<span class="m303-out">${tdEur(v)}</span>`;
 // Ojo a la izquierda de cada fila con datos: abre solo las facturas de esa casilla.
 const lineIn=(l,b)=>String(l.casilla||"").split(" · ").includes(b);
@@ -253,7 +317,7 @@ const IDENT_L=[["redeme","Sujeto pasivo inscrito en el Registro de devolución m
 const IDENT_R=[["sii","Sujeto pasivo acogido voluntariamente al SII"],["exonerado","Sujeto pasivo exonerado de la Declaración-resumen anual del IVA, modelo 390",true],["volumen","Sujeto pasivo con volumen anual de operaciones distinto de cero (art. 121 LIVA)",true]];
 function pageIdent(r){
   const f=r.m.f,last=r.q===4;
-  const ck=([k,l,only4])=>{const off=only4&&!last||k==="volumen"&&!f.exonerado;return `<label class="m303-ck${off?" off":""}" title="${only4?"Solo en el último periodo (4T)":""}"><span>${escapeHtml(l)}</span><input type="checkbox" data-m303flag="${k}"${f[k]&&!off?" checked":""}${off?" disabled":""}></label>`};
+  const ck=([k,l,only4])=>{const off=only4&&!last||k==="volumen"&&!f.exonerado;return `<label class="m303-ck${off?" off":""}"${FLAG_HELP[k]?` data-m303-help="f:${k}"`:""}><span>${escapeHtml(l)}</span><input type="checkbox" data-m303flag="${k}"${f[k]&&!off?" checked":""}${off?" disabled":""}></label>`};
   const dd=[f.concDia??String(f.fechaConcurso||"").slice(0,2),f.concMes??String(f.fechaConcurso||"").slice(2,4),f.concAnio??String(f.fechaConcurso||"").slice(4,8)];
   return `<div class="m303-idg"><div>${IDENT_L.map(ck).join("")}
       <div class="m303-conc${f.concurso?"":" off"}"><span>Fecha en que se dictó el auto de declaración de concurso</span><div class="m303-date"><label><small>Día</small><input data-m303date="0" maxlength="2" inputmode="numeric" value="${escapeHtml(dd[0])}"${f.concurso?"":" disabled"}></label><label><small>Mes</small><input data-m303date="1" maxlength="2" inputmode="numeric" value="${escapeHtml(dd[1])}"${f.concurso?"":" disabled"}></label><label><small>Año</small><input data-m303date="2" maxlength="4" inputmode="numeric" class="y" value="${escapeHtml(dd[2])}"${f.concurso?"":" disabled"}></label></div></div>
@@ -446,5 +510,25 @@ if(typeof openConfirmedTaxDraft==="function"){const previousOpen=openConfirmedTa
 .m303-pp{display:flex;flex-direction:column;gap:2px;border-left:1px solid #163b8c;padding-left:8px}.m303-pp .m303-ck span{background:none}
 @media(max-width:760px){.m303-idg{grid-template-columns:1fr;padding:6px 8px}.m303-conc{margin-left:0;flex-wrap:wrap}}.m303-rect.on{background:#f6f8ff}
 @media(max-width:760px){.m303-tabs button{min-width:130px}.m303-t{margin:0 6px 6px;width:calc(100% - 12px)}.m303-l{background:none}.m303-in{height:32px}.m303-out{line-height:32px;height:32px}}`;document.head.append(style)})();
+/* Recuadro de ayuda al pasar por una casilla: número + texto de las instrucciones de la AEAT */
+(function(){
+  let tip=null,timer=0,current=null;
+  const hide=()=>{clearTimeout(timer);current=null;if(tip){tip.classList.remove("on")}};
+  function show(el){
+    const key=el.dataset.m303Help,flag=key.startsWith("f:"),text=flag?FLAG_HELP[key.slice(2)]:HELP[key];if(!text)return;
+    if(!tip){tip=document.createElement("div");tip.className="m303-tip";tip.setAttribute("role","tooltip");document.body.append(tip)}
+    let label=flag?"":(el.closest("tr")?.querySelector(".m303-l")?.textContent||"").replace(/\s*\(.*\)\s*$/,"").trim();if(label&&text.toLowerCase().startsWith(label.slice(0,24).toLowerCase()))label="";
+    tip.innerHTML=`<div class="m303-tip-h">${flag?"<span>Identificación</span>":`<b>${escapeHtml(key)}</b><span>Casilla ${escapeHtml(key)}</span>`}</div>${label?`<p class="m303-tip-l">${escapeHtml(label)}</p>`:""}<p>${escapeHtml(text)}</p><small>Instrucciones del modelo 303 · AEAT 2026</small>`;
+    tip.classList.add("on");
+    const r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
+    let left=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),top=r.top-h-10,below=false;
+    if(top<8){top=r.bottom+10;below=true}
+    tip.style.left=left+"px";tip.style.top=top+"px";tip.classList.toggle("below",below);
+    tip.style.setProperty("--ax",Math.min(w-16,Math.max(16,r.left+r.width/2-left))+"px");
+  }
+  document.addEventListener("mouseover",event=>{const el=event.target.closest?.("[data-m303-help]");if(el===current)return;hide();if(!el)return;current=el;timer=setTimeout(()=>show(el),350)});
+  document.addEventListener("focusin",event=>{const el=event.target.closest?.("[data-m303-help]");if(el){current=el;clearTimeout(timer);timer=setTimeout(()=>show(el),350)}});
+  document.addEventListener("focusout",hide);document.addEventListener("scroll",hide,true);document.addEventListener("keydown",event=>{if(event.key==="Escape")hide()});
+})();
 if(document.querySelector("#tdModels")&&taxDrafts.client){renderTaxDraftModels();renderTaxDraftMain()}
 })();

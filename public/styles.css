@@ -5935,3 +5935,16 @@ body.home-cuatro-columnas .home-activity-rail .home-activity-list,
 .acc-pop-list button.cur b{color:var(--blue)}
 .acc-pop-list button.cur b::after{content:" ✓";color:#15803d}
 .acc-pop-list p{margin:10px 12px;color:#68748c;font-size:12.5px}
+/* Ayuda de las casillas del 303 */
+.m303-cell[data-m303-help]{cursor:help}
+.m303-cell[data-m303-help]:hover .m303-n{background:#163b8c;color:#fff}
+.m303-tip{position:fixed;z-index:4000;max-width:360px;background:#0f2557;color:#eef2ff;border-radius:12px;padding:10px 13px 9px;box-shadow:0 14px 34px rgba(8,20,55,.32);font-size:12.5px;line-height:1.45;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .14s,transform .14s;visibility:hidden}
+.m303-tip.on{opacity:1;transform:none;visibility:visible}
+.m303-tip::after{content:"";position:absolute;left:var(--ax,50%);bottom:-6px;width:12px;height:12px;background:#0f2557;transform:translateX(-50%) rotate(45deg);border-radius:2px}
+.m303-tip.below::after{bottom:auto;top:-6px}
+.m303-tip-h{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.m303-tip-h b{min-width:30px;height:22px;padding:0 6px;border-radius:6px;background:#fff;color:#0f2557;display:grid;place-items:center;font-size:12px;font-variant-numeric:tabular-nums}
+.m303-tip-h span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#a9b8ec;font-weight:700}
+.m303-tip-l{margin:0 0 4px;font-weight:700;color:#fff}
+.m303-tip p{margin:0}
+.m303-tip small{display:block;margin-top:7px;color:#8fa2de;font-size:10px}
