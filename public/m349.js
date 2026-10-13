@@ -45,6 +45,16 @@ function invoices(period){
   for(const [tipo,list] of [["EMITIDAS",book?.emitidas||[]],["RECIBIDAS",book?.recibidas||[]]])
     for(const item of list)if(item.intracom&&quarterOf(item.fecha)===period)
       out.push({...item,tipo,clave:item.clave349||(tipo==="EMITIDAS"?"E":"A"),incluir:!m.excluir.includes(item.id)});
+  // Adquisiciones intracomunitarias del 303 del trimestre (las de la contabilidad y las marcadas con el «Tipo» en el IVA
+  // deducible): clave A (bienes) o I (servicios). No se repiten las que ya vienen de las facturas guardadas.
+  let r303=null;try{r303=taxDraftBuild("303",period).calc}catch{}
+  const seen=new Set(out.map(x=>[x.fecha,String(x.numero).trim(),String(x.nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"")].join("|")));
+  for(const l of r303?.rec?.lines||[]){
+    if(!l.intra||l.base<0)continue;
+    const sig=[l.fecha,String(l.numero).trim(),String(l.nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"")].join("|");if(seen.has(sig))continue;
+    const id="303|"+(l.key||sig);
+    out.push({id,fecha:l.fecha,numero:l.numero,nombre:l.nombre,nif:l.nif||"",base:tdRound(l.base),cuota:l.cuota,ruta:l.ruta||"",archivo:l.archivo||"",tipo:"RECIBIDAS",origen:"303",clave:l.servicios?"I":"A",incluir:!m.excluir.includes(id)});
+  }
   return out.sort((a,b)=>a.fecha.localeCompare(b.fecha));
 }
 // Un registro por operador (NIF-IVA) y clave de operación, con la suma de las bases.
@@ -101,7 +111,7 @@ function opsTable(r,editable){
       <td>${editable?`<input data-m349-opf="nombre" data-key="${escapeHtml(op.key)}" value="${escapeHtml(op.nombre)}" maxlength="40">`:escapeHtml(op.nombre)}</td>
       <td><span class="m349-key" title="${escapeHtml(KEYS[op.clave]||"")}">${escapeHtml(op.clave)}</span></td><td class="num">${inc}${inc<op.facturas.length?` de ${op.facturas.length}`:""}</td><td class="num"><b>${tdEur(op.base)}</b></td>
       <td class="center"><button type="button" class="td-eye" data-m349-toggle="${escapeHtml(op.key)}" title="Ver las facturas que lo componen">${tdEye}</button></td></tr>
-      ${isOpen?`<tr class="m349-inv-row"><td colspan="7"><table class="td-list m349-inv"><thead><tr><th class="center">Incluir</th><th class="center">PDF</th><th>Fecha</th><th>Factura</th><th>Libro</th><th class="num">Base</th></tr></thead><tbody>${op.facturas.map(inv=>`<tr class="${inv.incluir?"":"td-off"}"><td class="center">${editable?`<input type="checkbox" data-m349-inc="${escapeHtml(inv.id)}"${inv.incluir?" checked":""} aria-label="Incluir en la declaración">`:inv.incluir?"Sí":"No"}</td><td class="center">${/\.(xlsx?|xlsm|csv|ods)$/i.test(inv.archivo||"")&&!inv.ruta?`<span class="td-eye off" title="Sin PDF">${tdEyeOff}</span>`:`<button type="button" class="td-eye" data-m349-doc="${encodeURIComponent(JSON.stringify({ruta:inv.ruta||"",fecha:inv.fecha,nombre:inv.nombre,numero:inv.numero,tipo:inv.tipo}))}" title="Ver la factura">${tdEye}</button>`}</td><td>${tdDate(inv.fecha)}</td><td>${escapeHtml(inv.numero)}</td><td>${inv.tipo==="EMITIDAS"?"Emitida":"Recibida"}</td><td class="num">${tdEur(inv.base)}</td></tr>`).join("")}</tbody></table></td></tr>`:""}`}).join("")}</tbody>
+      ${isOpen?`<tr class="m349-inv-row"><td colspan="7"><table class="td-list m349-inv"><thead><tr><th class="center">Incluir</th><th class="center">PDF</th><th>Fecha</th><th>Factura</th><th>Libro</th><th class="num">Base</th></tr></thead><tbody>${op.facturas.map(inv=>`<tr class="${inv.incluir?"":"td-off"}"><td class="center">${editable?`<input type="checkbox" data-m349-inc="${escapeHtml(inv.id)}"${inv.incluir?" checked":""} aria-label="Incluir en la declaración">`:inv.incluir?"Sí":"No"}</td><td class="center">${/\.(xlsx?|xlsm|csv|ods)$/i.test(inv.archivo||"")&&!inv.ruta?`<span class="td-eye off" title="Sin PDF">${tdEyeOff}</span>`:`<button type="button" class="td-eye" data-m349-doc="${encodeURIComponent(JSON.stringify({ruta:inv.ruta||"",fecha:inv.fecha,nombre:inv.nombre,numero:inv.numero,tipo:inv.tipo}))}" title="Ver la factura">${tdEye}</button>`}</td><td>${tdDate(inv.fecha)}</td><td>${escapeHtml(inv.numero)}</td><td>${inv.tipo==="EMITIDAS"?"Emitida":"Recibida"}${inv.origen==="303"?'<small class="m349-src" title="Sale del IVA deducible del 303 (contabilidad o «Tipo» elegido en el panel)">· 303</small>':""}</td><td class="num">${tdEur(inv.base)}</td></tr>`).join("")}</tbody></table></td></tr>`:""}`}).join("")}</tbody>
     <tfoot><tr><td colspan="5">Total incluido</td><td class="num">${tdEur(r.c["02"])}</td><td></td></tr></tfoot></table>`;
 }
 function rectTable(r,editable){
