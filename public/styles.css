@@ -6024,3 +6024,5 @@ tr.m303-op-row td{background:#fffaf0}
 .td-cal-t th{text-align:left;font-weight:700;color:#cfd8f6;padding:3px 10px 3px 0;white-space:nowrap;vertical-align:top}
 .td-cal-t td{padding:3px 0;color:#fff}
 .td-cal-sub{margin-top:8px!important}
+.m303-cf-lbl{text-align:left;line-height:1.25}
+.m303-cf-lbl small{display:block;margin-top:2px;font-weight:400;font-size:11px;color:#6b7280}

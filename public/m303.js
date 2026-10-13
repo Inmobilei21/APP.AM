@@ -92,9 +92,9 @@ const euOf=(pais,nif)=>{const p=String(pais||"").toUpperCase();if(EU_CODES.has(p
 function ivaRecLines(q,autofacturas){
   const year=String(taxDraftYear()),inQ=fecha=>String(fecha).slice(0,4)===year&&Math.ceil(Number(String(fecha).slice(5,7))/3)===q;
   const base=taxDrafts.base;
-  if(base&&!base.manual&&Array.isArray(base.ivaRecibidas))return{fuente:"contabilidad",lines:base.ivaRecibidas.filter(x=>inQ(x[0])).map(([fecha,numero,nombre,nif,b,tipo,cuota,inv,noDed,pais])=>{
+  if(base&&!base.manual&&Array.isArray(base.ivaRecibidas))return{fuente:"contabilidad",lines:base.ivaRecibidas.filter(x=>inQ(x[0])).map(([fecha,numero,nombre,nif,b,tipo,cuota,inv,noDed,pais,origen])=>{
     // Intracomunitaria: proveedor de otro país de la UE sin IVA en la factura (o con autofactura en el trimestre).
-    const eu=euOf(pais,nif);return{fecha,numero,nombre,nif,base:b,tipo,cuota,inversion:inv===1,noDed:noDed||0,intra:Boolean(eu)&&(!cuota||autofacturas)}})};
+    const eu=euOf(pais,nif);return{fecha,numero,nombre,nif,base:b,tipo,cuota,inversion:inv===1,noDed:noDed||0,intra:!origen&&Boolean(eu)&&(!cuota||autofacturas),origen:origen||0}})};
   const book=libro();
   if(book?.recibidas?.length)return{fuente:"facturas",lines:book.recibidas.filter(x=>inQ(x.fecha)).flatMap(x=>(x.lineas?.length?x.lineas:[{base:x.base,tipo:0,cuota:x.cuota}]).map(l=>({fecha:x.fecha,numero:x.numero,nombre:x.nombre,nif:x.nif,base:l.base,tipo:l.tipo,cuota:l.cuota,inversion:false,noDed:0,intra:x.intracom===true,ruta:x.ruta||"",archivo:x.archivo||""})))};
   return{fuente:"manual",lines:[]};
@@ -209,7 +209,7 @@ if(typeof taxDraftLists==="function"){const previousDed=taxDraftLists;taxDraftLi
   const dua=l=>l.dua?`<span class="m303-dua" title="Importación: aquí va el IVA del DUA (documento de la Aduana). Si no lo tienes, se toma el IVA de la factura.">!</span>`:"";
   const changed=draft.calc.rec.lines.filter(l=>l.cls).length;
   const devNote=filter==="dev10"?'<p class="td-note td-pad m303-op-note"><b>Casilla 10/11 del IVA devengado:</b> autorrepercusión de estas adquisiciones intracomunitarias (el mismo IVA se deduce en la 36/37 o 38/39).</p>':filter==="dev12"?'<p class="td-note td-pad m303-op-note"><b>Casilla 12/13 del IVA devengado:</b> autorrepercusión por inversión del sujeto pasivo (el mismo IVA se deduce en la 28/29 o 30/31).</p>':"";
-  return devNote+`<p class="td-note td-pad m303-op-note">Elige en «Tipo» si la factura es intracomunitaria, importación, inversión del sujeto pasivo… y pasa a su casilla (con su IVA devengado, si lo tiene, para que no descuadre). «–» deja la de la contabilidad.${changed?` <b>${changed} ${changed===1?"factura cambiada":"facturas cambiadas"}.</b>`:""}</p>`+keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">${k==="No deducible"?"Fuera del 303 · IVA no deducible":`Casilla ${escapeHtml(k)}`} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota deducible ${tdEur(tdRound(list.reduce((s,l)=>s+ded(l),0)))}</h4><table class="td-list m303-op-list"><thead><tr><th class="center">PDF</th>${colHead("fecha","Fecha")}${colHead("numero","Factura")}${colHead("nombre","Proveedor")}${colHead("base","Base","num")}${colHead("tipo","%","num")}${colHead("cuota","Cuota","num")}<th class="num">Deducible</th>${colHead("cls","Tipo")}</tr></thead><tbody>${list.map(l=>`<tr class="${l.cls?"m303-op-row":""}" data-f-tipo="${Number(l.tipo)||0}" data-f-cuota="${tdRound(l.cuota)}" data-f-cls="${l.cls||""}"><td class="center">${pdfEye(l,"RECIBIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}<small>${escapeHtml(l.nif||"")}${l.intra?(l.servicios?" · intracomunitaria de servicios":" · intracomunitaria"):""}${l.inversion?" · bien de inversión":""}${l.cuotaCalc?" · cuota calculada":""}</small></td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td><td class="num">${dua(l)}${tdEur(ded(l))}</td><td>${sel(l)}</td></tr>`).join("")}</tbody></table>`}).join("");
+  return devNote+`<p class="td-note td-pad m303-op-note">Elige en «Tipo» si la factura es intracomunitaria, importación, inversión del sujeto pasivo… y pasa a su casilla (con su IVA devengado, si lo tiene, para que no descuadre). «–» deja la de la contabilidad.${changed?` <b>${changed} ${changed===1?"factura cambiada":"facturas cambiadas"}.</b>`:""}</p>`+keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">${k==="No deducible"?"Fuera del 303 · IVA no deducible":`Casilla ${escapeHtml(k)}`} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota deducible ${tdEur(tdRound(list.reduce((s,l)=>s+ded(l),0)))}</h4><table class="td-list m303-op-list"><thead><tr><th class="center">PDF</th>${colHead("fecha","Fecha")}${colHead("numero","Factura")}${colHead("nombre","Proveedor")}${colHead("base","Base","num")}${colHead("tipo","%","num")}${colHead("cuota","Cuota","num")}<th class="num">Deducible</th>${colHead("cls","Tipo")}</tr></thead><tbody>${list.map(l=>`<tr class="${l.cls?"m303-op-row":""}" data-f-tipo="${rateKey(l)}" data-f-cuota="${tdRound(l.cuota)}" data-f-cls="${l.cls||""}"><td class="center">${pdfEye(l,"RECIBIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}<small>${escapeHtml(l.nif||"")}${l.intra?(l.servicios?" · intracomunitaria de servicios":" · intracomunitaria"):""}${l.inversion?" · bien de inversión":""}${l.cuotaCalc?" · cuota calculada":""}${l.origen===1?" · registrada sin IVA":l.origen===2?" · solo en asiento, sin registro de IVA":""}</small></td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td><td class="num">${dua(l)}${tdEur(ded(l))}</td><td>${sel(l)}</td></tr>`).join("")}</tbody></table>`}).join("");
 }}
 if(typeof taxDraftLists==="function"){const previous=taxDraftLists;taxDraftLists=function(kind,draft){
   if(kind!=="iva303")return previous.apply(this,arguments);
@@ -404,13 +404,19 @@ function rowEye(r,kind,b){
   return lines.length?`<button type="button" class="m303-roweye" data-m303-roweye="${kind}" data-casilla="${b}" title="Ver las ${lines.length} líneas de la casilla ${b}">${tdEye}</button>`:"";
 }
 let sideFilter="";let lastDedFilter="";
+// Valor del filtro de %: «0» = sin IVA, fuera del 303; «0*» = sin IVA en la factura pero sí en el 303 (intracomunitaria, ISP…).
+const rateKey=l=>String(Number(l.tipo)||0)!=="0"?String(Number(l.tipo)):l.casilla==="0 %"?"0":"0*";
 // Filtros del panel de facturas en el encabezado de cada columna (como en Control de declaraciones): ▾ abre las opciones.
 const colFilters={};
 const COLS={fecha:{i:1,type:"text"},numero:{i:2,type:"text"},nombre:{i:3,type:"text"},base:{i:4,type:"text"},tipo:{type:"opt"},cuota:{type:"opt"},cls:{type:"opt"}};
-const colHead=(key,label,cls="")=>`<th class="${cls}">${label}<button type="button" class="excel-filter-button m303-cf${colFilters[key]?" active":""}" data-m303-cf="${key}" data-label="${label}" aria-label="Filtrar ${label}" title="Filtrar ${label}">▾</button></th>`;
+const ratesFiltered=()=>document.querySelector("#tdSideBody .m303-op-list")?[...hiddenRates].some(v=>v!=="0"):rateOut.size>0;
+const colHead=(key,label,cls="")=>`<th class="${cls}">${label}<button type="button" class="excel-filter-button m303-cf${(key==="tipo"?ratesFiltered():colFilters[key])?" active":""}" data-m303-cf="${key}" data-label="${label}" aria-label="Filtrar ${label}" title="Filtrar ${label}">▾</button></th>`;
+// %: selección múltiple. El 0 % sale desmarcado (no va al 303), pero se puede marcar para revisar esas facturas.
+const hiddenRates=new Set(["0"]),rateOut=new Set();
 function rowMatches(tr){
+  if(tr.closest(".m303-op-list")?hiddenRates.has(tr.dataset.fTipo):(rateOut.size&&rateOut.has(tr.dataset.fTipo)))return false;
   for(const [key,value] of Object.entries(colFilters)){if(!value)continue;
-    if(key==="tipo"){if(String(Number(tr.dataset.fTipo))!==value)return false;continue}
+    if(key==="tipo")continue
     if(key==="cuota"){const c=Number(tr.dataset.fCuota);if(value==="0"?c!==0:c===0)return false;continue}
     if(key==="cls"){if((tr.dataset.fCls||"")!==(value==="-"?"":value))return false;continue}
     const cell=tr.children[COLS[key].i];if(!cell||!normalizeFiscalText(cell.textContent).includes(normalizeFiscalText(value)))return false}
@@ -420,7 +426,7 @@ function applySideFilter(){
   const body=document.querySelector("#tdSideBody");if(!body)return;
   body.querySelectorAll(".td-list").forEach(table=>{const rows=[...table.querySelectorAll("tbody tr[data-f-tipo]")];if(!rows.length)return;let visible=0;
     rows.forEach(tr=>{const ok=rowMatches(tr);tr.hidden=!ok;if(ok)visible++});table.hidden=!visible;const h=table.previousElementSibling;if(h&&h.matches("h4"))h.hidden=!visible});
-  body.querySelectorAll("[data-m303-cf]").forEach(b=>b.classList.toggle("active",Boolean(colFilters[b.dataset.m303Cf])));
+  body.querySelectorAll("[data-m303-cf]").forEach(b=>b.classList.toggle("active",b.dataset.m303Cf==="tipo"?ratesFiltered():Boolean(colFilters[b.dataset.m303Cf])));
 }
 function openColFilter(button){
   document.querySelector(".excel-filter-popover")?.remove();
@@ -429,7 +435,21 @@ function openColFilter(button){
   const title=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${escapeHtml(label)}</strong></div>`;
   if(col.type==="opt"){
     let options=[];
-    if(key==="tipo")options=[...new Set([...body.querySelectorAll("tr[data-f-tipo]")].map(tr=>String(Number(tr.dataset.fTipo))))].sort((a,b)=>Number(a)-Number(b)).map(v=>[v,`${v.replace(".",",")} %`]);
+    if(key==="tipo"){
+      const ded=Boolean(body.querySelector(".m303-op-list")),hide=ded?hiddenRates:rateOut;
+      const rates=[...new Set([...(ded?["0"]:[]),...[...body.querySelectorAll("tr[data-f-tipo]")].map(tr=>tr.dataset.fTipo)])].sort((a,b)=>parseFloat(a)-parseFloat(b)||a.length-b.length);
+      const count=v=>[...body.querySelectorAll("tr[data-f-tipo]")].filter(tr=>tr.dataset.fTipo===v).length;
+      const all=rates.every(v=>!hide.has(v));
+      panel.innerHTML=`${title}<div class="excel-filter-option-list"><button type="button" data-all class="${all?"selected":""}"><span>${all?"✓":""}</span>Mostrar todos</button>${rates.map(v=>{const on=!hide.has(v),n=count(v);return `<button type="button" data-rate="${escapeHtml(v)}" class="${on?"selected":""}"><span>${on?"✓":""}</span><div class="m303-cf-lbl">${v==="0*"?`0 %<small>Sin IVA en la factura, pero sí van al 303 (intracomunitarias, ISP…): ${n} ${n===1?"línea":"líneas"}</small>`:`${escapeHtml(v.replace(".",","))} %${v==="0"?`<small>Sin IVA, no van al 303: ${n} ${n===1?"línea":"líneas"}. Pueden ser intracomunitarias o importaciones.</small>`:""}`}</div></button>`}).join("")}</div>`;
+      document.body.append(panel);
+      const r=button.getBoundingClientRect();panel.style.left=Math.max(10,Math.min(r.left-120,window.innerWidth-296))+"px";panel.style.top=Math.max(10,Math.min(r.bottom+7,window.innerHeight-panel.offsetHeight-10))+"px";
+      const close=()=>{panel.remove();document.removeEventListener("mousedown",outside,true)},outside=e=>{if(!panel.contains(e.target)&&e.target!==button)close()};
+      panel.addEventListener("click",e=>{const b=e.target.closest("[data-rate],[data-all]");if(!b)return;
+        if(b.hasAttribute("data-all"))hide.clear();else{const v=b.dataset.rate;hide.has(v)?hide.delete(v):hide.add(v)}
+        applySideFilter();close();openColFilter(button)});
+      setTimeout(()=>document.addEventListener("mousedown",outside,true));
+      return;
+    }
     if(key==="cuota")options=[["0","Sin cuota (0,00 €)"],["1","Con cuota"]];
     if(key==="cls"){const present=new Set([...body.querySelectorAll("tr[data-f-tipo]")].map(tr=>tr.dataset.fCls||""));options=[["-","– (sin cambiar)"],...OPS.filter(o=>o[0]&&present.has(o[0])).map(o=>[o[0],o[1]])]}
     panel.innerHTML=`${title}<div class="excel-filter-option-list"><button type="button" data-v="" class="${!value?"selected":""}"><span>${!value?"✓":""}</span>Mostrar todos</button>${options.map(([v,l])=>`<button type="button" data-v="${escapeHtml(v)}" class="${value===v?"selected":""}"><span>${value===v?"✓":""}</span>${escapeHtml(l)}</button>`).join("")}</div>`;
