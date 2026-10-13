@@ -209,13 +209,13 @@ if(typeof taxDraftLists==="function"){const previousDed=taxDraftLists;taxDraftLi
   const dua=l=>l.dua?`<span class="m303-dua" title="Importación: aquí va el IVA del DUA (documento de la Aduana). Si no lo tienes, se toma el IVA de la factura.">!</span>`:"";
   const changed=draft.calc.rec.lines.filter(l=>l.cls).length;
   const devNote=filter==="dev10"?'<p class="td-note td-pad m303-op-note"><b>Casilla 10/11 del IVA devengado:</b> autorrepercusión de estas adquisiciones intracomunitarias (el mismo IVA se deduce en la 36/37 o 38/39).</p>':filter==="dev12"?'<p class="td-note td-pad m303-op-note"><b>Casilla 12/13 del IVA devengado:</b> autorrepercusión por inversión del sujeto pasivo (el mismo IVA se deduce en la 28/29 o 30/31).</p>':"";
-  return sideFilterBar(true)+devNote+`<p class="td-note td-pad m303-op-note">Elige en «Tipo» si la factura es intracomunitaria, importación, inversión del sujeto pasivo… y pasa a su casilla (con su IVA devengado, si lo tiene, para que no descuadre). «–» deja la de la contabilidad.${changed?` <b>${changed} ${changed===1?"factura cambiada":"facturas cambiadas"}.</b>`:""}</p>`+keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">${k==="No deducible"?"Fuera del 303 · IVA no deducible":`Casilla ${escapeHtml(k)}`} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota deducible ${tdEur(tdRound(list.reduce((s,l)=>s+ded(l),0)))}</h4><table class="td-list m303-op-list"><thead><tr><th class="center">PDF</th><th>Fecha</th><th>Factura</th><th>Proveedor</th><th class="num">Base</th><th class="num">%</th><th class="num">Cuota</th><th class="num">Deducible</th><th>Tipo</th></tr></thead><tbody>${list.map(l=>`<tr class="${l.cls?"m303-op-row":""}" data-f-tipo="${Number(l.tipo)||0}" data-f-cuota="${tdRound(l.cuota)}" data-f-cls="${l.cls||""}"><td class="center">${pdfEye(l,"RECIBIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}<small>${escapeHtml(l.nif||"")}${l.intra?(l.servicios?" · intracomunitaria de servicios":" · intracomunitaria"):""}${l.inversion?" · bien de inversión":""}${l.cuotaCalc?" · cuota calculada":""}</small></td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td><td class="num">${dua(l)}${tdEur(ded(l))}</td><td>${sel(l)}</td></tr>`).join("")}</tbody></table>`}).join("");
+  return devNote+`<p class="td-note td-pad m303-op-note">Elige en «Tipo» si la factura es intracomunitaria, importación, inversión del sujeto pasivo… y pasa a su casilla (con su IVA devengado, si lo tiene, para que no descuadre). «–» deja la de la contabilidad.${changed?` <b>${changed} ${changed===1?"factura cambiada":"facturas cambiadas"}.</b>`:""}</p>`+keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">${k==="No deducible"?"Fuera del 303 · IVA no deducible":`Casilla ${escapeHtml(k)}`} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota deducible ${tdEur(tdRound(list.reduce((s,l)=>s+ded(l),0)))}</h4><table class="td-list m303-op-list"><thead><tr><th class="center">PDF</th>${colHead("fecha","Fecha")}${colHead("numero","Factura")}${colHead("nombre","Proveedor")}${colHead("base","Base","num")}${colHead("tipo","%","num")}${colHead("cuota","Cuota","num")}<th class="num">Deducible</th>${colHead("cls","Tipo")}</tr></thead><tbody>${list.map(l=>`<tr class="${l.cls?"m303-op-row":""}" data-f-tipo="${Number(l.tipo)||0}" data-f-cuota="${tdRound(l.cuota)}" data-f-cls="${l.cls||""}"><td class="center">${pdfEye(l,"RECIBIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}<small>${escapeHtml(l.nif||"")}${l.intra?(l.servicios?" · intracomunitaria de servicios":" · intracomunitaria"):""}${l.inversion?" · bien de inversión":""}${l.cuotaCalc?" · cuota calculada":""}</small></td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td><td class="num">${dua(l)}${tdEur(ded(l))}</td><td>${sel(l)}</td></tr>`).join("")}</tbody></table>`}).join("");
 }}
 if(typeof taxDraftLists==="function"){const previous=taxDraftLists;taxDraftLists=function(kind,draft){
   if(kind!=="iva303")return previous.apply(this,arguments);
   const filter=sideFilter;sideFilter="";const lines=filter?draft.calc.src.lines.filter(l=>lineIn(l,filter)):draft.calc.src.lines,groups=new Map();lines.forEach(l=>{const k=l.casilla||"—";if(!groups.has(k))groups.set(k,[]);groups.get(k).push(l)});
   const order=["01","04","07","150","165","153","14","0 %"],keys=[...groups.keys()].sort((a,b)=>(order.indexOf(a.split(" ")[0])+99)%99-(order.indexOf(b.split(" ")[0])+99)%99);
-  return sideFilterBar(false)+keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">Casilla ${escapeHtml(k)} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota ${tdEur(tdSum(list,"cuota"))}</h4><table class="td-list"><thead><tr><th class="center">PDF</th><th>Fecha</th><th>Factura</th><th>Cliente</th><th class="num">Base</th><th class="num">%</th><th class="num">Cuota</th>${list.some(l=>l.recargo)?'<th class="num">Recargo</th>':""}</tr></thead><tbody>${list.map(l=>`<tr data-f-tipo="${Number(l.tipo)||0}" data-f-cuota="${tdRound(l.cuota)}" data-f-cls=""><td class="center">${pdfEye(l,"EMITIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}</td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td>${list.some(x=>x.recargo)?`<td class="num">${l.recargo?tdEur(l.recargo):""}</td>`:""}</tr>`).join("")}</tbody></table>`}).join("");
+  return keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">Casilla ${escapeHtml(k)} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota ${tdEur(tdSum(list,"cuota"))}</h4><table class="td-list"><thead><tr><th class="center">PDF</th>${colHead("fecha","Fecha")}${colHead("numero","Factura")}${colHead("nombre","Cliente")}${colHead("base","Base","num")}${colHead("tipo","%","num")}${colHead("cuota","Cuota","num")}${list.some(l=>l.recargo)?'<th class="num">Recargo</th>':""}</tr></thead><tbody>${list.map(l=>`<tr data-f-tipo="${Number(l.tipo)||0}" data-f-cuota="${tdRound(l.cuota)}" data-f-cls=""><td class="center">${pdfEye(l,"EMITIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}</td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td>${list.some(x=>x.recargo)?`<td class="num">${l.recargo?tdEur(l.recargo):""}</td>`:""}</tr>`).join("")}</tbody></table>`}).join("");
 }}
 
 if(typeof openTaxDraftSide==="function"){const previousSide=openTaxDraftSide;openTaxDraftSide=function(kind){const res=previousSide.apply(this,arguments);if(kind==="ded303"||kind==="iva303")applySideFilter();return res}}
@@ -404,24 +404,46 @@ function rowEye(r,kind,b){
   return lines.length?`<button type="button" class="m303-roweye" data-m303-roweye="${kind}" data-casilla="${b}" title="Ver las ${lines.length} líneas de la casilla ${b}">${tdEye}</button>`:"";
 }
 let sideFilter="";let lastDedFilter="";
-// Filtros del panel de facturas: texto (proveedor, NIF, número o importe) y tipo de IVA (0 %, sin cuota, cambiadas…).
-const sideFilters={q:"",iva:""};
-function sideFilterBar(withCls){
-  const opts=[["","Todos los tipos de IVA"],["0","IVA 0 % o sin cuota"],["4","4 %"],["10","10 %"],["21","21 %"],["otro","Otros tipos"]].concat(withCls?[["cls","Con «Tipo» cambiado"]]:[]);
-  return `<div class="m303-filter"><input type="search" data-m303-fq placeholder="Buscar proveedor, NIF, número o importe…" value="${escapeHtml(sideFilters.q)}"><select data-m303-fiva>${opts.map(([v,l])=>`<option value="${v}"${v===sideFilters.iva?" selected":""}>${escapeHtml(l)}</option>`).join("")}</select><span data-m303-fcount></span></div>`;
+// Filtros del panel de facturas en el encabezado de cada columna (como en Control de declaraciones): ▾ abre las opciones.
+const colFilters={};
+const COLS={fecha:{i:1,type:"text"},numero:{i:2,type:"text"},nombre:{i:3,type:"text"},base:{i:4,type:"text"},tipo:{type:"opt"},cuota:{type:"opt"},cls:{type:"opt"}};
+const colHead=(key,label,cls="")=>`<th class="${cls}">${label}<button type="button" class="excel-filter-button m303-cf${colFilters[key]?" active":""}" data-m303-cf="${key}" data-label="${label}" aria-label="Filtrar ${label}" title="Filtrar ${label}">▾</button></th>`;
+function rowMatches(tr){
+  for(const [key,value] of Object.entries(colFilters)){if(!value)continue;
+    if(key==="tipo"){if(String(Number(tr.dataset.fTipo))!==value)return false;continue}
+    if(key==="cuota"){const c=Number(tr.dataset.fCuota);if(value==="0"?c!==0:c===0)return false;continue}
+    if(key==="cls"){if((tr.dataset.fCls||"")!==(value==="-"?"":value))return false;continue}
+    const cell=tr.children[COLS[key].i];if(!cell||!normalizeFiscalText(cell.textContent).includes(normalizeFiscalText(value)))return false}
+  return true;
 }
 function applySideFilter(){
-  const body=document.querySelector("#tdSideBody");if(!body||!body.querySelector("[data-m303-fq]"))return;
-  const q=normalizeFiscalText(sideFilters.q),iva=sideFilters.iva;let shown=0,total=0;
-  body.querySelectorAll(".td-list").forEach(table=>{let visible=0;
-    table.querySelectorAll("tbody tr[data-f-tipo]").forEach(tr=>{total++;const tipo=Number(tr.dataset.fTipo),cuota=Number(tr.dataset.fCuota);
-      const okIva=!iva||(iva==="0"?tipo===0||cuota===0:iva==="otro"?![0,4,10,21].includes(tipo):iva==="cls"?Boolean(tr.dataset.fCls):tipo===Number(iva));
-      const ok=okIva&&(!q||normalizeFiscalText(tr.textContent).includes(q));tr.hidden=!ok;if(ok){visible++;shown++}});
-    table.hidden=!visible;const h=table.previousElementSibling;if(h&&h.matches("h4"))h.hidden=!visible});
-  const count=body.querySelector("[data-m303-fcount]");if(count)count.textContent=q||iva?`${shown} de ${total} líneas`:"";
+  const body=document.querySelector("#tdSideBody");if(!body)return;
+  body.querySelectorAll(".td-list").forEach(table=>{const rows=[...table.querySelectorAll("tbody tr[data-f-tipo]")];if(!rows.length)return;let visible=0;
+    rows.forEach(tr=>{const ok=rowMatches(tr);tr.hidden=!ok;if(ok)visible++});table.hidden=!visible;const h=table.previousElementSibling;if(h&&h.matches("h4"))h.hidden=!visible});
+  body.querySelectorAll("[data-m303-cf]").forEach(b=>b.classList.toggle("active",Boolean(colFilters[b.dataset.m303Cf])));
 }
-document.addEventListener("input",event=>{if(event.target.matches?.("#tdSideBody [data-m303-fq]")){sideFilters.q=event.target.value;applySideFilter()}});
-document.addEventListener("change",event=>{if(event.target.matches?.("#tdSideBody [data-m303-fiva]")){sideFilters.iva=event.target.value;applySideFilter()}});
+function openColFilter(button){
+  document.querySelector(".excel-filter-popover")?.remove();
+  const key=button.dataset.m303Cf,label=button.dataset.label,col=COLS[key],value=colFilters[key]||"",body=document.querySelector("#tdSideBody");
+  const panel=document.createElement("div");panel.className="excel-filter-popover m303-cf-pop";
+  const title=`<div class="excel-filter-title"><span>Filtrar por</span><strong>${escapeHtml(label)}</strong></div>`;
+  if(col.type==="opt"){
+    let options=[];
+    if(key==="tipo")options=[...new Set([...body.querySelectorAll("tr[data-f-tipo]")].map(tr=>String(Number(tr.dataset.fTipo))))].sort((a,b)=>Number(a)-Number(b)).map(v=>[v,`${v.replace(".",",")} %`]);
+    if(key==="cuota")options=[["0","Sin cuota (0,00 €)"],["1","Con cuota"]];
+    if(key==="cls"){const present=new Set([...body.querySelectorAll("tr[data-f-tipo]")].map(tr=>tr.dataset.fCls||""));options=[["-","– (sin cambiar)"],...OPS.filter(o=>o[0]&&present.has(o[0])).map(o=>[o[0],o[1]])]}
+    panel.innerHTML=`${title}<div class="excel-filter-option-list"><button type="button" data-v="" class="${!value?"selected":""}"><span>${!value?"✓":""}</span>Mostrar todos</button>${options.map(([v,l])=>`<button type="button" data-v="${escapeHtml(v)}" class="${value===v?"selected":""}"><span>${value===v?"✓":""}</span>${escapeHtml(l)}</button>`).join("")}</div>`;
+  }else panel.innerHTML=`${title}<input type="search" value="${escapeHtml(value)}" placeholder="Buscar…"><div class="excel-filter-actions"><button type="button" data-clear>Limpiar</button><button class="apply" type="button" data-apply>Aplicar</button></div>`;
+  document.body.append(panel);
+  const r=button.getBoundingClientRect();panel.style.left=Math.max(10,Math.min(r.left-120,window.innerWidth-296))+"px";panel.style.top=Math.max(10,Math.min(r.bottom+7,window.innerHeight-panel.offsetHeight-10))+"px";
+  const close=()=>{panel.remove();document.removeEventListener("mousedown",outside,true)},outside=e=>{if(!panel.contains(e.target)&&e.target!==button)close()};
+  const set=v=>{if(v)colFilters[key]=v;else delete colFilters[key];applySideFilter();close()};
+  panel.addEventListener("click",e=>{const b=e.target.closest("[data-v]");if(b)return set(b.dataset.v);if(e.target.closest("[data-clear]"))return set("");if(e.target.closest("[data-apply]"))return set(panel.querySelector("input").value.trim())});
+  panel.querySelector("input")?.addEventListener("keydown",e=>{if(e.key==="Enter")set(e.target.value.trim());if(e.key==="Escape")close()});
+  setTimeout(()=>document.addEventListener("mousedown",outside,true));panel.querySelector("input")?.focus();
+}
+document.addEventListener("click",event=>{const b=event.target.closest?.("#tdSideBody [data-m303-cf]");if(b){event.stopPropagation();openColFilter(b)}});
+document.getElementById("tdSideBody")?.addEventListener("scroll",()=>document.querySelector(".m303-cf-pop")?.remove());
 // Cambio del tipo de operación de una factura: se guarda en el trimestre y se recalcula todo (panel y borrador).
 document.addEventListener("change",event=>{const sel=event.target.closest?.("#tdSideBody [data-m303-op]");if(!sel)return;const period=taxDrafts.open;if(taxDrafts.model!==M||!/^\dT$/.test(period||""))return;
   save(period,m=>{m.cls={...(m.cls||{})};if(sel.value)m.cls[sel.dataset.m303Op]=sel.value;else delete m.cls[sel.dataset.m303Op]});

@@ -6010,8 +6010,7 @@ tr.m303-op-row td{background:#fffaf0}
 .m303-op-note{margin:0 0 6px;font-size:12px}
 .m303-op-list td:last-child{white-space:nowrap}
 .m349-src{display:inline-block;margin-left:4px;color:#163b8c;font-weight:700;font-size:11px}
-/* Filtros del panel de facturas del 303 */
-.m303-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;position:sticky;top:0;z-index:3;background:#fff;padding:8px 12px;border-bottom:1px solid #eef0f5}
-.m303-filter input{flex:1 1 240px;height:36px;border:1px solid #d8deea;border-radius:9px;padding:0 12px;font:inherit;font-size:13px;min-width:0}
-.m303-filter select{height:36px;border:1px solid #d8deea;border-radius:9px;padding:0 8px;font:inherit;font-size:13px;background:#fff}
-.m303-filter [data-m303-fcount]{font-size:12px;color:#56627c;font-weight:700}
+/* 303 · filtros en el encabezado del panel de facturas */
+.m303-cf-pop{z-index:3000!important}
+.td-list th .m303-cf{width:20px;height:20px;margin-left:4px;font-size:11px;border-radius:6px;vertical-align:middle;line-height:1}
+.td-list th .m303-cf.active{background:#163b8c;color:#fff}
