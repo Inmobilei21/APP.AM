@@ -311,6 +311,10 @@ const previousDetail=window.taxDraftAnnualDetail;
 window.taxDraftAnnualDetail=model=>model===M?detailHtml():(previousDetail?previousDetail(model):"");
 if(typeof taxDraftAnnualRow==="function"){const previousRow=taxDraftAnnualRow;taxDraftAnnualRow=function(model,totals){
   if(model!==SRC)return previousRow.apply(this,arguments);
+  // Exonerado del 390 (marcado en el 303 del 4T o «No obligada» en Control): la fila queda bloqueada.
+  const exo=declarationData(SRC,"4T",taxDrafts.client,taxDraftYear()).m303?.f?.exonerado===true,blocked=declarationData(M,PERIOD,taxDrafts.client,taxDraftYear()).notRequired===true;
+  if(exo||blocked){if(taxDrafts.open==="anual")taxDrafts.open="";
+    return `<tr class="td-annual td-annual-locked" title="${exo?"Exonerado del 390: marcado en el 303 del 4T":"Marcado como «No obligada» en Control de declaraciones"}"><td><strong><span class="td-lock" aria-hidden="true">🔒</span> Declaración anual · Modelo 390</strong><small>${exo?"No se presenta: el sujeto pasivo está exonerado (marcado en el 303 del 4T)":"No se presenta: «No obligada» en Control de declaraciones"}</small></td><td class="num td-dim">—</td><td class="num td-dim">—</td><td class="num td-dim">—</td><td class="num td-dim">—</td><td><span class="td-pill noob">Exonerado</span></td><td></td><td></td></tr>`}
   const r=calc(),control=declarationData(M,PERIOD,taxDrafts.client,taxDraftYear()),open=taxDrafts.open==="anual";
   const status=control.submitted?["Presentado","pres"]:control.prepared?["Preparado","conf"]:["Pendiente","pend"];
   const detail=open?`<tr class="td-detail td-annual-detail"><td colspan="8"><div class="td-card" data-td-annual-detail="${M}">${detailHtml()}</div></td></tr>`:"";
@@ -327,6 +331,7 @@ renderTaxDraftMain=function(){const res=previousMain.apply(this,arguments);const
 .m390-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}.m390-checks .m303-ck{display:flex;justify-content:space-between;gap:10px;align-items:center}.m390-checks select{height:30px;border:1px solid #d8deea;border-radius:8px;font:inherit;font-size:12.5px;padding:0 6px}
 .m390-checks .td-cf input{width:100%;height:32px;border:1px solid #d8deea;border-radius:8px;padding:0 8px}
 .m390-q{margin:0 12px 8px;width:calc(100% - 24px)}
+.td-table tfoot tr.td-annual-locked{cursor:default}.td-table tfoot tr.td-annual-locked td{background:#f6f7fa;color:#8a93a6}.td-annual-locked .td-lock{font-size:12px;margin-right:4px}
 @media(max-width:760px){.m390-fields,.m390-checks{grid-template-columns:1fr}}`;document.head.append(style)})();
 if(document.querySelector("#tdModels")&&taxDrafts.client)renderTaxDraftMain();
 })();

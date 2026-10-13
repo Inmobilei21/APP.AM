@@ -463,7 +463,19 @@ function bind(card,period){
   card.querySelectorAll("[data-m303date]").forEach(input=>input.addEventListener("change",()=>{const i=Number(input.dataset.m303date);save(period,m=>{const parts=[m.f.concDia||"",m.f.concMes||"",m.f.concAnio||""];parts[i]=input.value.replace(/\D/g,"");[m.f.concDia,m.f.concMes,m.f.concAnio]=parts;
     m.f.fechaConcurso=parts[0]&&parts[1]&&/^\d{4}$/.test(parts[2])?parts[0].padStart(2,"0")+parts[1].padStart(2,"0")+parts[2]:""});rerender()}));
   card.querySelectorAll("[data-m303conc]").forEach(input=>input.addEventListener("change",()=>{save(period,m=>{m.f.tipoConcurso=input.dataset.m303conc});rerender()}));
-  card.querySelectorAll("[data-m303flag]").forEach(input=>input.addEventListener("change",()=>{save(period,m=>{m.f[input.dataset.m303flag]=input.checked});rerender()}));
+  card.querySelectorAll("[data-m303flag]").forEach(input=>input.addEventListener("change",async()=>{
+    const flag=input.dataset.m303flag;
+    // Exonerado del 390: se avisa de los supuestos y, al aceptar, el resumen anual queda bloqueado (No obligada en Control).
+    if(flag==="exonerado"&&input.checked){
+      const ok=typeof appConfirm==="function"?await appConfirm({eyebrow:"MODELO 390",title:"No se presentará el resumen anual",subtitle:"El sujeto pasivo queda exonerado del modelo 390 porque cumple uno de estos supuestos:",
+        steps:[["1","Liquida el IVA por trimestres, tributa solo en territorio común y su actividad es exclusivamente en régimen simplificado y/o arrendamiento de bienes inmuebles urbanos (aunque tenga otras actividades sin obligación de presentar 303)."],["2","Lleva los Libros registro del IVA a través de la Sede electrónica de la AEAT (SII, art. 62.6 RIVA)."],["!","En este 303 del 4T habrá que rellenar el apartado de exonerados del 390 (actividades, prorrata y volumen de operaciones)."]],
+        message:"Al aceptar, el modelo 390 de este ejercicio queda bloqueado y se marca como «No obligada» en Control de declaraciones.",ok:"Aceptar y bloquear el 390",cancel:"Cancelar"}):confirm("El 390 no se presentará. ¿Continuar?");
+      if(!ok){input.checked=false;return}
+    }
+    save(period,m=>{m.f[flag]=input.checked});
+    if(flag==="exonerado"){const year=taxDraftYear(),key=declarationKey("390","4T",taxDrafts.client,year),data=declarationData("390","4T",taxDrafts.client,year);
+      if(input.checked){data.notRequired=true;data.exonerado303=true}else if(data.exonerado303){delete data.notRequired;delete data.exonerado303}localStorage.setItem(key,JSON.stringify(data))}
+    rerender()}));
   card.querySelectorAll("[data-m303f]").forEach(input=>input.addEventListener("change",()=>{const f=input.dataset.m303f;save(period,m=>{
     if(input.type==="checkbox"){m[f]=input.checked;if(f==="rect"&&!input.checked){m.justificante="";m.bajaDomiciliacion=false;delete m.v["111"]}}
     else m[f]=f==="justificante"?input.value.replace(/\D/g,"").slice(0,13):f==="iban"||f==="swift"?input.value.replace(/\s+/g,"").toUpperCase():input.value});syncControl(period);rerender()}));
