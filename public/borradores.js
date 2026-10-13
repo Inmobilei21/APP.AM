@@ -116,10 +116,50 @@ function renderTaxDraftSource(){
 }
 // Nombre que se muestra: el 130-131 de la ficha se presenta como 130 (estimación directa).
 const tdModelName=model=>model==="130-131"?"130":String(model);
+/* Plazos de presentación de cada modelo (calendario en la esquina de cada tarjeta) */
+function taxDraftDeadlines(model,periodicity,year){
+  const y=Number(year)||new Date().getFullYear(),n=y+1,m=String(model).replace(/\D.*/,"");
+  const tri=[["1.er trimestre",`del 1 al 20 de abril de ${y}`],["2.º trimestre",`del 1 al 20 de julio de ${y}`],["3.er trimestre",`del 1 al 20 de octubre de ${y}`],["4.º trimestre",`del 1 al 30 de enero de ${n}`]];
+  const domi="Domiciliación del pago: hasta el día 15 del plazo (5 días antes del final).",domi30="Domiciliación del pago: hasta el día 15 en abril, julio y octubre, y hasta el 25 de enero en el 4.º trimestre.";
+  const mensual=[["Enero a junio, agosto a noviembre","del 1 al 20 del mes siguiente"],["Julio",`agosto y hasta el 20 de septiembre de ${y}`],["Diciembre",`del 1 al 30 de enero de ${n}`]];
+  const mensual349=[["Enero a junio, septiembre a noviembre","del 1 al 20 del mes siguiente"],["Julio y agosto (juntos)",`del 1 al 20 de septiembre de ${y}`],["Diciembre",`del 1 al 30 de enero de ${n}`]];
+  const T={
+    "111":{t:"Retenciones del trabajo y profesionales",rows:periodicity==="mensual"?[["Mensual (grandes empresas)","del 1 al 20 del mes siguiente"],["Diciembre",`del 1 al 20 de enero de ${n}`]]:[...tri.slice(0,3),["4.º trimestre",`del 1 al 20 de enero de ${n}`]],note:domi},
+    "115":{t:"Retenciones de alquileres",rows:[...tri.slice(0,3),["4.º trimestre",`del 1 al 20 de enero de ${n}`]],note:domi},
+    "123":{t:"Retenciones del capital mobiliario",rows:[...tri.slice(0,3),["4.º trimestre",`del 1 al 20 de enero de ${n}`]],note:domi},
+    "216":{t:"Retenciones de no residentes",rows:[...tri.slice(0,3),["4.º trimestre",`del 1 al 20 de enero de ${n}`]],note:domi},
+    "130":{t:"Pago fraccionado IRPF",rows:tri,note:domi30},"131":{t:"Pago fraccionado IRPF (módulos)",rows:tri,note:domi30},
+    "303":{t:"IVA",rows:periodicity==="mensual"?mensual:tri,note:periodicity==="mensual"?domi:domi30},
+    "349":{t:"Operaciones intracomunitarias",rows:periodicity==="mensual"?mensual349:tri,note:"Trimestral solo si las entregas y servicios no superan 50.000 € en el trimestre ni en los cuatro anteriores; si se superan, mensual."},
+    "202":{t:"Pago fraccionado del Impuesto sobre Sociedades",rows:[["1.er pago",`del 1 al 20 de abril de ${y}`],["2.º pago",`del 1 al 20 de octubre de ${y}`],["3.er pago",`del 1 al 20 de diciembre de ${y}`]],note:domi},
+    "347":{t:"Operaciones con terceros",rows:[["Anual",`del 1 al 28 de febrero de ${n}`]],note:"No se puede domiciliar: es informativa."},
+    "390":{t:"Resumen anual del IVA",rows:[["Anual",`del 1 al 30 de enero de ${n}`]],note:"Se presenta junto con el 303 del 4.º trimestre."},
+    "190":{t:"Resumen anual de retenciones",rows:[["Anual",`del 1 al 31 de enero de ${n}`]]},"180":{t:"Resumen anual de alquileres",rows:[["Anual",`del 1 al 31 de enero de ${n}`]]},"193":{t:"Resumen anual del capital mobiliario",rows:[["Anual",`del 1 al 31 de enero de ${n}`]]},
+    "200":{t:"Impuesto sobre Sociedades",rows:[["Anual","del 1 al 25 de julio del año siguiente (25 días naturales tras los 6 meses del cierre)"]]}};
+  const info=T[m];if(!info)return null;
+  const annual={"111":"190","115":"180","123":"193","303":"390"}[m],extra=annual&&T[annual]?T[annual]:null;
+  return{title:`Modelo ${model} · ${info.t}`,rows:info.rows,note:info.note||"",annual:extra?{title:`Resumen anual · Modelo ${annual}`,rows:extra.rows}:null};
+}
+(function(){
+  let tip=null,timer=0;
+  const hide=()=>{clearTimeout(timer);tip?.classList.remove("on")};
+  function show(el){
+    const d=taxDraftDeadlines(el.dataset.tdCal,taxDrafts.clientData?.periodicity,typeof taxDraftYear==="function"?taxDraftYear():"");if(!d)return;
+    if(!tip){tip=document.createElement("div");tip.className="m303-tip td-cal-tip";tip.setAttribute("role","tooltip");document.body.append(tip)}
+    const table=rows=>`<table class="td-cal-t">${rows.map(([a,b])=>`<tr><th>${escapeHtml(a)}</th><td>${escapeHtml(b)}</td></tr>`).join("")}</table>`;
+    tip.innerHTML=`<div class="m303-tip-h"><span>Plazos de presentación</span></div><p class="m303-tip-l">${escapeHtml(d.title)}</p>${table(d.rows)}${d.annual?`<p class="m303-tip-l td-cal-sub">${escapeHtml(d.annual.title)}</p>${table(d.annual.rows)}`:""}${d.note?`<small>${escapeHtml(d.note)}</small>`:""}`;
+    tip.classList.add("on");tip.classList.add("wide");
+    const r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;let left=Math.min(r.right+10,window.innerWidth-w-8),top=Math.max(8,Math.min(r.top-10,window.innerHeight-h-8));
+    tip.style.left=left+"px";tip.style.top=top+"px";tip.classList.add("noarrow");
+  }
+  document.addEventListener("mouseover",e=>{const el=e.target.closest?.("[data-td-cal]");if(!el){if(tip?.classList.contains("on")&&!e.target.closest?.(".td-cal-tip"))hide();return}clearTimeout(timer);timer=setTimeout(()=>show(el),200)});
+  document.addEventListener("click",e=>{const el=e.target.closest?.("[data-td-cal]");if(el){e.stopPropagation();e.preventDefault();clearTimeout(timer);tip?.classList.contains("on")?hide():show(el)}},true);
+  document.addEventListener("scroll",hide,true);
+})();
 function renderTaxDraftModels(){
   const models=taxDraftClientModels(),box=document.querySelector("#tdModels");
   if(!models.length){box.innerHTML=`<h2>Modelos</h2><p class="td-note">Este cliente no tiene modelos marcados en su ficha (Obligaciones fiscales).</p>`;return}
-  box.innerHTML=`<h2>Modelos que presenta</h2>${models.map(model=>{const info=TAX_DRAFT_MODELS[model]||{title:"",ready:false};return `<button type="button" class="td-model${model===taxDrafts.model?" active":""}" data-td-model="${escapeHtml(model)}"${info.ready?"":" disabled"}><span class="td-badge m${escapeHtml(model.replace(/\D.*/,""))}"><small>Modelo</small><b>${escapeHtml(tdModelName(model))}</b></span><span class="td-model-text"><strong>Modelo ${escapeHtml(tdModelName(model))}</strong><small>${info.ready?escapeHtml(info.title):"Próximamente"}</small></span></button>`}).join("")}`;
+  box.innerHTML=`<h2>Modelos que presenta</h2>${models.map(model=>{const info=TAX_DRAFT_MODELS[model]||{title:"",ready:false};return `<button type="button" class="td-model${model===taxDrafts.model?" active":""}" data-td-model="${escapeHtml(model)}"${info.ready?"":" disabled"}><span class="td-badge m${escapeHtml(model.replace(/\D.*/,""))}"><small>Modelo</small><b>${escapeHtml(tdModelName(model))}</b></span><span class="td-model-text"><strong>Modelo ${escapeHtml(tdModelName(model))}</strong><small>${info.ready?escapeHtml(info.title):"Próximamente"}</small></span><span class="td-cal" data-td-cal="${escapeHtml(model)}" aria-label="Plazos de presentación"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></button>`}).join("")}`;
   box.querySelectorAll("[data-td-model]").forEach(button=>button.addEventListener("click",()=>{taxDrafts.model=button.dataset.tdModel;taxDrafts.open="";taxDrafts.documents=new Map();renderTaxDraftModels();renderTaxDraftMain();loadTaxDraftDocuments()}));
 }
 function taxDraftYear(){return Number(taxDrafts.base?.ejercicio)||new Date().getFullYear()}

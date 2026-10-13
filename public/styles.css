@@ -6014,3 +6014,13 @@ tr.m303-op-row td{background:#fffaf0}
 .m303-cf-pop{z-index:3000!important}
 .td-list th .m303-cf{width:20px;height:20px;margin-left:4px;font-size:11px;border-radius:6px;vertical-align:middle;line-height:1}
 .td-list th .m303-cf.active{background:#163b8c;color:#fff}
+/* Borradores · calendario de plazos en cada modelo */
+.td-model{position:relative}
+.td-cal{position:absolute;top:8px;right:10px;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#7a86a6;background:#f2f4f9;cursor:help}
+.td-model:hover .td-cal,.td-cal:hover{color:#163b8c;background:#e7ecfb}
+.td-model.active .td-cal{background:#fff}
+.td-cal-tip{max-width:420px}
+.td-cal-t{border-collapse:collapse;width:100%;margin:2px 0 4px;font-size:12px}
+.td-cal-t th{text-align:left;font-weight:700;color:#cfd8f6;padding:3px 10px 3px 0;white-space:nowrap;vertical-align:top}
+.td-cal-t td{padding:3px 0;color:#fff}
+.td-cal-sub{margin-top:8px!important}
