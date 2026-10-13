@@ -425,7 +425,11 @@ function rowMatches(tr){
 function applySideFilter(){
   const body=document.querySelector("#tdSideBody");if(!body)return;
   body.querySelectorAll(".td-list").forEach(table=>{const rows=[...table.querySelectorAll("tbody tr[data-f-tipo]")];if(!rows.length)return;let visible=0;
-    rows.forEach(tr=>{const ok=rowMatches(tr);tr.hidden=!ok;if(ok)visible++});table.hidden=!visible;const h=table.previousElementSibling;if(h&&h.matches("h4"))h.hidden=!visible});
+    rows.forEach(tr=>{const ok=rowMatches(tr);tr.hidden=!ok;if(ok)visible++});
+    // Sin líneas con el filtro: se dejan los encabezados con «Información no disponible».
+    let empty=table.querySelector("tr.m303-cf-empty");
+    if(!visible&&!empty){empty=document.createElement("tr");empty.className="m303-cf-empty";empty.innerHTML=`<td colspan="${table.querySelectorAll("thead th").length}">Información no disponible</td>`;table.querySelector("tbody").append(empty)}
+    if(empty)empty.hidden=Boolean(visible)});
   body.querySelectorAll("[data-m303-cf]").forEach(b=>b.classList.toggle("active",b.dataset.m303Cf==="tipo"?ratesFiltered():Boolean(colFilters[b.dataset.m303Cf])));
 }
 function openColFilter(button){

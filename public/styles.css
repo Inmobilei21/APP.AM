@@ -6026,3 +6026,4 @@ tr.m303-op-row td{background:#fffaf0}
 .td-cal-sub{margin-top:8px!important}
 .m303-cf-lbl{text-align:left;line-height:1.25}
 .m303-cf-lbl small{display:block;margin-top:2px;font-weight:400;font-size:11px;color:#6b7280}
+.m303-cf-empty td{text-align:center;padding:18px 10px;color:#6b7280;font-style:italic}
