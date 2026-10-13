@@ -318,7 +318,7 @@ function renderTaxDraftMain(){
   }));
   box.querySelectorAll("[data-td-eye]").forEach(button=>button.addEventListener("click",()=>openTaxDraftSide(button.dataset.tdEye,taxDraftBuild(model,taxDrafts.open))));
   box.querySelectorAll("[data-td-compl]").forEach(input=>input.addEventListener("change",()=>saveTaxDraftCompl(model,taxDrafts.open,input.dataset.tdCompl,input.type==="checkbox"?input.checked:input.value)));
-  box.querySelector("[data-td-copy]")?.addEventListener("click",copyTaxDraftBoxes);
+  box.querySelector("[data-td-copy]")?.addEventListener("click",previewTaxDraft);
   box.querySelector("[data-td-confirm]")?.addEventListener("click",confirmTaxDraft);
 }
 // Modelo 111: casillas agrupadas como en el formulario de la AEAT (tres columnas por apartado).
@@ -372,7 +372,24 @@ function taxDraftDetail(draft,control){
   return `<div class="td-detail-head"><b>Borrador modelo ${tdModelName(draft.model)} · ${draft.period} ${draft.year}</b><span>${escapeHtml(taxDrafts.clientData?.cif||"")}${taxDrafts.clientData?.cif?" · ":""}${escapeHtml(taxDrafts.client)}</span></div>
     <div class="td-boxes">${taxDraftBoxes(draft.boxes,true,draft.model)}</div>${tdComplBlock(draft)}
     <div class="td-checks">${checks.join("")}</div>
-    <div class="td-actions">${confirmNote}<button type="button" class="secondary-button" data-td-copy>Copiar casillas</button><button type="button" class="primary blue-button" data-td-confirm>${confirmed?"Confirmar de nuevo":"Confirmar borrador"}</button></div>`;
+    <div class="td-actions">${confirmNote}<button type="button" class="secondary-button" data-td-copy title="Ver el borrador con el aspecto del modelo, sin confirmarlo">Ver borrador</button><button type="button" class="primary blue-button" data-td-confirm>${confirmed?"Confirmar de nuevo":"Confirmar borrador"}</button></div>`;
+}
+// «Ver borrador»: prepara el borrador igual que al confirmar (con lo que añade cada modelo) pero en memoria,
+// sin guardar nada ni sincronizar, y lo abre con el aspecto del modelo.
+function previewTaxDraft(){
+  const period=taxDrafts.open,model=taxDrafts.model;if(!period)return;
+  const proto=Storage.prototype,set=proto.setItem,get=proto.getItem,mem=new Map(),open=taxDrafts.open,flash=taxDrafts.flash;
+  const shim=()=>{proto.setItem=function(k,v){if(this===window.localStorage)mem.set(k,String(v));else set.call(this,k,v)};proto.getItem=function(k){return this===window.localStorage&&mem.has(k)?mem.get(k):get.call(this,k)}};
+  const restore=()=>{proto.setItem=set;proto.getItem=get};
+  let data=null;shim();
+  try{confirmTaxDraft();data=JSON.parse(mem.get(declarationKey(model,period,taxDrafts.client,taxDraftYear()))||"null")}
+  catch(error){console.error("Vista previa del borrador",error)}
+  finally{restore();taxDrafts.open=open;taxDrafts.flash=flash;renderTaxDraftMain()}
+  if(!data?.draft){alert("No se ha podido preparar la vista previa del borrador.");return}
+  const temp="__td_preview__";mem.clear();mem.set(temp,JSON.stringify({draft:{...data.draft,confirmedBy:"",preview:true}}));shim();
+  let pending;try{pending=openConfirmedTaxDraft(temp)}finally{restore()}
+  Promise.resolve(pending).then(()=>{document.querySelectorAll("#tdDraftView .td-tag,#tdFormView .td-tag").forEach(tag=>{tag.textContent="Vista previa · sin confirmar"});
+    document.querySelectorAll("#tdDraftView header p,#tdFormView header p").forEach(p=>{p.textContent=p.textContent.replace(/\s*·\s*confirmado el[^·]*/i," · sin confirmar")})});
 }
 function copyTaxDraftBoxes(event){
   const draft=taxDraftBuild(taxDrafts.model,taxDrafts.open),text=draft.boxes.filter(box=>!box.heading&&/^\d+$/.test(box.n)).map(box=>`${box.n}\t${tdValue(box)}`).join("\n"),button=event.currentTarget;
