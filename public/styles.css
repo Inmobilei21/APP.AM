@@ -5981,3 +5981,16 @@ html:has(.td-modal),body:has(.td-modal){overflow:hidden!important}
 }
 /* La regla general del móvil oculta el primer bloque de los <header>: en ventanas y panel lateral se ve el título */
 @media(max-width:760px){.td-modal-box header>div:first-child,.td-side header>div:first-child{display:block!important}.td-modal-box header{flex:none;height:auto!important;max-height:none!important}}
+/* 303 · exonerados del 390: aviso a dos columnas y apartado de operaciones del ejercicio */
+.app-confirm-box.m303-exo-box{width:min(1180px,calc(100vw - 32px));max-width:none;max-height:calc(100vh - 32px);display:flex;flex-direction:column}
+.m303-exo-cols{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:18px;padding:4px 22px 6px;overflow:auto;min-height:0}
+.m303-exo-left .app-confirm-steps{margin:6px 0 12px;padding:0}
+.m303-exo-ids{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:4px 0 10px}
+.m303-exo-left .m303-exo-ids{grid-template-columns:1fr}
+.m303-exo-ids input,.m303-exo-ids select{width:100%;height:34px;border:1px solid #d8deea;border-radius:9px;padding:0 8px;font:inherit;font-size:13px;box-sizing:border-box;background:#fff}
+.m303-exo-right{border:1px solid #c9d2ef;border-radius:12px;background:#f6f8ff;padding:8px 10px;min-width:0}
+.m303-exo-title{background:#dfe6c8;color:#33410f;font-weight:800;font-size:12.5px;padding:6px 10px;border-radius:7px;display:inline-block;margin:2px 0 8px}
+.m303-exo .m303-l{font-size:12px}.m303-exo .m303-cell{min-width:150px}.m303-exo td{padding:3px 4px}
+.m303-exo-warn{margin:6px 2px 0;color:#b42318;font-weight:700;font-size:12.5px}
+.m303-exo-sec{margin-top:14px}
+@media(max-width:860px){.m303-exo-cols{grid-template-columns:1fr}.m303-exo-ids{grid-template-columns:1fr}}

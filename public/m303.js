@@ -395,11 +395,41 @@ function pageDed(r){
     <tr class="m303-res"><td class="m303-l" colspan="2"><b>${LABEL["46"]}</b></td><td>${cell("46",out(c["46"]))}</td></tr></tfoot></table>
     <p class="m303-hint">${r.rec.fuente==="contabilidad"?`Bases y cuotas de las ${r.rec.lines.length} líneas de facturas recibidas del trimestre en la contabilidad.`:r.rec.fuente==="facturas"?`Bases y cuotas de las facturas recibidas guardadas del trimestre (${r.rec.lines.length} líneas).`:"Sin facturas recibidas: escribe los importes a mano."} Bienes de inversión en 30/31, intracomunitarias en 36/37 y abonos en 40/41. Las importaciones (32 a 35) de momento van a mano.</p>`;
 }
+/* --- Exonerados del 390 (último periodo): operaciones realizadas en el ejercicio, casillas 80 a 88 --- */
+const EXO=[["80","Operaciones en régimen general"],["81","Operaciones a las que habiéndoles sido aplicado el régimen especial del criterio de caja hubieran resultado devengadas conforme a la regla general de devengo (art. 75 LIVA)"],
+  ["93","Entregas intracomunitarias de bienes y servicios"],["94","Exportaciones y otras operaciones exentas con derecho a deducción"],["83","Operaciones exentas sin derecho a deducción"],
+  ["84","Operaciones no sujetas por reglas de localización (excepto las incluidas en la casilla 126)"],["125","Operaciones sujetas con inversión del sujeto pasivo"],
+  ["126","Operaciones no sujetas por reglas de localización acogidas a los regímenes especiales de ventanilla única"],["127","Operaciones sujetas y acogidas a los regímenes especiales de ventanilla única"],
+  ["128","Operaciones intragrupo valoradas conforme a lo dispuesto en los arts. 78 y 79 LIVA"],["86","Operaciones en régimen simplificado"],["95","Operaciones en régimen especial de la agricultura, ganadería y pesca"],
+  ["96","Operaciones realizadas por sujetos pasivos acogidos al régimen especial del recargo de equivalencia"],["97","Operaciones en régimen especial de bienes usados, objetos de arte, antigüedades y objetos de colección"],
+  ["98","Operaciones en régimen especial de agencias de viajes"],["79","Entregas de bienes inmuebles, operaciones financieras y relativas al oro de inversión no habituales",true],["99","Entregas de bienes de inversión",true]];
+const EXO_CLAVES=["A01","A02","A03","A04","A05","B01","B02","B03","B04","B05","B06","C"];
+// Valores propuestos con la suma de los 303 del ejercicio; lo escrito a mano (m.exo) manda.
+function exoCalc(period){
+  const m=st(period),year=taxDraftYear(),auto={};EXO.forEach(([n])=>auto[n]=0);
+  for(let i=1;i<=4;i++){const p=`${i}T`;if(declarationData(M,p,taxDrafts.client,year).notRequired)continue;let c;try{c=calc(p).c}catch{continue}
+    auto["80"]+=["150","01","04","07","153","165","14"].reduce((s,n)=>s+(Number(c[n])||0),0);
+    [["81","62"],["93","59"],["94","60"],["84","120"],["125","122"],["126","123"],["127","124"]].forEach(([to,from])=>{auto[to]+=Number(c[from])||0})}
+  const v={},manual=m.exo||{};EXO.forEach(([n])=>{auto[n]=tdRound(auto[n]);v[n]=has(manual[n])?tdRound(num(manual[n])):auto[n]});
+  v["88"]=tdRound(EXO.reduce((s,[n,,neg])=>s+(neg?-v[n]:v[n]),0));
+  return{v,auto,manual,f:m.f||{}};
+}
+const exoRows=(x,attr)=>EXO.map(([n,l,neg])=>`<tr><td class="m303-l">${neg?"(−) ":""}${escapeHtml(l)}</td><td>${cell(n,`<input class="m303-in${has(x.manual[n])?" manual":""}" ${attr}="${n}" inputmode="decimal" value="${escapeHtml(has(x.manual[n])?inputValue(x.manual[n]):"")}" placeholder="${escapeHtml(inputValue(x.auto[n])||"0,00")}">`)}</td></tr>`).join("");
+function exoSection(r,period){
+  const x=exoCalc(period),f=x.f;
+  return `<div class="m303-sec m303-exo-sec"><span>Exonerados del 390</span><em>Último periodo · operaciones realizadas en el ejercicio</em></div>
+    <div class="m303-exo-ids"><label class="td-cf"><small>B · Clave de actividad principal</small><select data-m303exof="exClave">${EXO_CLAVES.map(k=>`<option${(f.exClave||"A03")===k?" selected":""}>${k}</option>`).join("")}</select></label>
+      <label class="td-cf"><small>C · Epígrafe IAE principal</small><input data-m303exof="exEpigrafe" maxlength="4" value="${escapeHtml(f.exEpigrafe||"")}" placeholder="p. ej. 5056"></label>
+      <label class="td-cf"><small>D · Obligado a presentar el 347</small><select data-m303exof="exD347"><option value="1"${f.exD347?" selected":""}>Sí</option><option value=""${f.exD347?"":" selected"}>No</option></select></label></div>
+    <table class="m303-t c1 m303-exo"><tbody>${exoRows(x,"data-m303exo")}
+      <tr class="m303-res"><td class="m303-l"><b>Total volumen de operaciones (art. 121 LIVA)</b> <small>([80]+[81]+[93]+[94]+[83]+[84]+[125]+[126]+[127]+[128]+[86]+[95]+[96]+[97]+[98]−[79]−[99])</small></td><td>${cell("88",`<span class="m303-out">${tdEur(x.v["88"])}</span>`)}</td></tr></tbody></table>
+    <p class="m303-hint">Propuesto con la suma de los cuatro 303 del ejercicio; escribe otro importe si hace falta (en naranja). Va en la página 4 del fichero.</p>`;
+}
 function pageInfo(r){
   return `<table class="m303-t c1"><tbody>${INFO.map(([l,n])=>`<tr><td class="m303-l">${escapeHtml(l)}</td><td colspan="2">${cell(n,moneyInput(n,r,{signed:true}))}</td></tr>`).join("")}</tbody></table>
     <table class="m303-t c2"><thead><tr><th></th><th>Base imponible</th><th>Cuota</th></tr></thead><tbody>
     <tr><td class="m303-l">Entregas y servicios con criterio de caja que habrían resultado devengadas por la regla general (art. 75 LIVA)</td><td>${cell("62",moneyInput("62",r))}</td><td>${cell("63",moneyInput("63",r))}</td></tr>
-    <tr><td class="m303-l">Adquisiciones de bienes y servicios a las que sea de aplicación o afecte el régimen especial del criterio de caja</td><td>${cell("74",moneyInput("74",r))}</td><td>${cell("75",moneyInput("75",r))}</td></tr></tbody></table>`;
+    <tr><td class="m303-l">Adquisiciones de bienes y servicios a las que sea de aplicación o afecte el régimen especial del criterio de caja</td><td>${cell("74",moneyInput("74",r))}</td><td>${cell("75",moneyInput("75",r))}</td></tr></tbody></table>`+(r.q===4&&r.m.f.exonerado?exoSection(r,`${r.q}T`):"");
 }
 function pageRes(r){
   const c=r.c,line=(n,content,cls="")=>`<tr class="${cls}"><td class="m303-l">${escapeHtml(LABEL[n])}</td><td>${cell(n,content)}</td></tr>`,m=r.m;
@@ -452,6 +482,45 @@ function syncControl(period){
   const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);if(data.notRequired)return;
   const value=CONTROL_PAGO[calc(period).tipo]||"N.R.C.";if(data.payment!==value){data.payment=value;localStorage.setItem(key,JSON.stringify(data))}
 }
+// Aviso al marcar «exonerado del 390»: supuestos a la izquierda y, a la derecha, el apartado de operaciones del ejercicio para confirmarlo.
+function exoDialog(period){
+  return new Promise(resolve=>{
+    const x=exoCalc(period),f=x.f,shade=document.createElement("div");shade.className="app-confirm";shade.setAttribute("role","dialog");shade.setAttribute("aria-modal","true");
+    shade.innerHTML=`<div class="app-confirm-box m303-exo-box"><header><p class="eyebrow">MODELO 390</p><h3>No se presentará el resumen anual</h3><p class="app-confirm-sub">El sujeto pasivo queda exonerado del modelo 390 porque cumple uno de estos supuestos. Confirma a la derecha el volumen de operaciones del ejercicio, que se declara en este 303 del 4T.</p></header>
+      <div class="m303-exo-cols"><div class="m303-exo-left"><ul class="app-confirm-steps">
+        <li><span>1</span><p>Liquida el IVA por trimestres, tributa solo en territorio común y su actividad es exclusivamente en régimen simplificado y/o arrendamiento de bienes inmuebles urbanos (aunque tenga otras actividades sin obligación de presentar 303).</p></li>
+        <li><span>2</span><p>Lleva los Libros registro del IVA a través de la Sede electrónica de la AEAT (SII, art. 62.6 RIVA).</p></li>
+        <li><span>!</span><p>Al aceptar, el modelo 390 de este ejercicio queda bloqueado y se marca como «No obligada» en Control de declaraciones.</p></li></ul>
+        <div class="m303-exo-ids"><label class="td-cf"><small>B · Clave de actividad principal</small><select data-x="exClave">${EXO_CLAVES.map(k=>`<option${(f.exClave||"A03")===k?" selected":""}>${k}</option>`).join("")}</select></label>
+          <label class="td-cf"><small>C · Epígrafe IAE principal</small><input data-x="exEpigrafe" maxlength="4" value="${escapeHtml(f.exEpigrafe||"")}" placeholder="p. ej. 5056"></label>
+          <label class="td-cf"><small>D · Obligado a presentar el 347</small><select data-x="exD347"><option value="1"${f.exD347?" selected":""}>Sí</option><option value=""${f.exD347?"":" selected"}>No</option></select></label></div></div>
+        <div class="m303-exo-right"><div class="m303-exo-title">Operaciones realizadas en el ejercicio</div><table class="m303-t c1 m303-exo"><tbody>${exoRows(x,"data-xn")}
+          <tr class="m303-res"><td class="m303-l"><b>Total volumen de operaciones (art. 121 LIVA)</b></td><td>${cell("88",`<span class="m303-out" data-x88>${tdEur(x.v["88"])}</span>`)}</td></tr></tbody></table>
+          <p class="m303-exo-warn" hidden>No se ha rellenado el volumen de operaciones (casilla 88).</p></div></div>
+      <footer><button type="button" class="secondary-button" data-x-btn="0">Cancelar</button><button type="button" class="primary blue-button" data-x-btn="1">Aceptar y bloquear el 390</button></footer></div>`;
+    const value=n=>{const i=shade.querySelector(`[data-xn="${n}"]`);return i.value.trim()===""?x.auto[n]:tdRound(num(i.value))};
+    const total=()=>tdRound(EXO.reduce((s2,[n,,neg])=>s2+(neg?-value(n):value(n)),0));
+    const refresh=()=>{const t=total();shade.querySelector("[data-x88]").textContent=tdEur(t);shade.querySelector(".m303-exo-warn").hidden=t!==0};
+    shade.addEventListener("input",event=>{if(event.target.matches("[data-xn]")){event.target.classList.toggle("manual",event.target.value.trim()!=="");refresh()}});
+    const done=v=>{document.removeEventListener("keydown",keys);shade.classList.add("out");setTimeout(()=>shade.remove(),160);resolve(v)};
+    const keys=e=>{if(e.key==="Escape")done(false)};
+    shade.addEventListener("click",async event=>{const b=event.target.closest("[data-x-btn]");if(!b){if(event.target===shade)done(false);return}
+      if(b.dataset.xBtn!=="1")return done(false);
+      if(total()===0){refresh();const go=await appConfirm({eyebrow:"CONTROL",title:"Falta el volumen de operaciones",message:"No se ha rellenado el apartado «Operaciones realizadas en el ejercicio» (casilla 88 a cero). Los exonerados del 390 deben declararlo en el 303 del último periodo.",ok:"Continuar sin rellenar",cancel:"Rellenar ahora"});if(!go)return}
+      save(period,m=>{m.exo={...(m.exo||{})};EXO.forEach(([n])=>{const i=shade.querySelector(`[data-xn="${n}"]`),raw=i.value.trim();if(raw===""||Math.abs(num(raw)-x.auto[n])<0.005)delete m.exo[n];else m.exo[n]=num(raw)});
+        shade.querySelectorAll("[data-x]").forEach(i=>{const k=i.dataset.x;m.f[k]=k==="exD347"?i.value==="1":i.value.trim().toUpperCase()})});
+      done(true)});
+    document.addEventListener("keydown",keys);document.body.append(shade);shade.querySelector('[data-x-btn="1"]').focus();refresh();
+  });
+}
+// Control al confirmar el 303 del 4T de un exonerado: el volumen de operaciones (88) tiene que estar relleno.
+document.addEventListener("click",async event=>{
+  const b=event.target.closest?.("#tdMain [data-td-confirm]");if(!b||b.dataset.exoOk==="1"||taxDrafts.model!==M||taxDrafts.open!=="4T")return;
+  const m=st("4T");if(!m.f?.exonerado||exoCalc("4T").v["88"]!==0)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  const go=await appConfirm({eyebrow:"CONTROL",title:"Falta el volumen de operaciones",message:"El sujeto pasivo está exonerado del 390 y no se ha rellenado el apartado «Operaciones realizadas en el ejercicio» (casilla 88 a cero). Revísalo en la pestaña «Información adicional».",ok:"Confirmar igualmente",cancel:"Revisar"});
+  if(go){b.dataset.exoOk="1";b.click();delete b.dataset.exoOk}else{taxDrafts.m303Tab="info";renderTaxDraftMain()}
+},true);
 function bind(card,period){
   const rerender=()=>renderTaxDraftMain();
   card.querySelector("[data-m303-reset]")?.addEventListener("click",event=>{const which=event.currentTarget.dataset.m303Reset,fields=which==="ded"?DED.flatMap(([,b,cu])=>[b,cu]).filter(Boolean):DEV.flatMap(([,b,t,cu])=>[b,t,cu]).filter(Boolean);save(period,m=>{fields.forEach(n=>delete m.v[n])});rerender()});
@@ -463,13 +532,14 @@ function bind(card,period){
   card.querySelectorAll("[data-m303date]").forEach(input=>input.addEventListener("change",()=>{const i=Number(input.dataset.m303date);save(period,m=>{const parts=[m.f.concDia||"",m.f.concMes||"",m.f.concAnio||""];parts[i]=input.value.replace(/\D/g,"");[m.f.concDia,m.f.concMes,m.f.concAnio]=parts;
     m.f.fechaConcurso=parts[0]&&parts[1]&&/^\d{4}$/.test(parts[2])?parts[0].padStart(2,"0")+parts[1].padStart(2,"0")+parts[2]:""});rerender()}));
   card.querySelectorAll("[data-m303conc]").forEach(input=>input.addEventListener("change",()=>{save(period,m=>{m.f.tipoConcurso=input.dataset.m303conc});rerender()}));
+  card.querySelectorAll("[data-m303exo]").forEach(input=>input.addEventListener("change",()=>{const n=input.dataset.m303exo,raw=input.value.trim(),auto=exoCalc(period).auto[n];
+    save(period,m=>{m.exo={...(m.exo||{})};if(raw===""||Math.abs(num(raw)-auto)<0.005)delete m.exo[n];else m.exo[n]=num(raw)});rerender()}));
+  card.querySelectorAll("[data-m303exof]").forEach(input=>input.addEventListener("change",()=>{const f=input.dataset.m303exof;save(period,m=>{m.f[f]=f==="exD347"?input.value==="1":input.value.trim().toUpperCase()});rerender()}));
   card.querySelectorAll("[data-m303flag]").forEach(input=>input.addEventListener("change",async()=>{
     const flag=input.dataset.m303flag;
     // Exonerado del 390: se avisa de los supuestos y, al aceptar, el resumen anual queda bloqueado (No obligada en Control).
     if(flag==="exonerado"&&input.checked){
-      const ok=typeof appConfirm==="function"?await appConfirm({eyebrow:"MODELO 390",title:"No se presentará el resumen anual",subtitle:"El sujeto pasivo queda exonerado del modelo 390 porque cumple uno de estos supuestos:",
-        steps:[["1","Liquida el IVA por trimestres, tributa solo en territorio común y su actividad es exclusivamente en régimen simplificado y/o arrendamiento de bienes inmuebles urbanos (aunque tenga otras actividades sin obligación de presentar 303)."],["2","Lleva los Libros registro del IVA a través de la Sede electrónica de la AEAT (SII, art. 62.6 RIVA)."],["!","En este 303 del 4T habrá que rellenar el apartado de exonerados del 390 (actividades, prorrata y volumen de operaciones)."]],
-        message:"Al aceptar, el modelo 390 de este ejercicio queda bloqueado y se marca como «No obligada» en Control de declaraciones.",ok:"Aceptar y bloquear el 390",cancel:"Cancelar"}):confirm("El 390 no se presentará. ¿Continuar?");
+      const ok=await exoDialog(period);
       if(!ok){input.checked=false;return}
     }
     save(period,m=>{m.f[flag]=input.checked});
@@ -498,9 +568,9 @@ renderTaxDraftMain=function(){
 if(typeof confirmTaxDraft==="function"){const previous=confirmTaxDraft;confirmTaxDraft=function(){
   const period=taxDrafts.open,model=taxDrafts.model,res=previous.apply(this,arguments);
   if(model===M&&period){const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);
-    if(data.draft){const r=calc(period);data.draft.m303={c:r.c,m:r.m,tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift};localStorage.setItem(key,JSON.stringify(data))}}
+    if(data.draft){const r=calc(period);data.draft.m303={c:r.c,m:r.m,tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift,exo:period==="4T"&&r.m.f.exonerado?exoCalc(period).v:null};localStorage.setItem(key,JSON.stringify(data))}}
   return res}}
-function currentDraft(period){const saved=taxDraftControl(M,period).draft;return saved&&saved.model===M&&saved.m303?{...saved,cif:saved.cif||taxDrafts.clientData?.cif||"",client:saved.client||taxDrafts.client}:{...taxDraftBuild(M,period),m303:(()=>{const r=calc(period);return{c:r.c,m:r.m,tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift}})(),client:taxDrafts.client,cif:taxDrafts.clientData?.cif||""}}
+function currentDraft(period){const saved=taxDraftControl(M,period).draft;return saved&&saved.model===M&&saved.m303?{...saved,cif:saved.cif||taxDrafts.clientData?.cif||"",client:saved.client||taxDrafts.client}:{...taxDraftBuild(M,period),m303:(()=>{const r=calc(period);return{c:r.c,m:r.m,tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift,exo:period==="4T"&&r.m.f.exonerado?exoCalc(period).v:null}})(),client:taxDrafts.client,cif:taxDrafts.clientData?.cif||""}}
 
 /* --- Fichero AEAT (DR303 ejercicio 2026) --- */
 const clean=v=>[...String(v||"").toUpperCase()].map(ch=>ch==="Ñ"||ch==="Ç"?ch:ch.normalize("NFD").replace(/[̀-ͯ]/g,"")).join("").replace(/[^A-Z0-9ÑÇ ]/g," ").replace(/\s+/g," ").trim();
@@ -530,6 +600,13 @@ function aeat303(draft){
     +(m.sinActividad?"X":" ")+(m.rect?"X":" ")+(m.rect?RAW(String(m.justificante||"").replace(/\D/g,""),13):" ".repeat(13))+(m.rect&&m.bajaDomiciliacion?"X":" ")+m17("111")+(m.rect&&m.motivo!=="2"?"X":" ")+(m.rect&&m.motivo==="2"?"X":" ");
   if(p3.length!==459)throw new Error(`Error interno en la página 3 del 303 (${p3.length}).`);
   p3+=" ".repeat(546)+"</T30303000>";
+  // Página 4: exonerados del 390 en el último periodo (actividad y volumen de operaciones). Sin contenido no se incluye.
+  let p4="";
+  if(last&&f.exonerado){const e=x.exo||{},ex=k=>Number(e[k])||0;
+    p4="<T30304000>"+" "+RAW(String(f.exClave||"A03").toUpperCase(),3)+RAW(String(f.exEpigrafe||"").replace(/[^0-9A-Z]/gi,"").toUpperCase(),4)+" ".repeat(35)+(f.exD347?"X":" ")+"0".repeat(25)
+      +[...EXO.map(([n])=>n).slice(0,EXO.length),"88"].map(n=>SIG(ex(n),17)).join("");
+    if(p4.length!==386)throw new Error(`Error interno en la página 4 del 303 (${p4.length}).`);
+    p4+=" ".repeat(600)+"</T30304000>";}
   // Página DID: cuenta de domiciliación o devolución (también si la rectificativa tiene importe en la casilla 111).
   let did="";const iban=String(x.iban||"").replace(/\s+/g,"").toUpperCase();
   if(iban&&(["U","D","X","I","G"].includes(code)||m.rect&&c["111"]>0)){
@@ -539,7 +616,7 @@ function aeat303(draft){
   }
   const head=`T3030${year}${period}0000`,aux=(" ".repeat(70)+"AM01"+" ".repeat(4)+"B72758998").padEnd(300," ");
   if(p1.length!==1581||p3.length!==1017)throw new Error("Error interno en la longitud de las páginas del 303.");
-  return `<${head}><AUX>${aux}</AUX>${p1}${p3}${did}</${head}>`;
+  return `<${head}><AUX>${aux}</AUX>${p1}${p3}${p4}${did}</${head}>`;
 }
 window.aeat303=aeat303;
 function download303(draft){
