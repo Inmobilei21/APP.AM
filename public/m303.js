@@ -101,10 +101,23 @@ function ivaRecLines(q,autofacturas){
 }
 // Interiores corrientes 28/29, bienes de inversión 30/31, intracomunitarias 36/37 (38/39 inversión) y abonos 40/41.
 // Las intracomunitarias sin cuota se calculan al 21 % y generan también el IVA devengado 10/11 (autorepercusión).
-function dedAuto(lines,withDev){
+// Tipo de operación elegido a mano para cada línea de factura recibida (desplegable del panel de IVA deducible).
+// «–» = lo que dice la contabilidad. Las autorrepercutidas (intracomunitarias e inversión del sujeto pasivo) llevan también
+// su IVA devengado (10/11 o 12/13) y las importaciones con IVA diferido, la casilla 77.
+const OPS=[["","–"],["int","Interior · bienes y servicios corrientes (28)"],["inv","Interior · bien de inversión (30)"],["imp","Importación · bienes corrientes (32)"],["impi","Importación · bienes de inversión (34)"],
+  ["impd","Importación con IVA diferido · corrientes (32 + 77)"],["impdi","Importación con IVA diferido · bienes de inversión (34 + 77)"],["aib","Intracomunitaria · bienes corrientes (36 + 10)"],["ais","Intracomunitaria · servicios (36 + 10)"],
+  ["aibi","Intracomunitaria · bienes de inversión (38 + 10)"],["isp","Inversión del sujeto pasivo (28 + 12)"],["nd","IVA no deducible (fuera del 303)"]];
+const lineKey=l=>[l.fecha,l.numero,l.nif,tdRound(l.base),l.tipo,tdRound(l.cuota)].join("|");
+function dedAuto(lines,withDev,cls={}){
   const auto={},add=(n,v)=>{auto[n]=tdRound((auto[n]||0)+v)},cero=[];
   for(const l of lines){
-    const deducible=tdRound(l.cuota-(l.noDed||0));
+    l.key=lineKey(l);const t=OPS.some(o=>o[0]&&o[0]===cls[l.key])?cls[l.key]:"";l.cls=t;l.dua=false;l.servicios=false;
+    const deducible=tdRound(l.cuota-(l.noDed||0)),self=()=>{const c=l.cuota||tdRound(l.base*(l.tipo||21)/100);l.cuotaCalc=!l.cuota;return c};
+    if(t==="nd"){l.casilla="No deducible";continue}
+    if(t==="int"||t==="inv"){const g=t==="inv"?["30","31"]:["28","29"];l.intra=false;add(g[0],l.base);add(g[1],deducible);l.casilla=g[0];continue}
+    if(["imp","impi","impd","impdi"].includes(t)){const g=t==="imp"||t==="impd"?["32","33"]:["34","35"];l.intra=false;l.dua=true;add(g[0],l.base);add(g[1],deducible);if(t==="impd"||t==="impdi")add("c77",deducible);l.casilla=g[0]+(t==="impd"||t==="impdi"?" · 77":"");continue}
+    if(t==="aib"||t==="ais"||t==="aibi"){const c=self(),g=t==="aibi"?["38","39"]:["36","37"];l.intra=true;l.servicios=t==="ais";add(g[0],l.base);add(g[1],c);l.casilla=g[0];if(withDev){add("dev10",l.base);add("dev11",c)}continue}
+    if(t==="isp"){const c=self(),g=l.inversion?["30","31"]:["28","29"];l.intra=false;add("dev12",l.base);add("dev13",c);add(g[0],l.base);add(g[1],c);l.casilla=`12 · ${g[0]}`;continue}
     if(l.base<0){add("40",l.base);add("41",deducible);l.casilla="40";continue}
     if(l.intra){const cuota=l.cuota||tdRound(l.base*21/100);l.cuotaCalc=!l.cuota;const g=l.inversion?["38","39"]:["36","37"];add(g[0],l.base);add(g[1],cuota);l.casilla=g[0];if(withDev){add("dev10",l.base);add("dev11",cuota)}continue}
     if(!l.cuota&&!l.tipo){cero.push(l);l.casilla="0 %";continue}
@@ -119,9 +132,10 @@ function calc(period){
   const val=n=>num(v[n]);
   const src=ivaLines(q),{auto:ia,cero}=ivaAuto(src.lines);
   const hasAutofacturas=src.lines.some(l=>l.autofactura);
-  const rec=ivaRecLines(q,hasAutofacturas),{auto:da,cero:ceroRec}=dedAuto(rec.lines,!hasAutofacturas);
+  const rec=ivaRecLines(q,hasAutofacturas),{auto:da,cero:ceroRec}=dedAuto(rec.lines,!hasAutofacturas,m.cls||{});
   // Autorepercusión de las adquisiciones intracomunitarias (si no hay autofacturas en las emitidas).
   if(da.dev10){ia["10"]=tdRound((ia["10"]||0)+da.dev10);ia["11"]=tdRound((ia["11"]||0)+da.dev11)}
+  if(da.dev12){ia["12"]=tdRound((ia["12"]||0)+da.dev12);ia["13"]=tdRound((ia["13"]||0)+da.dev13)}
   for(const [,b,t,cu,rate] of DEV){
     if(b){c["auto"+b]=ia[b]||0;c[b]=has(v[b])?tdRound(val(b)):c["auto"+b]}
     if(t){c["auto"+t]=ia[t]||0;c[t]=rate!==null&&rate!==undefined?rate:has(v[t])?val(t):c["auto"+t]}
@@ -134,7 +148,7 @@ function calc(period){
   for(const [,b,cu] of DED){if(b){c["auto"+b]=da[b]||0;c[b]=has(v[b])?tdRound(val(b)):c["auto"+b]}c["auto"+cu]=da[cu]||0;c[cu]=has(v[cu])?tdRound(val(cu)):c["auto"+cu]}
   c["45"]=tdRound(["29","31","33","35","37","39","41","42","43","44"].reduce((s,n)=>s+c[n],0));
   c["46"]=tdRound(c["27"]-c["45"]);
-  for(const [,n] of INFO)c[n]=tdRound(val(n));for(const n of ["62","63","74","75","76","77","68","108","70","109"])c[n]=tdRound(val(n));
+  for(const [,n] of INFO)c[n]=tdRound(val(n));for(const n of ["62","63","74","75","76","68","108","70","109"])c[n]=tdRound(val(n));c.auto77=da.c77||0;c["77"]=has(v["77"])?tdRound(val("77")):c.auto77;
   c["58"]=0;c["64"]=tdRound(c["46"]+c["58"]+c["76"]);c["65"]=has(v["65"])?num(v["65"]):100;c["66"]=tdRound(c["64"]*c["65"]/100);
   // Cuotas a compensar de periodos anteriores: lo que quedó pendiente en el trimestre anterior (87) más lo que se pidió compensar en él.
   let auto110=0;if(q>1){const p=calc(`${q-1}T`);auto110=tdRound(p.c["87"]+(p.c["71"]<0&&p.tipo==="C"?-p.c["71"]:0))}
@@ -168,6 +182,8 @@ TAX_DRAFT_BUILDERS[M]=period=>{
       if(r.src.fuente!=="manual")out.push(`<div class="td-check ok">✓ <div><b>IVA devengado de ${r.src.fuente==="contabilidad"?"la contabilidad":"las facturas guardadas"}</b>${r.src.lines.length} líneas de facturas emitidas del trimestre${c["14"]?` · bases negativas en la casilla 14: ${tdEur(c["14"])}`:""}.</div></div>`);
       if(r.rec.fuente!=="manual"){const intra=r.rec.lines.filter(l=>l.intra);out.push(`<div class="td-check ok">✓ <div><b>IVA deducible de ${r.rec.fuente==="contabilidad"?"la contabilidad":"las facturas guardadas"}</b>${r.rec.lines.length} líneas de facturas recibidas del trimestre${intra.length?` · ${intra.length} intracomunitaria${intra.length===1?"":"s"} en 36/37 con su autorepercusión en 10/11`:""}${c["40"]?` · abonos en la casilla 40: ${tdEur(c["40"])}`:""}.</div></div>`);
         if(intra.some(l=>l.cuotaCalc))out.push('<div class="td-check warn">⚠ <div><b>Cuota de intracomunitarias calculada al 21 %</b>Las facturas intracomunitarias no llevan IVA: la autorepercusión se calcula al 21 %. Cámbiala en 10/11 y 36/37 si el tipo es otro.</div></div>')}
+      {const ch=r.rec.lines.filter(l=>l.cls);if(ch.length){const by={};ch.forEach(l=>{const t=(OPS.find(o=>o[0]===l.cls)||[])[1]||l.cls;by[t]=(by[t]||0)+1});out.push(`<div class="td-check ok">✓ <div><b>${ch.length} ${ch.length===1?"factura recibida con el tipo cambiado":"facturas recibidas con el tipo cambiado"}</b>${Object.entries(by).map(([t,n])=>`${n} · ${escapeHtml(t)}`).join(" · ")}. Se cambia en el ojo del IVA deducible.</div></div>`)}
+        if(ch.some(l=>l.dua))out.push('<div class="td-check warn">⚠ <div><b>Importaciones</b>La cuota deducible de las importaciones debe ser la del DUA de la Aduana; se ha tomado la de la factura. Revísala en las casillas 32/33 o 34/35.</div></div>')}
       if(r.overrides.length)out.push(`<div class="td-check bad">✕ <div><b>Importes escritos a mano en lugar de la ${r.src.fuente==="contabilidad"?"contabilidad":"facturas guardadas"}</b>${r.overrides.map(o=>`[${o.n}] ${inputValue(o.manual)||"0,00"} (${r.src.fuente==="contabilidad"?"contabilidad":"facturas"}: ${inputValue(o.auto)||"0,00"})`).join(" · ")}. Bórralos o pulsa «Volver a los datos» en su página.</div></div>`);
       if(r.cero.length)out.push(`<div class="td-check warn">⚠ <div><b>${r.cero.length} línea${r.cero.length===1?"":"s"} al 0 % no van al IVA devengado</b>Base ${tdEur(tdSum(r.cero,"base"))}: si son entregas intracomunitarias o exportaciones, anótalas en «Información adicional» (59 o 60).</div></div>`);
       if(!Object.keys(r.m.v).length&&r.src.fuente==="manual")out.push('<div class="td-check warn">⚠ <div><b>Sin datos</b>De momento el 303 se rellena a mano: abre cada página con los botones de arriba.</div></div>');
@@ -186,9 +202,13 @@ if(typeof TAX_DRAFT_SIDE!=="undefined")TAX_DRAFT_SIDE.iva303={title:draft=>`IVA 
 if(typeof TAX_DRAFT_SIDE!=="undefined")TAX_DRAFT_SIDE.ded303={title:draft=>`IVA deducible · ${draft.calc.rec.lines.length} líneas`,sub:"Facturas recibidas del trimestre y la casilla en la que va cada línea: 28 interiores, 30 bienes de inversión, 36 intracomunitarias, 40 abonos."};
 if(typeof taxDraftLists==="function"){const previousDed=taxDraftLists;taxDraftLists=function(kind,draft){
   if(kind!=="ded303")return previousDed.apply(this,arguments);
-  const filter=sideFilter;sideFilter="";const lines=filter?draft.calc.rec.lines.filter(l=>lineIn(l,filter)):draft.calc.rec.lines,groups=new Map();lines.forEach(l=>{const k=l.casilla||"—";if(!groups.has(k))groups.set(k,[]);groups.get(k).push(l)});
-  const order=["28","30","36","38","40","0 %"],keys=[...groups.keys()].sort((a,b)=>(order.indexOf(a)+99)%99-(order.indexOf(b)+99)%99);
-  return keys.map(k=>{const list=groups.get(k),cuota=l=>l.intra?(l.cuota||tdRound(l.base*21/100)):tdRound(l.cuota-(l.noDed||0));return `<h4 class="td-list-title">Casilla ${escapeHtml(k)} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota deducible ${tdEur(tdRound(list.reduce((s,l)=>s+cuota(l),0)))}</h4><table class="td-list"><thead><tr><th class="center">PDF</th><th>Fecha</th><th>Factura</th><th>Proveedor</th><th class="num">Base</th><th class="num">%</th><th class="num">Cuota</th><th class="num">Deducible</th></tr></thead><tbody>${list.map(l=>`<tr><td class="center">${pdfEye(l,"RECIBIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}<small>${escapeHtml(l.nif||"")}${l.intra?" · intracomunitaria":""}${l.inversion?" · bien de inversión":""}</small></td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td><td class="num">${tdEur(cuota(l))}</td></tr>`).join("")}</tbody></table>`}).join("");
+  const filter=sideFilter;lastDedFilter=filter;sideFilter="";const lines=filter?draft.calc.rec.lines.filter(l=>lineIn(l,filter)):draft.calc.rec.lines,groups=new Map();lines.forEach(l=>{const k=l.casilla||"—";if(!groups.has(k))groups.set(k,[]);groups.get(k).push(l)});
+  const order=["28","12 · 28","30","12 · 30","32","32 · 77","34","34 · 77","36","38","40","0 %","No deducible"],keys=[...groups.keys()].sort((a,b)=>(order.indexOf(a)+99)%99-(order.indexOf(b)+99)%99);
+  const ded=l=>l.cls==="nd"?0:l.intra||l.cls==="isp"?(l.cuota||tdRound(l.base*(l.tipo||21)/100)):tdRound(l.cuota-(l.noDed||0));
+  const sel=l=>`<select class="m303-op${l.cls?" on":""}" data-m303-op="${escapeHtml(l.key)}" title="Tipo de operación: la factura va a la casilla que corresponda">${OPS.map(([v,t])=>`<option value="${v}"${v===l.cls?" selected":""}>${escapeHtml(t)}</option>`).join("")}</select>`;
+  const dua=l=>l.dua?`<span class="m303-dua" title="Importación: aquí va el IVA del DUA (documento de la Aduana). Si no lo tienes, se toma el IVA de la factura.">!</span>`:"";
+  const changed=draft.calc.rec.lines.filter(l=>l.cls).length;
+  return `<p class="td-note td-pad m303-op-note">Elige en «Tipo» si la factura es intracomunitaria, importación, inversión del sujeto pasivo… y pasa a su casilla (con su IVA devengado, si lo tiene, para que no descuadre). «–» deja la de la contabilidad.${changed?` <b>${changed} ${changed===1?"factura cambiada":"facturas cambiadas"}.</b>`:""}</p>`+keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">${k==="No deducible"?"Fuera del 303 · IVA no deducible":`Casilla ${escapeHtml(k)}`} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota deducible ${tdEur(tdRound(list.reduce((s,l)=>s+ded(l),0)))}</h4><table class="td-list m303-op-list"><thead><tr><th class="center">PDF</th><th>Fecha</th><th>Factura</th><th>Proveedor</th><th class="num">Base</th><th class="num">%</th><th class="num">Cuota</th><th class="num">Deducible</th><th>Tipo</th></tr></thead><tbody>${list.map(l=>`<tr class="${l.cls?"m303-op-row":""}"><td class="center">${pdfEye(l,"RECIBIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}<small>${escapeHtml(l.nif||"")}${l.intra?(l.servicios?" · intracomunitaria de servicios":" · intracomunitaria"):""}${l.inversion?" · bien de inversión":""}${l.cuotaCalc?" · cuota calculada":""}</small></td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td><td class="num">${dua(l)}${tdEur(ded(l))}</td><td>${sel(l)}</td></tr>`).join("")}</tbody></table>`}).join("");
 }}
 if(typeof taxDraftLists==="function"){const previous=taxDraftLists;taxDraftLists=function(kind,draft){
   if(kind!=="iva303")return previous.apply(this,arguments);
@@ -378,7 +398,11 @@ function rowEye(r,kind,b){
   const lines=b?(kind==="dev"?r.src.lines:r.rec.lines).filter(l=>lineIn(l,b)):[];
   return lines.length?`<button type="button" class="m303-roweye" data-m303-roweye="${kind}" data-casilla="${b}" title="Ver las ${lines.length} líneas de la casilla ${b}">${tdEye}</button>`:"";
 }
-let sideFilter="";
+let sideFilter="";let lastDedFilter="";
+// Cambio del tipo de operación de una factura: se guarda en el trimestre y se recalcula todo (panel y borrador).
+document.addEventListener("change",event=>{const sel=event.target.closest?.("#tdSideBody [data-m303-op]");if(!sel)return;const period=taxDrafts.open;if(taxDrafts.model!==M||!/^\dT$/.test(period||""))return;
+  save(period,m=>{m.cls={...(m.cls||{})};if(sel.value)m.cls[sel.dataset.m303Op]=sel.value;else delete m.cls[sel.dataset.m303Op]});
+  const body=document.querySelector("#tdSideBody"),top=body?.scrollTop||0;renderTaxDraftMain();sideFilter=lastDedFilter;openTaxDraftSide("ded303",taxDraftBuild(M,period));const again=document.querySelector("#tdSideBody");if(again)again.scrollTop=top});
 // Ojo de cada factura en el panel: abre su PDF de la carpeta CONTABILIDAD del cliente (si es de un Excel, no hay PDF).
 const pdfEye=(l,tipo)=>/\.(xlsx?|xlsm|csv|ods)$/i.test(l.archivo||"")&&!l.ruta?`<span class="td-eye off" title="Sin PDF">${tdEyeOff}</span>`:`<button type="button" class="td-eye" data-m303-pdf="${encodeURIComponent(JSON.stringify({ruta:l.ruta||"",fecha:l.fecha,nombre:l.nombre,numero:l.numero,tipo}))}" title="Ver la factura">${tdEye}</button>`;
 document.addEventListener("click",async event=>{const b=event.target.closest("#tdSideBody [data-m303-pdf]");if(!b)return;b.disabled=true;
@@ -437,7 +461,7 @@ function pageInfo(r){
 function pageRes(r){
   const c=r.c,line=(n,content,cls="")=>`<tr class="${cls}"><td class="m303-l">${escapeHtml(LABEL[n])}</td><td>${cell(n,content)}</td></tr>`,m=r.m;
   return `<table class="m303-t c1"><tbody>${line("76",moneyInput("76",r,{signed:true}))}${line("64",out(c["64"]))}
-    ${line("65",`<input class="m303-in short" data-m303="65" inputmode="decimal" value="${escapeHtml(has(m.v["65"])?String(m.v["65"]).replace(".",","):"")}" placeholder="100,00">`)}${line("66",out(c["66"]))}${line("77",moneyInput("77",r))}
+    ${line("65",`<input class="m303-in short" data-m303="65" inputmode="decimal" value="${escapeHtml(has(m.v["65"])?String(m.v["65"]).replace(".",","):"")}" placeholder="100,00">`)}${line("66",out(c["66"]))}${line("77",moneyInput("77",r,{auto:c.auto77}))}
     ${line("110",moneyInput("110",r,{auto:c.auto110}))}${line("78",moneyInput("78",r,{auto:c.auto78}))}${line("87",out(c["87"]))}
     ${line("68",moneyInput("68",r,{signed:true}))}${line("108",moneyInput("108",r,{signed:true}))}${line("69",out(c["69"]),"m303-strong")}${line("70",moneyInput("70",r))}${line("109",moneyInput("109",r))}${line("71",out(c["71"]),"m303-res")}</tbody></table>
     <div class="m303-boxes">

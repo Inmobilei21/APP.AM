@@ -6002,3 +6002,10 @@ html:has(.td-modal),body:has(.td-modal){overflow:hidden!important}
 .fiscal-iva-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
 .fiscal-iva-checks label{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
 @media(max-width:760px){.fiscal-iva-grid,.fiscal-iva-checks{grid-template-columns:1fr}}
+/* 303 · tipo de operación de cada factura recibida */
+.m303-op{height:28px;width:150px;max-width:150px;border:1px solid #d8deea;border-radius:7px;font:inherit;font-size:12px;padding:0 4px;background:#fff;color:#1d2a44}
+.m303-op.on{border-color:#e6b84d;background:#fff8e8;font-weight:700}
+tr.m303-op-row td{background:#fffaf0}
+.m303-dua{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#f6ad2e;color:#fff;font-weight:900;font-size:11px;margin-right:6px;cursor:help;vertical-align:middle}
+.m303-op-note{margin:0 0 6px;font-size:12px}
+.m303-op-list td:last-child{white-space:nowrap}

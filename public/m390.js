@@ -80,18 +80,23 @@ function calc(){
     const ord=G("ord");[["150","152",0],["01","03",4],["04","06",10],["07","09",21]].forEach(([b,cu,rate])=>{const row=rowFor(ord,rate);add(row[1],c[b]);add(row[2],c[cu])});
     [["153","154","155"],["165","166","167"]].forEach(([b,t,cu])=>{if(c[b]||c[cu]){const row=rowFor(ord,Number(c[t])||0);add(row[1],c[b]);add(row[2],c[cu])}});
     // Adquisiciones intracomunitarias (10/11): por tipos según las facturas; se toman como bienes (cámbialo a servicios si lo son).
-    spread(G("aib"),rec.filter(l=>l.intra&&l.base>=0),c["10"]||0,c["11"]||0,l=>l.cuota||tdRound(l.base*21/100));
+    // Las marcadas como intracomunitarias de servicios en el 303 van a sus casillas propias (545-552 y 587-598).
+    const selfQ=l=>l.cuota||tdRound(l.base*(l.tipo||21)/100),serv=rec.filter(l=>l.intra&&l.servicios&&l.base>=0),sb=tdSum(serv,"base"),sc=tdRound(serv.reduce((x,l)=>x+selfQ(l),0));
+    spread(G("ais"),serv,sb,sc,selfQ);
+    spread(G("aib"),rec.filter(l=>l.intra&&!l.servicios&&l.base>=0),tdRound((c["10"]||0)-sb),tdRound((c["11"]||0)-sc),selfQ);
     add("27",c["12"]);add("28",c["13"]);add("29",c["14"]);add("30",c["15"]);
     // Recargo de equivalencia.
     [["156","158",1.75],["168","170",0.5],["19","21",1.4],["22","24",5.2]].forEach(([b,cu,rate])=>{const row=RE.find(r=>r[0]===rate);add(row[1],c[b]);add(row[2],c[cu])});
     if(c["16"]||c["18"]){const rate=Number(c["17"])||0,row=RE.find(r=>Math.abs(r[0]-rate)<0.001)||RE[RE.length-1];add(row[1],c["16"]);add(row[2],c["18"])}
     add("43",c["25"]);add("44",c["26"]);
     // Deducible por tipos según las líneas de facturas recibidas de cada casilla del 303.
-    const ded=l=>tdRound(l.cuota-(l.noDed||0)),selfC=l=>l.cuota||tdRound(l.base*21/100),inC=k=>rec.filter(l=>String(l.casilla||"").split(" · ").includes(k));
+    const ded=l=>tdRound(l.cuota-(l.noDed||0)),selfC=l=>l.cuota||tdRound(l.base*(l.tipo||21)/100),inC=k=>rec.filter(l=>String(l.casilla||"").split(" · ").includes(k));
     spread(GD("ic"),inC("28"),c["28"]||0,c["29"]||0,ded);
     spread(GD("ii"),inC("30"),c["30"]||0,c["31"]||0,ded);
-    spread(GD("imc"),[],c["32"]||0,c["33"]||0,ded);spread(GD("imi"),[],c["34"]||0,c["35"]||0,ded);
-    spread(GD("aic"),inC("36"),c["36"]||0,c["37"]||0,selfC);spread(GD("aii"),inC("38"),c["38"]||0,c["39"]||0,selfC);
+    spread(GD("imc"),inC("32"),c["32"]||0,c["33"]||0,ded);spread(GD("imi"),inC("34"),c["34"]||0,c["35"]||0,ded);
+    const s36=inC("36").filter(l=>l.servicios),s36b=tdSum(s36,"base"),s36c=tdRound(s36.reduce((x,l)=>x+selfC(l),0));
+    spread(GD("aisd"),s36,s36b,s36c,selfC);
+    spread(GD("aic"),inC("36").filter(l=>!l.servicios),tdRound((c["36"]||0)-s36b),tdRound((c["37"]||0)-s36c),selfC);spread(GD("aii"),inC("38"),c["38"]||0,c["39"]||0,selfC);
     add("639",c["40"]);add("62",c["41"]);add("61",c["42"]);add("63",c["43"]);add("522",c["44"]);
     // Volumen y operaciones específicas.
     add("99",tdRound((c["150"]||0)+(c["01"]||0)+(c["04"]||0)+(c["07"]||0)+(c["153"]||0)+(c["165"]||0)+(c["14"]||0)));
