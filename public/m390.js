@@ -135,15 +135,15 @@ function rateRows(r,g,signed){
   return g.rows.filter(([rate,b,cu])=>rowVisible(r,rate,b,cu)).map(([rate,b,cu],i)=>`<tr${i===0?' class="m303-sep"':""}><td class="m303-l">${i===0?`<b>${escapeHtml(g.label)}</b>`:""}</td><td>${b?cell(b,money(b,r,signed)):""}</td><td>${rate===null?"":`<span class="m390-rate">${rateText(rate)} %</span>`}</td><td>${cell(cu,money(cu,r,signed))}</td></tr>`).join("");
 }
 // Respuestas propuestas: lo marcado en los 303 del ejercicio y las obligaciones de la ficha del cliente.
-const identDefaults=r=>({d347:Boolean(taxDrafts.clientData?.obligations?.["347"]),caja:r.qs.some(q=>q.r.m?.f?.caja),destCaja:r.qs.some(q=>q.r.m?.f?.destCaja),redeme:r.qs.some(q=>q.r.m?.f?.redeme),concurso:false,sustitutiva:false,clave:"A03"});
+const identDefaults=r=>{const iva=taxDrafts.clientData?.iva||{};return{d347:Boolean(taxDrafts.clientData?.obligations?.["347"]),caja:r.qs.some(q=>q.r.m?.f?.caja),destCaja:r.qs.some(q=>q.r.m?.f?.destCaja),redeme:r.qs.some(q=>q.r.m?.f?.redeme),concurso:false,sustitutiva:false,clave:iva.clave||"A03",actividad:iva.actividad||"",epigrafe:iva.epigrafe||""}};
 function pageIdent(r){
   const f=r.m.f,{caja,destCaja,redeme}=identDefaults(r);
   const yn=(k,label,def)=>{const on=f[k]??def;return `<label class="m303-ck"><span>${escapeHtml(label)}</span><select data-m390f="${k}"><option value="1"${on?" selected":""}>Sí</option><option value=""${on?"":" selected"}>No</option></select></label>`};
   const obl347=identDefaults(r).d347;
   return `<div class="m390-ident">
-    <div class="m390-fields"><label class="td-cf wide"><small>A · Actividad principal (la de mayor volumen de operaciones)</small><input data-m390f="actividad" value="${escapeHtml(f.actividad??"")}" placeholder="p. ej. Pintura"></label>
-      <label class="td-cf"><small>B · Clave</small><select data-m390f="clave">${CLAVES.map(([k,l])=>`<option value="${k}"${(f.clave||"A03")===k?" selected":""}>${k} · ${escapeHtml(l)}</option>`).join("")}</select></label>
-      <label class="td-cf"><small>C · Epígrafe IAE</small><input data-m390f="epigrafe" value="${escapeHtml(f.epigrafe??"")}" maxlength="6" placeholder="p. ej. 5056"></label>
+    <div class="m390-fields"><label class="td-cf wide"><small>A · Actividad principal (la de mayor volumen de operaciones)</small><input data-m390f="actividad" value="${escapeHtml(f.actividad??identDefaults(r).actividad)}" placeholder="p. ej. Pintura"></label>
+      <label class="td-cf"><small>B · Clave</small><select data-m390f="clave">${CLAVES.map(([k,l])=>`<option value="${k}"${(f.clave||identDefaults(r).clave)===k?" selected":""}>${k} · ${escapeHtml(l)}</option>`).join("")}</select></label>
+      <label class="td-cf"><small>C · Epígrafe IAE</small><input data-m390f="epigrafe" value="${escapeHtml(f.epigrafe??identDefaults(r).epigrafe)}" maxlength="6" placeholder="p. ej. 5056"></label>
       <label class="td-cf wide"><small>Otras actividades (opcional)</small><input data-m390f="otras" value="${escapeHtml(f.otras??"")}"></label></div>
     <div class="m390-checks">
       ${yn("d347","D · Ha efectuado operaciones por las que tenga obligación de presentar el modelo 347",obl347)}
@@ -312,9 +312,9 @@ window.taxDraftAnnualDetail=model=>model===M?detailHtml():(previousDetail?previo
 if(typeof taxDraftAnnualRow==="function"){const previousRow=taxDraftAnnualRow;taxDraftAnnualRow=function(model,totals){
   if(model!==SRC)return previousRow.apply(this,arguments);
   // Exonerado del 390 (marcado en el 303 del 4T o «No obligada» en Control): la fila queda bloqueada.
-  const exo=declarationData(SRC,"4T",taxDrafts.client,taxDraftYear()).m303?.f?.exonerado===true,blocked=declarationData(M,PERIOD,taxDrafts.client,taxDraftYear()).notRequired===true;
+  const f4=declarationData(SRC,"4T",taxDrafts.client,taxDraftYear()).m303?.f||{},exo=f4.exonerado===true||f4.exonerado===undefined&&taxDrafts.clientData?.iva?.exonerado===true,blocked=declarationData(M,PERIOD,taxDrafts.client,taxDraftYear()).notRequired===true;
   if(exo||blocked){if(taxDrafts.open==="anual")taxDrafts.open="";
-    return `<tr class="td-annual td-annual-locked" title="${exo?"Exonerado del 390: marcado en el 303 del 4T":"Marcado como «No obligada» en Control de declaraciones"}"><td><strong><span class="td-lock" aria-hidden="true">🔒</span> Declaración anual · Modelo 390</strong><small>${exo?"No se presenta: el sujeto pasivo está exonerado (marcado en el 303 del 4T)":"No se presenta: «No obligada» en Control de declaraciones"}</small></td><td class="num td-dim">—</td><td class="num td-dim">—</td><td class="num td-dim">—</td><td class="num td-dim">—</td><td><span class="td-pill noob">Exonerado</span></td><td></td><td></td></tr>`}
+    return `<tr class="td-annual td-annual-locked" title="${exo?"Exonerado del 390: marcado en el 303 del 4T":"Marcado como «No obligada» en Control de declaraciones"}"><td><strong><span class="td-lock" aria-hidden="true">🔒</span> Declaración anual · Modelo 390</strong><small>${exo?"No se presenta: el sujeto pasivo está exonerado (303 del 4T o ficha del cliente)":"No se presenta: «No obligada» en Control de declaraciones"}</small></td><td class="num td-dim">—</td><td class="num td-dim">—</td><td class="num td-dim">—</td><td class="num td-dim">—</td><td><span class="td-pill noob">Exonerado</span></td><td></td><td></td></tr>`}
   const r=calc(),control=declarationData(M,PERIOD,taxDrafts.client,taxDraftYear()),open=taxDrafts.open==="anual";
   const status=control.submitted?["Presentado","pres"]:control.prepared?["Preparado","conf"]:["Pendiente","pend"];
   const detail=open?`<tr class="td-detail td-annual-detail"><td colspan="8"><div class="td-card" data-td-annual-detail="${M}">${detailHtml()}</div></td></tr>`:"";

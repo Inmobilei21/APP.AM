@@ -5994,3 +5994,11 @@ html:has(.td-modal),body:has(.td-modal){overflow:hidden!important}
 .m303-exo-warn{margin:6px 2px 0;color:#b42318;font-weight:700;font-size:12.5px}
 .m303-exo-sec{margin-top:14px}
 @media(max-width:860px){.m303-exo-cols{grid-template-columns:1fr}.m303-exo-ids{grid-template-columns:1fr}}
+/* Ficha del cliente · datos fiscales del IVA */
+.fiscal-iva p{margin:0 0 10px;color:#68748c;font-size:12.5px}
+.fiscal-iva-grid{display:grid;grid-template-columns:1.4fr 1.4fr .8fr;gap:10px;margin-bottom:10px}
+.fiscal-iva-grid label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:#3a4560}
+.fiscal-iva-grid input,.fiscal-iva-grid select{height:38px;border:1px solid #d8deea;border-radius:10px;padding:0 10px;font:inherit;font-weight:500;background:#fff;min-width:0}
+.fiscal-iva-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+.fiscal-iva-checks label{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+@media(max-width:760px){.fiscal-iva-grid,.fiscal-iva-checks{grid-template-columns:1fr}}

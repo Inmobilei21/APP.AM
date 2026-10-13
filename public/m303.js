@@ -10,7 +10,10 @@ TAX_DRAFT_MODELS[M]={title:"IVA · autoliquidación",ready:true};
 const num=v=>{if(typeof v==="number")return Number.isFinite(v)?v:0;const s=String(v??"").trim();if(!s)return 0;const n=Number(s.includes(",")||/^-?\d{1,3}(\.\d{3})+$/.test(s)?s.replace(/\./g,"").replace(",","."):s);return Number.isFinite(n)?n:0};
 const has=v=>v!==undefined&&v!==null&&String(v).trim()!=="";
 const inputValue=v=>{if(!has(v))return"";const n=num(v),[i,d]=Math.abs(n).toFixed(2).split(".");return(n<0?"-":"")+i.replace(/\B(?=(\d{3})+(?!\d))/g,".")+","+d};
-const st=period=>{const m=taxDraftControl(M,period).m303||{};m.v=m.v||{};m.f=m.f||{};return m};
+// Marcas de identificación: las de la ficha del cliente (Datos fiscales del IVA); lo cambiado en el borrador manda.
+const fichaIva=()=>{const iva=taxDrafts.clientData?.iva||{},out={};["redeme","soloRS","caja","destCaja","sii","exonerado"].forEach(k=>{if(iva[k]!==undefined)out[k]=Boolean(iva[k])});
+  if(iva.clave)out.exClave=iva.clave;if(iva.epigrafe)out.exEpigrafe=iva.epigrafe;if(taxDrafts.clientData?.obligations?.["347"])out.exD347=true;return out};
+const st=period=>{const m=taxDraftControl(M,period).m303||{};m.v=m.v||{};m.f={...fichaIva(),...(m.f||{})};if(period!=="4T")delete m.f.exonerado;return m};
 function save(period,change){
   const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);
   const m={v:{},f:{},...(data.m303||{})};m.v={...m.v};m.f={...m.f};change(m);data.m303=m;localStorage.setItem(key,JSON.stringify(data));
