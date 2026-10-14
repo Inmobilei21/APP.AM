@@ -2625,12 +2625,16 @@ async function setupInvoiceProcessor(){
     invoiceProcessorFiles=[...invoiceProcessorFiles,...added.map(file=>{let name=file.name;for(let n=2;invoiceProcessorFiles.some(item=>item.name===name);n++)name=file.name.replace(/(\.[^.]+)?$/,` (${n})$1`);return name===file.name?file:new File([file],name,{type:file.type,lastModified:file.lastModified})})];
     if(failed.length)alert(`No se ${failed.length===1?"ha podido leer este archivo":"han podido leer estos archivos"} (ábrelos o cópialos a una carpeta del equipo y vuelve a añadirlos):\n${failed.join("\n")}`);
     input.value="";renderFiles()};
+  window.amAddInvoiceFiles=addFiles;
   // El apartado ocupa todo el ancho disponible (menos la barra lateral) para que quepan más columnas en el borrador.
   const widen=()=>{if(panel.hidden||window.matchMedia("(max-width:760px)").matches){panel.style.marginLeft="";panel.style.width="";return}
     const parent=panel.parentElement,main=panel.closest("main");if(!parent||!main)return;
     const pr=parent.getBoundingClientRect(),cs=getComputedStyle(parent),natural=pr.left+parent.clientLeft+parseFloat(cs.paddingLeft||0);
     const left=main.getBoundingClientRect().left+16,right=document.documentElement.clientWidth-16;
-    panel.style.marginLeft=`${Math.round(left-natural)}px`;panel.style.width=`${Math.round(right-left)}px`};
+    panel.style.marginLeft=`${Math.round(left-natural)}px`;panel.style.width=`${Math.round(right-left)}px`;
+    // Si algún contenedor tiene zoom o escala, las medidas en pantalla no coinciden con los px del estilo: se corrige.
+    const r=panel.getBoundingClientRect(),scale=panel.offsetWidth?r.width/panel.offsetWidth:1;
+    if(Math.abs(r.left-left)>1||Math.abs(r.right-right)>1){panel.style.marginLeft=`${Math.round(parseFloat(panel.style.marginLeft)+(left-r.left)/scale)}px`;panel.style.width=`${Math.floor((right-left)/scale)}px`}};
   window.addEventListener("resize",widen);try{const main=panel.closest("main");if(main)new ResizeObserver(()=>requestAnimationFrame(widen)).observe(main)}catch{}
   new MutationObserver(widen).observe(panel,{attributes:true,attributeFilter:["hidden"]});
   open.addEventListener("click",()=>{panel.hidden=false;widen();panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
@@ -3383,9 +3387,13 @@ function setupClientFolderDropZone(){
   const hasFiles=event=>[...(event.dataTransfer?.types||[])].includes("Files");
   const show=()=>{overlay.classList.add("active");overlay.setAttribute("aria-hidden","false")};
   const hide=()=>{dragDepth=0;overlay.classList.remove("active");overlay.setAttribute("aria-hidden","true")};
-  panel.addEventListener("dragenter",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;dragDepth++;show()});
-  panel.addEventListener("dragover",event=>{if(!hasFiles(event))return;event.preventDefault();if(!currentDirectoryHandle)return;event.dataTransfer.dropEffect="copy";show()});  panel.addEventListener("dragleave",()=>{if(dragDepth>0)dragDepth--;if(!dragDepth)hide()});
-  panel.addEventListener("drop",async event=>{if(!hasFiles(event))return;event.preventDefault();hide();if(!currentDirectoryHandle){alert("No se puede acceder a la documentación. Contacta con el administrador del servidor.");return}const items=[...(event.dataTransfer.items||[])],files=items.length?items.filter(item=>item.kind==="file").map(item=>item.getAsFile()).filter(Boolean):[...(event.dataTransfer.files||[])];if(!files.length)return;await addDocumentsToCurrentFolder(files)});
+  // Con «Procesar facturas» abierto, lo que se arrastra va a las facturas a procesar, nunca a la carpeta del cliente.
+  const processing=()=>{const box=document.querySelector("#invoiceProcessor");return Boolean(box&&!box.hidden)};
+  const invoiceZone=on=>document.querySelector("#invoiceDropZone")?.classList.toggle("dragging",on);
+  panel.addEventListener("dragenter",event=>{if(!hasFiles(event))return;event.preventDefault();if(processing()){hide();invoiceZone(true);return}if(!currentDirectoryHandle)return;dragDepth++;show()});
+  panel.addEventListener("dragover",event=>{if(!hasFiles(event))return;event.preventDefault();if(processing()){hide();invoiceZone(true);event.dataTransfer.dropEffect="copy";return}if(!currentDirectoryHandle)return;event.dataTransfer.dropEffect="copy";show()});  panel.addEventListener("dragleave",event=>{if(processing()&&!panel.contains(event.relatedTarget))invoiceZone(false);if(dragDepth>0)dragDepth--;if(!dragDepth)hide()});
+  panel.addEventListener("drop",async event=>{if(!hasFiles(event))return;event.preventDefault();hide();
+    if(processing()){invoiceZone(false);window.amAddInvoiceFiles?.(event.dataTransfer.files);return}if(!currentDirectoryHandle){alert("No se puede acceder a la documentación. Contacta con el administrador del servidor.");return}const items=[...(event.dataTransfer.items||[])],files=items.length?items.filter(item=>item.kind==="file").map(item=>item.getAsFile()).filter(Boolean):[...(event.dataTransfer.files||[])];if(!files.length)return;await addDocumentsToCurrentFolder(files)});
 }
 
 function setFolderViewMode(mode,persist=true){
