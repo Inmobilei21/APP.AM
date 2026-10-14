@@ -3207,7 +3207,7 @@ function renderInvoiceDraft(records){
     if(field==="supplierAccount"||field==="expenseAccount")return `<td><span class="acc-cell">${accountInput(index,field,record[field]||"")}${invoiceAccounting.data?`<button type="button" class="acc-search" data-acc-search title="Buscar cuenta" aria-label="Buscar cuenta"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>`:""}</span></td>`;
     if(field==="retention")return `<td>${retentionCell(index,record)}</td>`;
     if(field==="intra"){const keys=invoiceIntraKeys(received),key=record.intraKey||keys[0][0];return `<td><div class="invoice-intra-cell${record.intra?" on":""}"><label title="Marca si es una operación intracomunitaria: irá al modelo 349"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="intra"${record.intra?" checked":""}><span>Sí</span></label><select data-invoice-row="${index}" data-invoice-field="intraKey" title="Clave de operación del modelo 349"${record.intra?"":" disabled"}>${keys.map(([value,label])=>`<option value="${value}"${value===key?" selected":""}>${safeValue(`${value} · ${label}`)}</option>`).join("")}</select></div></td>`}
-    if(field==="vat"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""))}<label title="Inversión del sujeto pasivo: la factura viene sin IVA y lo autorrepercute el cliente. En el 303 va a la casilla 12/13 (IVA devengado al 21 %) y a la 28/29 (deducible)"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="isp"${record.isp?" checked":""}>inv. suj. pas.</label></div></td>`;
+    if(field==="vat"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""))}<label data-isp-help><input type="checkbox" data-invoice-row="${index}" data-invoice-field="isp"${record.isp?" checked":""}>inv. suj. pas.</label></div></td>`;
     if(field==="vatRate"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""),record.vatWarning&&!record.vatToBase?'data-vat-warning="1"':"")}<label title="Sumar el IVA a la base imponible (IVA extranjero o no deducible): el IVA pasa a ser del 0 %"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="vatToBase"${record.vatToBase?" checked":""}>a base</label></div></td>`;
     // Sin columnas de concepto ni observaciones: el ojo abre la factura y, si hay algo que revisar, un aviso lo indica.
     if(field==="preview")return `<td class="invoice-preview-cell"><button type="button" class="invoice-preview-button${record.observation?" has-warning":""}" data-invoice-preview="${index}" title="${safeValue(record.observation?`Ver la factura · ${record.observation}`:"Ver la factura")}" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}${record.observation?'<span class="invoice-warning-dot" aria-hidden="true">!</span>':""}</button></td>`;
@@ -5859,4 +5859,31 @@ homeActivityEmpty=function(icon,title,text){
   }
   document.addEventListener("click",event=>{const b=event.target.closest?.("[data-acc-search]");if(b){event.preventDefault();open(b)}});
   document.addEventListener("scroll",event=>{if(pop&&!pop.contains(event.target))close()},true);
+})();
+
+/* Ayuda de «inv. suj. pas.» en el borrador de facturas recibidas (mismo estilo que las casillas de las declaraciones) */
+(function(){
+  const HTML=`<div class="m303-tip-h"><b>ISP</b><span>Inversión del sujeto pasivo</span></div>
+<p class="m303-tip-l">La factura llega sin IVA y es el cliente quien se lo autorrepercute (art. 84.Uno.2º LIVA).</p>
+<p>En el 303 va a la casilla <b>12/13</b> (IVA devengado, normalmente al 21 %) y a la <b>28/29</b> (deducible; 30/31 si es bien de inversión), así que no sale a pagar.</p>
+<div class="m303-tip-more"><p><b>Cuándo aplica:</b></p><ul>
+<li><b>Servicios de empresas de fuera de la UE</b> que se entienden prestados en España: software, suscripciones, publicidad o consultoría de EE. UU., Reino Unido, Suiza… (facturas con «reverse charge»).</li>
+<li><b>Bienes o servicios de empresarios no establecidos en España</b> que no repercuten IVA español (p. ej. una entrega con instalación hecha por una empresa extranjera).</li>
+<li><b>Obras de construcción o rehabilitación</b> que un contratista subcontrata con otro (subcontratistas de obra).</li>
+<li><b>Inmuebles con renuncia a la exención</b> y entregas en ejecución de garantía o en concursos.</li>
+<li><b>Chatarra, desechos y materiales de recuperación</b>; oro sin elaborar y oro de inversión con renuncia.</li>
+<li><b>Móviles, consolas, portátiles y tabletas</b> comprados para revender, o por más de 10.000 € en una misma operación.</li>
+<li><b>Derechos de emisión</b> de gases de efecto invernadero.</li></ul>
+<p><b>No es ISP:</b> los servicios o bienes de empresas de <b>otro país de la UE</b> con NIF-IVA (márcalos en «Intracom.»: casillas 10/11 y 36/37 y modelo 349), las <b>importaciones</b> (van por el DUA, casillas 32 a 35) ni las facturas que ya traen IVA español.</p></div>`;
+  let tip=null,timer=0;
+  const hide=()=>{clearTimeout(timer);tip?.classList.remove("on")};
+  function show(el){
+    if(!tip){tip=document.createElement("div");tip.className="m303-tip wide";tip.setAttribute("role","tooltip");tip.innerHTML=HTML;document.body.append(tip)}
+    tip.classList.remove("below");tip.classList.add("on");
+    const r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight,left=Math.max(8,Math.min(r.left+r.width/2-w/2,window.innerWidth-w-8));
+    let top=r.top-h-12;if(top<8){top=r.bottom+12;tip.classList.add("below")}
+    tip.style.left=left+"px";tip.style.top=top+"px";tip.style.setProperty("--ax",`${Math.round(r.left+r.width/2-left)}px`);
+  }
+  document.addEventListener("mouseover",e=>{const el=e.target.closest?.("[data-isp-help]");if(!el){if(tip?.classList.contains("on"))hide();return}clearTimeout(timer);timer=setTimeout(()=>show(el),250)});
+  document.addEventListener("scroll",hide,true);
 })();
