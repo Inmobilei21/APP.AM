@@ -89,14 +89,23 @@ function ivaAuto(lines){
 /* --- IVA deducible desde las facturas recibidas --- */
 const EU_CODES=new Set(["AT","BE","BG","CY","CZ","DE","DK","EE","EL","GR","FI","FR","HR","HU","IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK","XI"]);
 const euOf=(pais,nif)=>{const p=String(pais||"").toUpperCase();if(EU_CODES.has(p))return p;const n=String(nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,2);return EU_CODES.has(n)?n:""};
+// Marcas puestas al leer la factura (intracomunitaria, inversión del sujeto pasivo), guardadas en el libro de recibidas:
+// se aplican también cuando el IVA sale de la contabilidad, buscando la factura por número y NIF (o fecha y NIF).
+function flagsLibro(numero,nif,fecha){
+  const list=libro()?.recibidas;if(!list?.length)return{};
+  const clean=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,""),n=clean(numero),id=clean(nif).replace(/^ES(?=[A-Z0-9]{9}$)/,"");
+  const match=list.find(x=>n&&clean(x.numero)===n&&(!id||!x.nif||clean(x.nif).replace(/^ES(?=[A-Z0-9]{9}$)/,"")===id))||(id?list.find(x=>x.fecha===fecha&&clean(x.nif).replace(/^ES(?=[A-Z0-9]{9}$)/,"")===id):null);
+  return match?{intra:match.intracom===true,isp:match.isp===true,ruta:match.ruta||"",archivo:match.archivo||""}:{};
+}
 function ivaRecLines(q,autofacturas){
   const year=String(taxDraftYear()),inQ=fecha=>String(fecha).slice(0,4)===year&&Math.ceil(Number(String(fecha).slice(5,7))/3)===q;
   const base=taxDrafts.base;
   if(base&&!base.manual&&Array.isArray(base.ivaRecibidas))return{fuente:"contabilidad",lines:base.ivaRecibidas.filter(x=>inQ(x[0])).map(([fecha,numero,nombre,nif,b,tipo,cuota,inv,noDed,pais,origen])=>{
     // Intracomunitaria: proveedor de otro país de la UE sin IVA en la factura (o con autofactura en el trimestre).
-    const eu=euOf(pais,nif);return{fecha,numero,nombre,nif,base:b,tipo,cuota,inversion:inv===1,noDed:noDed||0,intra:!origen&&Boolean(eu)&&(!cuota||autofacturas),origen:origen||0}})};
+    const eu=euOf(pais,nif),marca=flagsLibro(numero,nif,fecha);
+    return{fecha,numero,nombre,nif,base:b,tipo,cuota,inversion:inv===1,noDed:noDed||0,intra:marca.intra||(!origen&&Boolean(eu)&&(!cuota||autofacturas)),isp:marca.isp,origen:origen||0,ruta:marca.ruta||"",archivo:marca.archivo||""}})};
   const book=libro();
-  if(book?.recibidas?.length)return{fuente:"facturas",lines:book.recibidas.filter(x=>inQ(x.fecha)).flatMap(x=>(x.lineas?.length?x.lineas:[{base:x.base,tipo:0,cuota:x.cuota}]).map(l=>({fecha:x.fecha,numero:x.numero,nombre:x.nombre,nif:x.nif,base:l.base,tipo:l.tipo,cuota:l.cuota,inversion:false,noDed:0,intra:x.intracom===true,ruta:x.ruta||"",archivo:x.archivo||""})))};
+  if(book?.recibidas?.length)return{fuente:"facturas",lines:book.recibidas.filter(x=>inQ(x.fecha)).flatMap(x=>(x.lineas?.length?x.lineas:[{base:x.base,tipo:0,cuota:x.cuota}]).map(l=>({fecha:x.fecha,numero:x.numero,nombre:x.nombre,nif:x.nif,base:l.base,tipo:l.tipo,cuota:l.cuota,inversion:false,noDed:0,intra:x.intracom===true,isp:x.isp===true,ruta:x.ruta||"",archivo:x.archivo||""})))};
   return{fuente:"manual",lines:[]};
 }
 // Interiores corrientes 28/29, bienes de inversión 30/31, intracomunitarias 36/37 (38/39 inversión) y abonos 40/41.
@@ -111,7 +120,8 @@ const lineKey=l=>[l.fecha,l.numero,l.nif,tdRound(l.base),l.tipo,tdRound(l.cuota)
 function dedAuto(lines,withDev,cls={}){
   const auto={},add=(n,v)=>{auto[n]=tdRound((auto[n]||0)+v)},cero=[];
   for(const l of lines){
-    l.key=lineKey(l);const t=OPS.some(o=>o[0]&&o[0]===cls[l.key])?cls[l.key]:"";l.cls=t;l.dua=false;l.servicios=false;
+    // Tipo elegido en el 303 o, si no, «inversión del sujeto pasivo» marcada al leer la factura.
+    l.key=lineKey(l);const manual=OPS.some(o=>o[0]&&o[0]===cls[l.key])?cls[l.key]:"",t=manual||(l.isp?"isp":"");l.cls=t;l.manual=Boolean(manual);l.dua=false;l.servicios=false;
     const deducible=tdRound(l.cuota-(l.noDed||0)),self=()=>{const c=l.cuota||tdRound(l.base*(l.tipo||21)/100);l.cuotaCalc=!l.cuota;return c};
     if(t==="nd"){l.casilla="No deducible";continue}
     if(t==="int"||t==="inv"){const g=t==="inv"?["30","31"]:["28","29"];l.intra=false;add(g[0],l.base);add(g[1],deducible);l.casilla=g[0];continue}
@@ -182,7 +192,7 @@ TAX_DRAFT_BUILDERS[M]=period=>{
       if(r.src.fuente!=="manual")out.push(`<div class="td-check ok">✓ <div><b>IVA devengado de ${r.src.fuente==="contabilidad"?"la contabilidad":"las facturas guardadas"}</b>${r.src.lines.length} líneas de facturas emitidas del trimestre${c["14"]?` · bases negativas en la casilla 14: ${tdEur(c["14"])}`:""}.</div></div>`);
       if(r.rec.fuente!=="manual"){const intra=r.rec.lines.filter(l=>l.intra);out.push(`<div class="td-check ok">✓ <div><b>IVA deducible de ${r.rec.fuente==="contabilidad"?"la contabilidad":"las facturas guardadas"}</b>${r.rec.lines.length} líneas de facturas recibidas del trimestre${intra.length?` · ${intra.length} intracomunitaria${intra.length===1?"":"s"} en 36/37 con su autorepercusión en 10/11`:""}${c["40"]?` · abonos en la casilla 40: ${tdEur(c["40"])}`:""}.</div></div>`);
         if(intra.some(l=>l.cuotaCalc))out.push('<div class="td-check warn">⚠ <div><b>Cuota de intracomunitarias calculada al 21 %</b>Las facturas intracomunitarias no llevan IVA: la autorepercusión se calcula al 21 %. Cámbiala en 10/11 y 36/37 si el tipo es otro.</div></div>')}
-      {const ch=r.rec.lines.filter(l=>l.cls);if(ch.length){const by={};ch.forEach(l=>{const t=(OPS.find(o=>o[0]===l.cls)||[])[1]||l.cls;by[t]=(by[t]||0)+1});out.push(`<div class="td-check ok">✓ <div><b>${ch.length} ${ch.length===1?"factura recibida con el tipo cambiado":"facturas recibidas con el tipo cambiado"}</b>${Object.entries(by).map(([t,n])=>`${n} · ${escapeHtml(t)}`).join(" · ")}. Se cambia en el ojo del IVA deducible.</div></div>`)}
+      {const ch=r.rec.lines.filter(l=>l.manual);if(ch.length){const by={};ch.forEach(l=>{const t=(OPS.find(o=>o[0]===l.cls)||[])[1]||l.cls;by[t]=(by[t]||0)+1});out.push(`<div class="td-check ok">✓ <div><b>${ch.length} ${ch.length===1?"factura recibida con el tipo cambiado":"facturas recibidas con el tipo cambiado"}</b>${Object.entries(by).map(([t,n])=>`${n} · ${escapeHtml(t)}`).join(" · ")}. Se cambia en el ojo del IVA deducible.</div></div>`)}
         if(ch.some(l=>l.dua))out.push('<div class="td-check warn">⚠ <div><b>Importaciones</b>La cuota deducible de las importaciones debe ser la del DUA de la Aduana; se ha tomado la de la factura. Revísala en las casillas 32/33 o 34/35.</div></div>')}
       if(r.overrides.length)out.push(`<div class="td-check bad">✕ <div><b>Importes escritos a mano en lugar de la ${r.src.fuente==="contabilidad"?"contabilidad":"facturas guardadas"}</b>${r.overrides.map(o=>`[${o.n}] ${inputValue(o.manual)||"0,00"} (${r.src.fuente==="contabilidad"?"contabilidad":"facturas"}: ${inputValue(o.auto)||"0,00"})`).join(" · ")}. Bórralos o pulsa «Volver a los datos» en su página.</div></div>`);
       if(r.cero.length)out.push(`<div class="td-check warn">⚠ <div><b>${r.cero.length} línea${r.cero.length===1?"":"s"} al 0 % no van al IVA devengado</b>Base ${tdEur(tdSum(r.cero,"base"))}: si son entregas intracomunitarias o exportaciones, anótalas en «Información adicional» (59 o 60).</div></div>`);
@@ -205,9 +215,9 @@ if(typeof taxDraftLists==="function"){const previousDed=taxDraftLists;taxDraftLi
   const filter=sideFilter;lastDedFilter=filter;sideFilter="";const lines=filter?draft.calc.rec.lines.filter(l=>lineIn(l,filter)):draft.calc.rec.lines,groups=new Map();lines.forEach(l=>{const k=l.casilla||"—";if(!groups.has(k))groups.set(k,[]);groups.get(k).push(l)});
   const order=["28","12 · 28","30","12 · 30","32","32 · 77","34","34 · 77","36","38","40","0 %","No deducible"],keys=[...groups.keys()].sort((a,b)=>(order.indexOf(a)+99)%99-(order.indexOf(b)+99)%99);
   const ded=l=>l.cls==="nd"?0:l.intra||l.cls==="isp"?(l.cuota||tdRound(l.base*(l.tipo||21)/100)):tdRound(l.cuota-(l.noDed||0));
-  const sel=l=>`<select class="m303-op${l.cls?" on":""}" data-m303-op="${escapeHtml(l.key)}" title="Tipo de operación: la factura va a la casilla que corresponda">${OPS.map(([v,t])=>`<option value="${v}"${v===l.cls?" selected":""}>${escapeHtml(t)}</option>`).join("")}</select>`;
+  const sel=l=>`<select class="m303-op${l.manual?" on":""}" data-m303-op="${escapeHtml(l.key)}" title="Tipo de operación: la factura va a la casilla que corresponda">${OPS.map(([v,t])=>`<option value="${v}"${v===l.cls?" selected":""}>${escapeHtml(t)}</option>`).join("")}</select>`;
   const dua=l=>l.dua?`<span class="m303-dua" title="Importación: aquí va el IVA del DUA (documento de la Aduana). Si no lo tienes, se toma el IVA de la factura.">!</span>`:"";
-  const changed=draft.calc.rec.lines.filter(l=>l.cls).length;
+  const changed=draft.calc.rec.lines.filter(l=>l.manual).length;
   const devNote=filter==="dev10"?'<p class="td-note td-pad m303-op-note"><b>Casilla 10/11 del IVA devengado:</b> autorrepercusión de estas adquisiciones intracomunitarias (el mismo IVA se deduce en la 36/37 o 38/39).</p>':filter==="dev12"?'<p class="td-note td-pad m303-op-note"><b>Casilla 12/13 del IVA devengado:</b> autorrepercusión por inversión del sujeto pasivo (el mismo IVA se deduce en la 28/29 o 30/31).</p>':"";
   return devNote+`<p class="td-note td-pad m303-op-note">Elige en «Tipo» si la factura es intracomunitaria, importación, inversión del sujeto pasivo… y pasa a su casilla (con su IVA devengado, si lo tiene, para que no descuadre). «–» deja la de la contabilidad.${changed?` <b>${changed} ${changed===1?"factura cambiada":"facturas cambiadas"}.</b>`:""}</p>`+keys.map(k=>{const list=groups.get(k);return `<h4 class="td-list-title">${k==="No deducible"?"Fuera del 303 · IVA no deducible":`Casilla ${escapeHtml(k)}`} · ${list.length} líneas · base ${tdEur(tdSum(list,"base"))} · cuota deducible ${tdEur(tdRound(list.reduce((s,l)=>s+ded(l),0)))}</h4><table class="td-list m303-op-list"><thead><tr><th class="center">PDF</th>${colHead("fecha","Fecha")}${colHead("numero","Factura")}${colHead("nombre","Proveedor")}${colHead("base","Base","num")}${colHead("tipo","%","num")}${colHead("cuota","Cuota","num")}<th class="num">Deducible</th>${colHead("cls","Tipo")}</tr></thead><tbody>${list.map(l=>`<tr class="${l.cls?"m303-op-row":""}" data-f-tipo="${rateKey(l)}" data-f-cuota="${tdRound(l.cuota)}" data-f-cls="${l.cls||""}"><td class="center">${pdfEye(l,"RECIBIDAS")}</td><td>${tdDate(l.fecha)}</td><td>${escapeHtml(l.numero)}</td><td>${escapeHtml(l.nombre)}<small>${escapeHtml(l.nif||"")}${l.intra?(l.servicios?" · intracomunitaria de servicios":" · intracomunitaria"):""}${l.inversion?" · bien de inversión":""}${l.cuotaCalc?" · cuota calculada":""}${l.origen===1?" · registrada sin IVA":l.origen===2?" · solo en asiento, sin registro de IVA":""}</small></td><td class="num">${tdEur(l.base)}</td><td class="num">${String(l.tipo).replace(".",",")}</td><td class="num">${tdEur(l.cuota)}</td><td class="num">${dua(l)}${tdEur(ded(l))}</td><td>${sel(l)}</td></tr>`).join("")}</tbody></table>`}).join("");
 }}

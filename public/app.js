@@ -2590,7 +2590,7 @@ function renderFolderView(name){
   restoreFolder(config);
 }
 
-let invoiceProcessorFiles=[],invoiceDraftRecords=[],invoiceOcrWorker=null,invoiceIgnoredDocs=[];
+let invoiceProcessorFiles=[],invoiceDraftRecords=[],invoiceOcrWorker=null,invoiceIgnoredDocs=[],invoiceReadFiles=new Set();
 function showInvoiceProcessorBanner(message){
   const panel=document.querySelector("#invoiceProcessor");if(!panel)return;let banner=panel.querySelector(".invoice-process-banner");
   if(!banner){banner=document.createElement("div");banner.className="invoice-process-banner";banner.setAttribute("role","alert");panel.querySelector(".invoice-selected-files")?.before(banner)}
@@ -2610,16 +2610,32 @@ async function setupInvoiceProcessor(){
     }catch{}
     select.insertAdjacentHTML("beforeend",[...names].sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"})).map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join(""));
   }catch{}
-  const renderFiles=()=>{panel.querySelector("#invoiceSelectedFiles").innerHTML=invoiceProcessorFiles.length?`<strong>${invoiceProcessorFiles.length} ${invoiceProcessorFiles.length===1?"archivo":"archivos"}</strong><span>${invoiceProcessorFiles.map(file=>escapeHtml(file.name)).join(" · ")}</span>`:"Ningún archivo seleccionado"};
+  const renderFiles=()=>{const pending=invoiceProcessorFiles.filter(file=>!invoiceReadFiles.has(file)),draft=!panel.querySelector("#invoiceDraft").hidden;
+    panel.querySelector("#invoiceSelectedFiles").innerHTML=invoiceProcessorFiles.length?`<strong>${invoiceProcessorFiles.length} ${invoiceProcessorFiles.length===1?"archivo":"archivos"}${draft&&pending.length?` · ${pending.length} ${pending.length===1?"nuevo sin leer":"nuevos sin leer"}`:""}</strong><span>${invoiceProcessorFiles.map((file,i)=>`<em class="invoice-file-chip${draft&&!invoiceReadFiles.has(file)?" new":""}">${escapeHtml(file.name)}${invoiceReadFiles.has(file)?"":`<button type="button" data-remove-file="${i}" aria-label="Quitar ${escapeHtml(file.name)}" title="Quitar">×</button>`}</em>`).join("")}</span>`:"Ningún archivo seleccionado";
+    const button=panel.querySelector("#processInvoices");if(!button.disabled)button.textContent=draft&&pending.length?`Leer ${pending.length} ${pending.length===1?"factura nueva":"facturas nuevas"}`:draft?"Volver a leer facturas":"Leer facturas"};
+  panel.querySelector("#invoiceSelectedFiles").addEventListener("click",event=>{const b=event.target.closest("[data-remove-file]");if(!b)return;invoiceProcessorFiles=invoiceProcessorFiles.filter((_,i)=>i!==Number(b.dataset.removeFile));renderFiles()});
   // Se copia cada archivo a memoria al añadirlo: si el original desaparece (ZIP, adjunto de correo, OneDrive
   // solo en línea, archivo movido…), las facturas se pueden guardar igualmente al confirmar.
-  const addFiles=async files=>{clearInvoicePreviewUrls();const list=[...files].filter(file=>/\.(pdf|xml|txt|jpe?g|png|webp|bmp|tiff?|csv|xlsx?|ods)$/i.test(file.name)),failed=[];
-    invoiceProcessorFiles=(await Promise.all(list.map(async file=>{try{return new File([await file.arrayBuffer()],file.name,{type:file.type,lastModified:file.lastModified})}catch{failed.push(file.name);return null}}))).filter(Boolean);
+  // Los archivos se van sumando en tandas (añadir o arrastrar más no borra los anteriores ni el borrador). Si ya hay
+  // borrador, «Leer facturas» lee solo los nuevos y los añade al final.
+  const sameFile=(a,b)=>a.name===b.name&&a.size===b.size&&a.lastModified===b.lastModified;
+  const addFiles=async files=>{const list=[...files].filter(file=>/\.(pdf|xml|txt|jpe?g|png|webp|bmp|tiff?|csv|xlsx?|ods)$/i.test(file.name)&&!invoiceProcessorFiles.some(item=>sameFile(item,file))),failed=[];
+    const added=(await Promise.all(list.map(async file=>{try{return new File([await file.arrayBuffer()],file.name,{type:file.type,lastModified:file.lastModified})}catch{failed.push(file.name);return null}}))).filter(Boolean);
+    // Mismo nombre que uno ya añadido pero distinto archivo: se renombra para no confundirlos en el borrador.
+    invoiceProcessorFiles=[...invoiceProcessorFiles,...added.map(file=>{let name=file.name;for(let n=2;invoiceProcessorFiles.some(item=>item.name===name);n++)name=file.name.replace(/(\.[^.]+)?$/,` (${n})$1`);return name===file.name?file:new File([file],name,{type:file.type,lastModified:file.lastModified})})];
     if(failed.length)alert(`No se ${failed.length===1?"ha podido leer este archivo":"han podido leer estos archivos"} (ábrelos o cópialos a una carpeta del equipo y vuelve a añadirlos):\n${failed.join("\n")}`);
-    invoiceDraftRecords=[];invoiceIgnoredDocs=[];panel.querySelector("#invoiceDraft").hidden=true;renderFiles()};
-  open.addEventListener("click",()=>{panel.hidden=false;panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
+    input.value="";renderFiles()};
+  // El apartado ocupa todo el ancho disponible (menos la barra lateral) para que quepan más columnas en el borrador.
+  const widen=()=>{if(panel.hidden||window.matchMedia("(max-width:760px)").matches){panel.style.marginLeft="";panel.style.width="";return}
+    const parent=panel.parentElement,main=panel.closest("main");if(!parent||!main)return;
+    const pr=parent.getBoundingClientRect(),cs=getComputedStyle(parent),natural=pr.left+parent.clientLeft+parseFloat(cs.paddingLeft||0);
+    const left=main.getBoundingClientRect().left+16,right=document.documentElement.clientWidth-16;
+    panel.style.marginLeft=`${Math.round(left-natural)}px`;panel.style.width=`${Math.round(right-left)}px`};
+  window.addEventListener("resize",widen);try{const main=panel.closest("main");if(main)new ResizeObserver(()=>requestAnimationFrame(widen)).observe(main)}catch{}
+  new MutationObserver(widen).observe(panel,{attributes:true,attributeFilter:["hidden"]});
+  open.addEventListener("click",()=>{panel.hidden=false;widen();panel.scrollIntoView({behavior:"smooth",block:"nearest"})});
   const typeSelect=panel.querySelector("#invoiceType");
-  const resetProcessor=()=>{clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceDraftRecords=[];invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();select.value="";typeSelect.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraftRows").innerHTML="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";invoiceProgress.reset();const button=panel.querySelector("#processInvoices");button.disabled=false;button.textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()};
+  const resetProcessor=()=>{clearInvoicePreviewUrls();invoiceProcessorFiles=[];invoiceReadFiles=new Set();invoiceDraftRecords=[];invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();select.value="";typeSelect.value="";loadInvoiceAccounting("");input.value="";panel.querySelector("#invoiceDraftRows").innerHTML="";panel.querySelector("#invoiceDraft").hidden=true;panel.querySelector("#invoiceProcessStatus").textContent="";invoiceProgress.reset();const button=panel.querySelector("#processInvoices");button.disabled=false;button.textContent="Leer facturas";panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderFiles()};
   panel.querySelector("#closeInvoiceProcessor").addEventListener("click",async()=>{
     const progress=invoiceProcessorFiles.length||invoiceDraftRecords.length||select.value||typeSelect.value;
     if(progress&&!await appConfirm({eyebrow:"PROCESAR FACTURAS",title:"¿Cerrar sin terminar?",message:"Se borrarán los avances: el cliente, las facturas añadidas y el borrador.",ok:"Cerrar",cancel:"Seguir trabajando",danger:true}))return;
@@ -2633,8 +2649,23 @@ async function setupInvoiceProcessor(){
   typeSelect.addEventListener("change",()=>{panel.querySelector(".invoice-process-banner")?.setAttribute("hidden","");renderInvoiceAccountingStatus();refreshDraftAccounts()});
   panel.querySelector("#processInvoices").addEventListener("click",()=>{
     if(select.value&&!typeSelect.value){showInvoiceProcessorBanner("Elige si son facturas recibidas o emitidas");typeSelect.focus();return}
-    invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();processInvoiceFiles(select.value);
+    const pending=invoiceProcessorFiles.filter(file=>!invoiceReadFiles.has(file));
+    if(!panel.querySelector("#invoiceDraft").hidden&&invoiceDraftRecords.length&&pending.length&&select.value)return readMoreInvoices(select.value,pending);
+    invoiceIgnoredDocs=[];resetInvoiceConfirmProgress();const all=[...invoiceProcessorFiles];
+    Promise.resolve(processInvoiceFiles(select.value)).then(()=>{if(invoiceDraftRecords.length)all.forEach(file=>invoiceReadFiles.add(file));renderFiles()});
   });
+  // Segunda tanda: se leen solo los archivos nuevos y se añaden al borrador, sin perder lo ya corregido.
+  async function readMoreInvoices(client,pending){
+    const kept=readInvoiceDraft(),keptIgnored=invoiceIgnoredDocs,all=invoiceProcessorFiles,status=panel.querySelector("#invoiceProcessStatus");
+    invoiceProcessorFiles=pending;invoiceIgnoredDocs=[];
+    try{await processInvoiceFiles(client)}finally{invoiceProcessorFiles=all}
+    const added=invoiceDraftRecords||[],records=[...kept,...added];
+    invoiceIgnoredDocs=[...keptIgnored,...invoiceIgnoredDocs];sortInvoiceRecords(records);invoiceDraftRecords=records;renderInvoiceDraft(records);
+    pending.forEach(file=>invoiceReadFiles.add(file));
+    const n=new Set(added.map(record=>record.group||record.file)).size;
+    status.textContent=`${n} ${n===1?"factura añadida":"facturas añadidas"} al borrador (${new Set(records.map(record=>record.group||record.file)).size} en total). ${status.textContent}`;
+    renderFiles();
+  }
   // Descargar el Excel también anota las facturas en el libro del cliente para los modelos (303, 130…).
   panel.querySelector("#downloadInvoiceDraft").addEventListener("click",async()=>{const records=readInvoiceDraft();downloadInvoiceExcel(records,select.value);
     const groups=invoiceDocumentGroups(records).filter(group=>invoiceDateParts(group.record.date));if(select.value&&groups.length){const libro=await saveInvoiceBook(groups,select.value,invoiceReceivedMode()?"RECIBIDAS":"EMITIDAS");if(libro)panel.querySelector("#invoiceProcessStatus").textContent=`Excel descargado. ${libro}.`}});
@@ -2973,7 +3004,7 @@ function invoiceBookRecord(group){
   const nif=String(head.supplierNif||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   return{id:[fecha,String(head.number||"").trim().toUpperCase(),nif||String(head.supplier||"").trim().toUpperCase()].join("|"),numero:String(head.number||"").trim(),fecha,nombre:String(head.supplier||"").trim(),nif,
     base:Math.round(base*100)/100,cuota:Math.round(cuota*100)/100,retencion:Math.round(retencion*100)/100,retencionPct:pct,total:parse(head.total),concepto:String(head.concept||"").trim(),
-    cuenta:String(head.supplierAccount||head.counterAccount||"").trim(),archivo:head.file||"",ruta:invoiceConfirmProgress.saved.get(group.key)||"",intracom:lines.some(line=>line.intra===true),clave349:(lines.find(line=>line.intra===true)?.intraKey||"").slice(0,1),lineas:lines.map(line=>({base:parse(line.base),tipo:parse(line.vatRate),cuota:parse(line.vat)}))};
+    cuenta:String(head.supplierAccount||head.counterAccount||"").trim(),archivo:head.file||"",ruta:invoiceConfirmProgress.saved.get(group.key)||"",intracom:lines.some(line=>line.intra===true),isp:lines.some(line=>line.isp===true),clave349:(lines.find(line=>line.intra===true)?.intraKey||"").slice(0,1),lineas:lines.map(line=>({base:parse(line.base),tipo:parse(line.vatRate),cuota:parse(line.vat)}))};
 }
 async function saveInvoiceBook(groups,client,kind){
   const records=groups.map(invoiceBookRecord).filter(Boolean);if(!records.length)return"";
@@ -3172,6 +3203,7 @@ function renderInvoiceDraft(records){
     if(field==="supplierAccount"||field==="expenseAccount")return `<td><span class="acc-cell">${accountInput(index,field,record[field]||"")}${invoiceAccounting.data?`<button type="button" class="acc-search" data-acc-search title="Buscar cuenta" aria-label="Buscar cuenta"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>`:""}</span></td>`;
     if(field==="retention")return `<td>${retentionCell(index,record)}</td>`;
     if(field==="intra"){const keys=invoiceIntraKeys(received),key=record.intraKey||keys[0][0];return `<td><div class="invoice-intra-cell${record.intra?" on":""}"><label title="Marca si es una operación intracomunitaria: irá al modelo 349"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="intra"${record.intra?" checked":""}><span>Sí</span></label><select data-invoice-row="${index}" data-invoice-field="intraKey" title="Clave de operación del modelo 349"${record.intra?"":" disabled"}>${keys.map(([value,label])=>`<option value="${value}"${value===key?" selected":""}>${safeValue(`${value} · ${label}`)}</option>`).join("")}</select></div></td>`}
+    if(field==="vat"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""))}<label title="Inversión del sujeto pasivo: la factura viene sin IVA y lo autorrepercute el cliente. En el 303 va a la casilla 12/13 (IVA devengado al 21 %) y a la 28/29 (deducible)"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="isp"${record.isp?" checked":""}>inv. suj. pas.</label></div></td>`;
     if(field==="vatRate"&&received)return `<td class="num"><div class="invoice-vat-cell">${input(index,field,invoiceFormatField(field,record[field]||""),record.vatWarning&&!record.vatToBase?'data-vat-warning="1"':"")}<label title="Sumar el IVA a la base imponible (IVA extranjero o no deducible): el IVA pasa a ser del 0 %"><input type="checkbox" data-invoice-row="${index}" data-invoice-field="vatToBase"${record.vatToBase?" checked":""}>a base</label></div></td>`;
     // Sin columnas de concepto ni observaciones: el ojo abre la factura y, si hay algo que revisar, un aviso lo indica.
     if(field==="preview")return `<td class="invoice-preview-cell"><button type="button" class="invoice-preview-button${record.observation?" has-warning":""}" data-invoice-preview="${index}" title="${safeValue(record.observation?`Ver la factura · ${record.observation}`:"Ver la factura")}" aria-label="Ver la factura ${safeValue(record.number||"")}">${INVOICE_EYE_ICON}${record.observation?'<span class="invoice-warning-dot" aria-hidden="true">!</span>':""}</button></td>`;
@@ -3266,7 +3298,7 @@ const previewZoomMarkup=zoom=>`<div class="preview-zoom" role="group" aria-label
 function nextPreviewZoom(current,step){const index=PREVIEW_ZOOM_STEPS.findIndex(value=>value>=current-0.001);return PREVIEW_ZOOM_STEPS[Math.min(PREVIEW_ZOOM_STEPS.length-1,Math.max(0,(index<0?2:index)+step))]}
 function invoicePreviewUrl(file){if(!invoicePreviewUrls.has(file))invoicePreviewUrls.set(file,URL.createObjectURL(file));return invoicePreviewUrls.get(file)}
 function clearInvoicePreviewUrls(){invoicePreviewUrls.forEach(url=>URL.revokeObjectURL(url));invoicePreviewUrls.clear();document.querySelector("#invoicePreview")?.remove()}
-function invoiceScrollToPage(doc,page){const target=doc.querySelector(`canvas[data-page="${page||1}"]`);if(target)doc.scrollTop=Math.max(0,target.offsetTop-14)}
+function invoiceScrollToPage(doc,page){const target=doc.querySelector(`canvas[data-page="${page||1}"]`)?.closest(".invoice-pdf-page");if(target)doc.scrollTop=Math.max(0,target.offsetTop-14)}
 async function openInvoicePreview(index){
   const records=readInvoiceDraft(),record=records[index];if(!record)return;
   let modal=document.querySelector("#invoicePreview");
@@ -3308,8 +3340,12 @@ async function openInvoicePreview(index){
       const width=Math.min(doc.clientWidth-40,1000)*invoicePreviewZoom,ratio=window.devicePixelRatio||1;
       for(const number of invoicePageList(segment.pages,pdf.numPages).slice(0,40)){
         const pdfPage=await pdf.getPage(number),base=pdfPage.getViewport({scale:1}),viewport=pdfPage.getViewport({scale:width/base.width*ratio});
-        const canvas=document.createElement("canvas");canvas.width=viewport.width;canvas.height=viewport.height;canvas.style.width=`${viewport.width/ratio}px`;canvas.dataset.page=number;container.append(canvas);
+        const canvas=document.createElement("canvas");canvas.width=viewport.width;canvas.height=viewport.height;canvas.style.width=`${viewport.width/ratio}px`;canvas.dataset.page=number;
+        // Capa de texto transparente encima de la página: permite seleccionar y copiar (nº de factura, NIF, importes…).
+        const sheet=document.createElement("div");sheet.className="invoice-pdf-page";sheet.append(canvas);container.append(sheet);
         await pdfPage.render({canvasContext:canvas.getContext("2d"),viewport}).promise;if(doc.dataset.token!==token)return;
+        try{const cssViewport=pdfPage.getViewport({scale:width/base.width}),layer=document.createElement("div");layer.className="textLayer";layer.style.setProperty("--scale-factor",cssViewport.scale);sheet.append(layer);
+          await new pdfjs.TextLayer({textContentSource:pdfPage.streamTextContent(),container:layer,viewport:cssViewport}).render()}catch(error){console.warn("Capa de texto",error)}
       }
     }catch(error){console.error("Vista previa",error);const page=String(segment.pages||"").match(/\d+/)?.[0];container.insertAdjacentHTML("beforeend",`<iframe title="${escapeHtml(segment.title||`Factura ${record.number||""}`)}" src="${url}#${page?`page=${page}&`:""}view=FitH"></iframe>`)}
   }

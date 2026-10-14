@@ -49,9 +49,11 @@ function invoices(period){
   // deducible): clave A (bienes) o I (servicios). No se repiten las que ya vienen de las facturas guardadas.
   let r303=null;try{r303=taxDraftBuild("303",period).calc}catch{}
   const seen=new Set(out.map(x=>[x.fecha,String(x.numero).trim(),String(x.nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"")].join("|")));
+  // También por nº y NIF: la fecha de la contabilidad (asiento) puede no ser la de la factura.
+  const seenNum=new Set(out.map(x=>[String(x.numero).trim(),String(x.nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"")].join("|").toUpperCase()));
   for(const l of r303?.rec?.lines||[]){
     if(!l.intra||l.base<0)continue;
-    const sig=[l.fecha,String(l.numero).trim(),String(l.nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"")].join("|");if(seen.has(sig))continue;
+    const sig=[l.fecha,String(l.numero).trim(),String(l.nif||"").toUpperCase().replace(/[^A-Z0-9]/g,"")].join("|");if(seen.has(sig)||seenNum.has(sig.slice(sig.indexOf("|")+1).toUpperCase()))continue;
     const id="303|"+(l.key||sig);
     out.push({id,fecha:l.fecha,numero:l.numero,nombre:l.nombre,nif:l.nif||"",base:tdRound(l.base),cuota:l.cuota,ruta:l.ruta||"",archivo:l.archivo||"",tipo:"RECIBIDAS",origen:"303",clave:l.servicios?"I":"A",incluir:!m.excluir.includes(id)});
   }
