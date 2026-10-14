@@ -444,10 +444,12 @@ reconcileUrgentSignatureTasks();
 setInterval(reconcileUrgentSignatureTasks, 60 * 60 * 1000).unref();
 
 const amcomta = require("./amcomta")({ dataDirectory });
+const presupuestos = require("./presupuestos")({ dataDirectory, davRequest, json, readJson, readBuffer, requireUser, cleanText, loadCollection, saveCollection, billingFile });
 const portalDocs = require("./portal-docs")({ dataDirectory, davRequest, parseDavEntries, webdavProperties, loadMetadata });
 
 http.createServer((req, res) => {
   const requestPath = req.url.split("?")[0];
+  if ((requestPath.startsWith("/api/presupuestos") || requestPath.startsWith("/api/p/")) && presupuestos(req, res, requestPath)) return;
   if (requestPath === "/api/version" && req.method === "GET") {
     return json(res, 200, { version: applicationVersion });
   }

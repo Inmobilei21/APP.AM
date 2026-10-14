@@ -6043,3 +6043,53 @@ tr.m303-op-row td{background:#fffaf0}
 .invoice-file-chip.new{border-color:#2563eb;background:#eef3ff;color:#1e3a8a;font-weight:700}
 .invoice-file-chip button{border:0;background:none;padding:0 0 0 2px;font-size:14px;line-height:1;color:#6b7280;cursor:pointer}
 .invoice-file-chip button:hover{color:#b91c1c}
+/* ===== Gestión › Presupuestos ===== */
+.pq-head-actions{display:flex;gap:10px;flex:0 0 auto}
+.pq-panel{margin-top:18px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:20px 22px}
+.pq-tools{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.pq-filtros{display:flex;flex-wrap:wrap;gap:6px}.pq-filtros button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #dfe4ef;border-radius:999px;background:#fff;color:#4c5870;font:700 12.5px inherit;font-family:inherit;cursor:pointer}
+.pq-filtros button span{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#eef1f7;color:#5f6b82;display:grid;place-items:center;font-size:11px}
+.pq-filtros button.on{background:var(--navy);border-color:var(--navy);color:#fff}.pq-filtros button.on span{background:rgba(255,255,255,.18);color:#fff}
+.pq-buscar{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border:1px solid #dfe4ef;border-radius:12px;min-width:280px}.pq-buscar input{border:0;outline:0;font:inherit;flex:1;background:transparent}
+.pq-table-wrap{overflow:auto}.pq-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.pq-table th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#7b8598;font-weight:800;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.pq-table td{padding:13px 12px;border-bottom:1px solid #f0f2f7;vertical-align:middle}.pq-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pq-table tbody tr{cursor:pointer;transition:background .12s}.pq-table tbody tr:hover{background:#f6f8fd}.pq-table td small{display:block}
+.pq-serv{max-width:340px;color:#3b4560}.pq-empty{color:var(--muted);text-align:center;padding:30px}
+.pq-prov{display:inline-block!important;margin-top:3px;padding:1px 7px;border-radius:999px;background:#fff4e5;color:#9a5b00;font-size:10.5px;font-weight:700}
+.pq-badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap}
+.pq-badge.gris{background:#eef1f6;color:#5f6b82}.pq-badge.azul{background:#e8edff;color:#1e3a8a}.pq-badge.ambar{background:#fff4e2;color:#985600}.pq-badge.verde{background:#e5f5ec;color:#0f7a4a}.pq-badge.rojo{background:#fdecec;color:#b42318}
+body.pq-open{overflow:hidden}
+.pq-modal-shell{position:fixed;inset:0;z-index:2500;display:grid;place-items:center;padding:20px}.pq-modal-shell .modal-backdrop{position:absolute;inset:0;background:rgba(10,20,50,.5)}
+.pq-modal{position:relative;width:min(980px,100%);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:22px;padding:24px 28px}
+.pq-modal-form{width:min(860px,100%)}.pq-modal-small{width:min(560px,100%)}
+.pq-modal .modal-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.pq-modal .modal-heading h2{margin:4px 0 8px;font-size:22px;color:var(--navy)}
+.pq-form fieldset{border:1px solid var(--line);border-radius:16px;padding:16px 18px 18px;margin:0 0 14px}.pq-form legend{padding:0 6px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7b8598}
+.pq-form label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#3e4960}.pq-form label small{font-weight:500;color:var(--muted)}
+.pq-form input,.pq-form select,.pq-form textarea{font:inherit;font-weight:500;font-size:14px;border:1px solid #d6dbe6;border-radius:11px;padding:9px 12px;background:#fff;color:var(--ink);min-height:42px}
+.pq-form textarea{resize:vertical;line-height:1.45}
+.pq-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pq-g3{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:12px}.pq-w2,.pq-full{grid-column:1/-1}.pq-form .pq-full{margin-top:10px}
+.pq-seg{display:inline-flex;gap:4px;padding:4px;border-radius:12px;background:#eef1f7;margin-bottom:12px}.pq-seg label{flex-direction:row;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;cursor:pointer}.pq-seg label:has(input:checked){background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);color:var(--navy)}.pq-seg input{min-height:0;accent-color:var(--blue)}
+.pq-conceptos{display:flex;flex-direction:column;gap:8px;margin-top:12px}.pq-concepto{display:grid;grid-template-columns:1fr 130px 14px 30px;gap:8px;align-items:center}.pq-concepto input{text-align:right}.pq-concepto span{color:var(--muted)}
+.pq-concepto button{border:0;background:#f3f5f9;border-radius:9px;height:32px;cursor:pointer;color:#7b8598;font-size:16px}.pq-concepto button:hover{color:#b42318}
+.pq-link{border:0;background:none;color:var(--blue);font:700 13px inherit;font-family:inherit;cursor:pointer;padding:8px 0}
+.pq-resumen{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;padding:12px 14px;border-radius:12px;background:#f5f7fb;font-size:13px;color:#5f6b82}.pq-resumen b{color:var(--navy)}.pq-resumen .t b{color:var(--blue);font-size:15px}
+.pq-error{color:#b42318;font-size:13px;min-height:1em;margin:4px 0}
+.pq-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}.pq-actions-detail{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.pq-actions .danger{color:#b42318}
+.pq-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.pq-col{display:flex;flex-direction:column;gap:14px}
+.pq-card{border:1px solid var(--line);border-radius:16px;padding:14px 16px}.pq-card.ok{background:#f1faf5;border-color:#cfe9da}.pq-card>b{display:block;color:var(--navy);font-size:15px}.pq-card>small{display:block;color:var(--muted);margin-top:4px}
+.pq-k{margin:0 0 8px;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7b8598}
+.pq-tot{display:flex;justify-content:space-between;padding:4px 0;color:#5f6b82;font-size:13.5px}.pq-tot b{color:var(--ink);font-variant-numeric:tabular-nums}.pq-tot.t{border-top:1px solid var(--line);margin-top:4px;padding-top:9px}.pq-tot.t b{color:var(--blue);font-size:17px}
+.pq-pago{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #f0f2f7}.pq-pago:first-of-type{border-top:0}.pq-pago small{display:block;color:var(--muted);font-size:12px;margin-top:2px}.pq-pago strong{font-variant-numeric:tabular-nums;color:var(--navy)}
+.pq-pago.pagado strong{color:#0f7a4a}.pq-ok{color:#0f7a4a;font-weight:800}
+.pq-send{display:flex;flex-wrap:wrap;gap:8px}.pq-send .secondary-button,.pq-send .blue-button{height:38px;padding:0 14px;display:inline-flex;align-items:center;text-decoration:none}.pq-hint{display:block;color:var(--muted);margin-top:8px;font-size:12px}
+.pq-docrow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 11px;margin-bottom:8px;cursor:pointer;font:inherit}.pq-docrow:hover{border-color:#b9c4ee}
+.pq-docrow b{display:block;font-size:13.5px;color:var(--navy)}.pq-docrow small{display:block;color:var(--muted);font-size:11.5px;word-break:break-all}
+.pq-pdf{flex:none;width:36px;height:36px;border-radius:9px;background:#fdecec;color:#b42318;display:grid;place-items:center;font-size:10px;font-weight:800}
+.pq-fact,.pq-hist{margin:0;padding:0;list-style:none;font-size:12.5px;color:#4c5870}.pq-fact li{padding:7px 0;border-top:1px solid #f0f2f7}.pq-fact li:first-child{border-top:0}
+.pq-hist{max-height:180px;overflow:auto}.pq-hist li{padding:5px 0}.pq-hist time{color:#7b8598;margin-right:8px;font-variant-numeric:tabular-nums}.pq-hist em{color:#7b8598;font-style:normal}
+.billing-quote{display:inline-block;margin:0 8px 4px 0;padding:3px 9px;border:1px solid #c9d3f5;border-radius:999px;background:#eef2ff;color:var(--blue);font:800 11.5px inherit;font-family:inherit;cursor:pointer}
+@media(max-width:760px){.pq-detail{grid-template-columns:1fr}.pq-grid,.pq-g3{grid-template-columns:1fr}.pq-buscar{min-width:0;width:100%}.pq-modal{padding:18px}.pq-concepto{grid-template-columns:1fr 100px 12px 28px}.pq-head-actions{width:100%}.pq-head-actions .blue-button{flex:1}}
+.pq-form [hidden]{display:none!important}
+.pq-send a.secondary-button{font:700 13px inherit;font-family:inherit;color:var(--navy)}
