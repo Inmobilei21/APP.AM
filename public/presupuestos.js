@@ -120,10 +120,7 @@
     f.querySelector("[data-pq-preview]").addEventListener("click",async()=>{
       const {body}=collect(),err=f.querySelector(".pq-error");err.textContent="";
       if(!body.conceptos.length){err.textContent="Añade al menos un concepto para ver la vista previa.";return}
-      const win=window.open("","_blank");
-      try{const r=await fetch("/api/presupuestos/preview",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,id:existing?.id||""})});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||"No se pudo generar la vista previa");
-        const url=URL.createObjectURL(await r.blob());if(win)win.location.href=url;else window.open(url,"_blank");setTimeout(()=>URL.revokeObjectURL(url),300000)}
-      catch(error){win?.close();err.textContent=error.message}
+      viewer(`${existing?existing.numero:"Nuevo presupuesto"} · ${body.servicio||"Presupuesto"}`,`Vista previa ${existing?.numero||"presupuesto"}.pdf`,()=>fetchBlob("/api/presupuestos/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,id:existing?.id||""})}));
     });
     f.addEventListener("submit",async e=>{
       e.preventDefault();const err=f.querySelector(".pq-error");err.textContent="";
@@ -149,12 +146,33 @@
     f.addEventListener("submit",async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(f));try{data.ajustes=await apiJson("/api/presupuestos/ajustes",{method:"POST",body:JSON.stringify(body)});close()}catch(error){f.querySelector(".pq-error").textContent=error.message}});
   }
 
-  /* ---------- Ficha del presupuesto ---------- */
-  async function openDoc(p,name){
-    const win=window.open("","_blank");
-    try{const r=await fetch(`/api/presupuestos/${p.id}/doc/${encodeURIComponent(name)}`,{credentials:"same-origin"});if(!r.ok)throw new Error("No se encuentra el documento");const url=URL.createObjectURL(await r.blob());if(win)win.location.href=url;else window.open(url,"_blank");setTimeout(()=>URL.revokeObjectURL(url),120000)}
-    catch(error){win?.close();alert(error.message)}
+  /* ---------- Visor de documentos dentro de la app (como la vista previa de facturas) ---------- */
+  async function viewer(title,name,load){
+    document.querySelector("#pqViewer")?.remove();
+    const v=document.createElement("div");v.id="pqViewer";v.className="pq-viewer";v.setAttribute("role","dialog");v.setAttribute("aria-modal","true");
+    v.innerHTML=`<div class="pq-viewer-box"><header><div><p class="eyebrow">VISTA PREVIA</p><h4>${esc(title)}</h4></div><div class="pq-viewer-actions"><a class="secondary-button" data-pq-download hidden>⤓ Descargar</a><button type="button" class="pq-viewer-close" aria-label="Cerrar">×</button></div></header><div class="pq-viewer-body"><p class="pq-viewer-msg">Generando el documento…</p></div></div>`;
+    document.body.append(v);let url="";
+    const close=()=>{v.remove();if(url)URL.revokeObjectURL(url);document.removeEventListener("keydown",esc_)},esc_=e=>{if(e.key==="Escape")close()};
+    v.addEventListener("click",e=>{if(e.target===v||e.target.closest(".pq-viewer-close"))close()});document.addEventListener("keydown",esc_);
+    const body=v.querySelector(".pq-viewer-body");
+    try{
+      const blob=await load();url=URL.createObjectURL(blob);
+      const dl=v.querySelector("[data-pq-download]");dl.href=url;dl.download=name;dl.hidden=false;
+      if(!/pdf/i.test(blob.type)&&!/\.pdf$/i.test(name)){body.innerHTML=/^image\//.test(blob.type)?`<img src="${url}" alt="">`:`<p class="pq-viewer-msg">No se puede mostrar este archivo. Descárgalo para verlo.</p>`;return}
+      const pdfjs=await import("/vendor/pdfjs/pdf.min.mjs");pdfjs.GlobalWorkerOptions.workerSrc="/vendor/pdfjs/pdf.worker.min.mjs";
+      const pdf=await pdfjs.getDocument({data:await blob.arrayBuffer()}).promise;body.innerHTML="";
+      const width=Math.min(body.clientWidth-48,900),ratio=window.devicePixelRatio||1;
+      for(let n=1;n<=pdf.numPages;n++){
+        if(!v.isConnected)return;
+        const page=await pdf.getPage(n),base=page.getViewport({scale:1}),vp=page.getViewport({scale:width/base.width*ratio}),c=document.createElement("canvas");
+        c.width=vp.width;c.height=vp.height;c.style.width=`${vp.width/ratio}px`;body.append(c);await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+      }
+    }catch(error){body.innerHTML=`<p class="pq-viewer-msg">${esc(error.message||"No se pudo mostrar el documento.")}</p>`}
   }
+  const fetchBlob=async(url,options)=>{const r=await fetch(url,{credentials:"same-origin",...options});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||"No se encuentra el documento");return r.blob()};
+
+  /* ---------- Ficha del presupuesto ---------- */
+  function openDoc(p,name){return viewer(name.replace(/\.[a-z0-9]+$/i,""),name,()=>fetchBlob(`/api/presupuestos/${p.id}/doc/${encodeURIComponent(name)}`))}
   async function act(p,accion){const updated=await apiJson(`/api/presupuestos/${p.id}/accion`,{method:"POST",body:JSON.stringify({accion})});await reload();draw();return updated}
   const message=p=>{const pend=p.pagoFinalPedido?p.pagos.find(x=>x.estado!=="pagado"):null,saludo=`Hola${p.aceptacion?.nombre?` ${p.aceptacion.nombre.split(" ")[0]}`:""},`;
     return pend?`${saludo} hemos terminado el trabajo de «${p.servicio}». Aquí tienes el presupuesto ${p.numero} y los datos para el pago final de ${eur(pend.importe)}: ${link(p)}\n\n${data.ajustes?.nombre||"Asesoría Molinero"}`

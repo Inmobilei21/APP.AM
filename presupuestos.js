@@ -102,8 +102,9 @@ module.exports = function ({ dataDirectory, davRequest, json, readJson, readBuff
     return { doc, font, bold, color, molinero, propymes, rgb };
   }
   function writer(ctx, p) {
-    const { doc, font, bold, color } = ctx, W = 595.28, H = 841.89, M = 56;
-    const state = { page: null, y: 0, n: doc.getPageCount() };
+    const { doc, font, bold, color } = ctx, W = 595.28, H = 841.89, M = 50;
+    const { setCharacterSpacing } = pdfLib();
+    const state = { page: null, y: 0 };
     const wrap = (text, f, size, width) => {
       const lines = [];
       for (const para of pdfText(text).split("\n")) {
@@ -116,109 +117,151 @@ module.exports = function ({ dataDirectory, davRequest, json, readJson, readBuff
       }
       return lines;
     };
-    const text = (t, x, y, { f = font, size = 10, c = INK, align = "left", width = 0 } = {}) => {
-      const s = pdfText(t), w = f.widthOfTextAtSize(s, size);
-      const xx = align === "right" ? x - w : align === "center" ? x + (width - w) / 2 : x;
+    const text = (t, x, y, { f = font, size = 10, c = INK, align = "left", spacing = 0 } = {}) => {
+      const s = pdfText(t), w = f.widthOfTextAtSize(s, size) + spacing * Math.max(0, s.length - 1);
+      const xx = align === "right" ? x - w : align === "center" ? x - w / 2 : x;
+      if (spacing) state.page.pushOperators(setCharacterSpacing(spacing));
       state.page.drawText(s, { x: xx, y, size, font: f, color: color(c) });
+      if (spacing) state.page.pushOperators(setCharacterSpacing(0));
     };
+    // Etiquetas pequeñas en mayúsculas con espaciado, como en la web del despacho.
+    const label = (t, x, y, opts = {}) => text(String(t).toUpperCase(), x, y, { f: bold, size: 7, c: MUTED, spacing: 1.1, ...opts });
     const line = (x1, y, x2, c = LINE, t = 0.6) => state.page.drawLine({ start: { x: x1, y }, end: { x: x2, y }, thickness: t, color: color(c) });
+    // Rectángulo redondeado: (x, top) es la esquina superior izquierda.
+    const box = (x, top, w, h, { fill = SOFT, border = null, r = 9 } = {}) => {
+      const d = `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`;
+      state.page.drawSvgPath(d, { x, y: top, color: fill ? color(fill) : undefined, borderColor: border ? color(border) : undefined, borderWidth: border ? 0.7 : 0 });
+    };
     const header = () => {
-      // Cabecera: logos a la izquierda y, a la derecha, el tipo de documento con su número y fecha.
+      // Franja superior azul marino y cabecera con los logos, el tipo de documento, el número y la fecha.
+      state.page.drawRectangle({ x: 0, y: H - 6, width: W, height: 6, color: color(NAVY) });
+      state.page.drawRectangle({ x: 0, y: H - 6, width: 150, height: 6, color: color(BLUE) });
       let x = M;
-      if (ctx.molinero) { const h = 40, w = ctx.molinero.width * h / ctx.molinero.height;state.page.drawImage(ctx.molinero, { x, y: H - 50 - h, width: w, height: h });x += w; }
-      if (p.marca === "propymes" && ctx.propymes) { x += 16;state.page.drawLine({ start: { x, y: H - 88 }, end: { x, y: H - 52 }, thickness: 0.6, color: color(LINE) });x += 16;const h = 22, w = ctx.propymes.width * h / ctx.propymes.height;state.page.drawImage(ctx.propymes, { x, y: H - 81, width: w, height: h }); }
-      text(state.label, W - M, H - 62, { f: bold, size: 8.5, c: BLUE, align: "right" });
-      text(p.numero, W - M, H - 79, { f: bold, size: 15, c: NAVY, align: "right" });
-      text(dayLong(p.fecha), W - M, H - 93, { size: 9, c: MUTED, align: "right" });
-      line(M, H - 112, W - M, LINE, 0.8);
-      state.y = H - 140;
+      if (ctx.molinero) { const h = 44, w = ctx.molinero.width * h / ctx.molinero.height;state.page.drawImage(ctx.molinero, { x, y: H - 40 - h, width: w, height: h });x += w; }
+      if (p.marca === "propymes" && ctx.propymes) { x += 18;state.page.drawLine({ start: { x, y: H - 82 }, end: { x, y: H - 44 }, thickness: 0.7, color: color(LINE) });x += 18;const h = 21, w = ctx.propymes.width * h / ctx.propymes.height;state.page.drawImage(ctx.propymes, { x, y: H - 73, width: w, height: h }); }
+      label(state.label, W - M, H - 50, { c: BLUE, size: 7.5, spacing: 1.6, align: "right" });
+      text(p.numero, W - M, H - 72, { f: bold, size: 19, c: NAVY, align: "right" });
+      text(dayLong(p.fecha), W - M, H - 86, { size: 8.5, c: MUTED, align: "right" });
+      state.y = H - 112;
     };
-    const footer = () => {
-      const s = settings(), parts = [s.nombre, s.nif && `NIF ${s.nif}`, s.direccion, s.telefono, s.email, s.web].filter(Boolean).join("  ·  ");
-      line(M, 46, W - M, LINE, 0.6);
-      text(parts, M, 32, { size: 7.5, c: MUTED });
-      text(`${state.n}`, W - M, 32, { size: 7.5, c: MUTED, align: "right" });
-    };
-    const newPage = () => { if (state.page) footer();state.page = doc.addPage([W, H]);state.n++;header(); };
-    const need = h => { if (state.y - h < 70) newPage(); };
-    return { W, H, M, state, wrap, text, line, newPage, need, finish: () => footer(), font, bold };
+    const newPage = () => { state.page = doc.addPage([W, H]);header(); };
+    const need = h => { if (state.y - h < 58) newPage(); };
+    return { W, H, M, state, wrap, text, label, line, box, newPage, need, font, bold };
   }
-  function drawPresupuesto(ctx, p, label = "PRESUPUESTO") {
-    const w = writer(ctx, p), { W, M, state, wrap, text, line, need, font, bold } = w;
-    state.label = label;w.newPage();
-    // Cliente y validez
-    text("PARA", M, state.y, { f: bold, size: 7.5, c: MUTED });
-    text("VÁLIDO HASTA", W - M, state.y, { f: bold, size: 7.5, c: MUTED, align: "right" });
-    state.y -= 15;
-    text(p.cliente.nombre || "—", M, state.y, { f: bold, size: 12, c: NAVY });
-    text(day(venceEl(p)), W - M, state.y, { f: bold, size: 11, c: NAVY, align: "right" });
-    state.y -= 14;
-    for (const d of [p.cliente.nif && `NIF ${p.cliente.nif}`, p.cliente.email, p.cliente.telefono].filter(Boolean)) { text(d, M, state.y, { size: 9, c: MUTED });state.y -= 12; }
-    state.y -= 22;
-    // Servicio
-    for (const l of wrap(p.servicio || "Presupuesto", bold, 20, W - 2 * M)) { need(26);text(l, M, state.y, { f: bold, size: 20, c: NAVY });state.y -= 25; }
-    state.y -= 10;
+  // Pie de todas las hojas al final, para poder numerarlas «1 / 3».
+  function footers(ctx) {
+    const s = settings(), info = [s.nombre, s.nif && `NIF ${s.nif}`, s.direccion, s.telefono, s.email, s.web].filter(Boolean).join("   ·   "), pages = ctx.doc.getPages();
+    pages.forEach((page, i) => {
+      const W = page.getWidth(), M = 50, c = ctx.color;
+      page.drawLine({ start: { x: M, y: 50 }, end: { x: W - M, y: 50 }, thickness: 0.6, color: c(LINE) });
+      const t = pdfText(info), size = 7.2;
+      page.drawText(t, { x: M, y: 35, size, font: ctx.font, color: c(MUTED) });
+      const n = `${i + 1} / ${pages.length}`;page.drawText(n, { x: W - M - ctx.bold.widthOfTextAtSize(n, size), y: 35, size, font: ctx.bold, color: c(NAVY) });
+    });
+  }
+  function drawPresupuesto(ctx, p, title = "PRESUPUESTO") {
+    const w = writer(ctx, p), { W, M, state, wrap, text, label, line, box, need, font, bold } = w, CW = W - 2 * M;
+    state.label = title;w.newPage();
+    // Ficha: para quién, fecha y validez, en una banda suave.
+    const contact = [p.cliente.nif && `NIF ${p.cliente.nif}`, p.cliente.email, p.cliente.telefono].filter(Boolean).join("   ·   ");
+    const nameLines = wrap(p.cliente.nombre || "—", bold, 12, CW * 0.56 - 20), contactLines = contact ? wrap(contact, font, 8.5, CW * 0.56 - 20) : [];
+    const bh = 34 + nameLines.length * 15 + contactLines.length * 11.5;
+    box(M, state.y, CW, bh, { fill: SOFT });
+    let y = state.y - 20;
+    label("Para", M + 18, y);label("Fecha", M + CW * 0.6, y);label("Válido hasta", W - M - 18, y, { align: "right" });
+    y -= 17;
+    nameLines.forEach((l, i) => text(l, M + 18, y - i * 15, { f: bold, size: 12, c: NAVY }));
+    text(day(p.fecha), M + CW * 0.6, y, { f: bold, size: 11, c: NAVY });
+    text(day(venceEl(p)), W - M - 18, y, { f: bold, size: 11, c: NAVY, align: "right" });
+    y -= nameLines.length * 15;
+    contactLines.forEach((l, i) => text(l, M + 18, y - i * 11.5 + 2, { size: 8.5, c: MUTED }));
+    state.y -= bh + 42;
+    // Título del servicio con un acento azul encima.
+    state.page.drawRectangle({ x: M, y: state.y + 24, width: 26, height: 3, color: ctx.color(BLUE) });
+    for (const l of wrap(p.servicio || "Presupuesto", bold, 23, CW)) { need(30);text(l, M, state.y, { f: bold, size: 23, c: NAVY });state.y -= 29; }
+    state.y -= 6;
     // Conceptos
-    text("CONCEPTO", M, state.y, { f: bold, size: 7.5, c: MUTED });text("IMPORTE", W - M, state.y, { f: bold, size: 7.5, c: MUTED, align: "right" });
-    state.y -= 8;line(M, state.y, W - M, NAVY, 0.8);state.y -= 18;
-    for (const c of p.conceptos) {
-      const lines = wrap(c.descripcion, font, 10, W - 2 * M - 110);need(lines.length * 13 + 14);
-      lines.forEach((l, i) => text(l, M, state.y - i * 13, { size: 10 }));
-      text(eur(c.importe), W - M, state.y, { size: 10, align: "right" });
-      state.y -= lines.length * 13 + 6;line(M, state.y, W - M);state.y -= 16;
-    }
-    // Totales
-    need(70);
-    const tx = W - M - 200;
-    text("Base imponible", tx, state.y, { size: 9.5, c: MUTED });text(eur(p.base), W - M, state.y, { size: 9.5, align: "right" });state.y -= 16;
-    text(p.ivaPct ? `IVA ${p.ivaPct} %` : "IVA (exento)", tx, state.y, { size: 9.5, c: MUTED });text(eur(p.iva), W - M, state.y, { size: 9.5, align: "right" });state.y -= 10;
-    line(tx, state.y, W - M, NAVY, 0.8);state.y -= 18;
-    text("Total", tx, state.y, { f: bold, size: 12, c: NAVY });text(eur(p.total), W - M, state.y, { f: bold, size: 14, c: BLUE, align: "right" });state.y -= 36;
-    // Forma de pago
-    need(40 + p.pagos.length * 18);
-    text("FORMA DE PAGO", M, state.y, { f: bold, size: 7.5, c: MUTED });state.y -= 8;line(M, state.y, W - M, NAVY, 0.8);state.y -= 18;
-    for (const pago of p.pagos) {
-      text(pago.etiqueta, M, state.y, { size: 10 });text(`${String(pago.pct).replace(".", ",")} %`, W - M - 110, state.y, { size: 10, c: MUTED, align: "right" });text(eur(pago.importe), W - M, state.y, { f: bold, size: 10, align: "right" });
-      state.y -= 8;line(M, state.y, W - M);state.y -= 16;
-    }
-    if (p.pagoInstrucciones) { const lines = wrap(p.pagoInstrucciones, font, 9, W - 2 * M);need(lines.length * 12 + 6);lines.forEach(l => { text(l, M, state.y, { size: 9, c: MUTED });state.y -= 12; });state.y -= 6; }
-    state.y -= 14;
+    need(60);
+    box(M, state.y + 6, CW, 24, { fill: NAVY, r: 7 });
+    label("Nº", M + 14, state.y - 9, { c: [1, 1, 1] });label("Concepto", M + 48, state.y - 9, { c: [1, 1, 1] });label("Importe", W - M - 14, state.y - 9, { c: [1, 1, 1], align: "right" });
+    state.y -= 40;
+    p.conceptos.forEach((c, i) => {
+      const lines = wrap(c.descripcion, font, 10, CW - 48 - 120);need(lines.length * 14 + 18);
+      text(String(i + 1).padStart(2, "0"), M + 14, state.y, { f: bold, size: 9, c: BLUE });
+      lines.forEach((l, k) => text(l, M + 48, state.y - k * 14, { size: 10, c: INK }));
+      text(eur(c.importe), W - M - 14, state.y, { f: bold, size: 10, c: NAVY, align: "right" });
+      state.y -= lines.length * 14 + 3;line(M, state.y, W - M);state.y -= 16;
+    });
+    // Totales: base e IVA y una banda azul marino con el total.
+    need(110);
+    const tw = 240, tx = W - M - tw;
+    state.y -= 2;
+    text("Base imponible", tx + 14, state.y, { size: 9.5, c: MUTED });text(eur(p.base), W - M - 14, state.y, { size: 9.5, c: INK, align: "right" });state.y -= 18;
+    text(p.ivaPct ? `IVA ${p.ivaPct} %` : "IVA (exento)", tx + 14, state.y, { size: 9.5, c: MUTED });text(eur(p.iva), W - M - 14, state.y, { size: 9.5, c: INK, align: "right" });state.y -= 16;
+    box(tx, state.y, tw, 40, { fill: NAVY, r: 9 });
+    label("Total", tx + 16, state.y - 24, { c: [0.78, 0.82, 0.95], size: 7.5 });
+    text(eur(p.total), W - M - 16, state.y - 26, { f: bold, size: 17, c: [1, 1, 1], align: "right" });
+    state.y -= 40 + 13;
+    text("Importes en euros. IVA incluido en el total.", W - M, state.y, { size: 7.5, c: MUTED, align: "right" });
+    state.y -= 22;
+    // Forma de pago en tarjetas.
+    const n = p.pagos.length, gap = 12, cw = (CW - gap * (n - 1)) / n;
+    need(110);
+    label("Forma de pago", M, state.y);state.y -= 12;
+    p.pagos.forEach((pago, i) => {
+      const x = M + i * (cw + gap);box(x, state.y, cw, 60, { fill: null, border: LINE });
+      state.page.drawRectangle({ x: x + 16, y: state.y - 13, width: 18, height: 2.5, color: ctx.color(i === 0 ? BLUE : NAVY) });
+      text(pago.etiqueta, x + 16, state.y - 28, { f: bold, size: 9.5, c: NAVY });
+      text(`${String(pago.pct).replace(".", ",")} % del total`, x + 16, state.y - 42, { size: 8, c: MUTED });
+      text(eur(pago.importe), x + cw - 16, state.y - 40, { f: bold, size: 15, c: BLUE, align: "right" });
+    });
+    state.y -= 60 + 12;
+    if (p.pagoInstrucciones) {
+      const lines = wrap(p.pagoInstrucciones, font, 9, CW - 36), h = 30 + lines.length * 12;need(h + 10);
+      box(M, state.y, CW, h, { fill: [0.937, 0.949, 1] });
+      label("Cómo pagar", M + 18, state.y - 17, { c: BLUE });
+      lines.forEach((l, i) => text(l, M + 18, state.y - 31 - i * 12, { size: 9, c: [0.23, 0.27, 0.38] }));
+      state.y -= h + 20;
+    } else state.y -= 8;
     // Condiciones
-    if (p.condiciones) {
-      need(40);text("CONDICIONES", M, state.y, { f: bold, size: 7.5, c: MUTED });state.y -= 8;line(M, state.y, W - M, NAVY, 0.8);state.y -= 16;
-      p.condiciones.split("\n").filter(s => s.trim()).forEach((cond, i) => {
-        const lines = wrap(cond.trim(), font, 8.5, W - 2 * M - 16);need(lines.length * 11.5 + 4);
-        text(`${i + 1}.`, M, state.y, { f: bold, size: 8.5, c: BLUE });
-        lines.forEach((l, k) => text(l, M + 16, state.y - k * 11.5, { size: 8.5, c: [0.3, 0.34, 0.42] }));
-        state.y -= lines.length * 11.5 + 5;
+    const conds = String(p.condiciones || "").split("\n").map(x => x.trim()).filter(Boolean);
+    if (conds.length) {
+      need(50);label("Condiciones", M, state.y);state.y -= 8;line(M, state.y, W - M, LINE, 0.6);state.y -= 16;
+      conds.forEach((cond, i) => {
+        const lines = wrap(cond, font, 8, CW - 22);need(lines.length * 10.6 + 5);
+        text(String(i + 1).padStart(2, "0"), M, state.y, { f: bold, size: 7.5, c: BLUE });
+        lines.forEach((l, k) => text(l, M + 22, state.y - k * 10.6, { size: 8, c: [0.33, 0.37, 0.45] }));
+        state.y -= lines.length * 10.6 + 5;
       });
     }
-    w.finish();
   }
   async function presupuestoPdf(p) {
-    const ctx = await basePdf();drawPresupuesto(ctx, p);
+    const ctx = await basePdf();drawPresupuesto(ctx, p);footers(ctx);
     ctx.doc.setTitle(`Presupuesto ${p.numero}`);ctx.doc.setAuthor(settings().nombre);
     return Buffer.from(await ctx.doc.save());
   }
   // Acuerdo de aceptación: una hoja con quién, cuándo y desde dónde aceptó, la huella del documento y, detrás, el
   // presupuesto tal como lo aceptó.
   async function acuerdoPdf(p) {
-    const ctx = await basePdf(), w = writer(ctx, p), { W, M, state, wrap, text, line, font, bold } = w, a = p.aceptacion;
-    state.label = "ACEPTACIÓN DEL PRESUPUESTO";w.newPage();
-    for (const l of wrap(`Aceptación del presupuesto ${p.numero}`, bold, 20, W - 2 * M)) { text(l, M, state.y, { f: bold, size: 20, c: NAVY });state.y -= 25; }
+    const ctx = await basePdf(), w = writer(ctx, p), { W, M, state, wrap, text, label, line, box, font, bold } = w, a = p.aceptacion, CW = W - 2 * M;
+    state.label = "Aceptación del presupuesto";w.newPage();
+    state.page.drawRectangle({ x: M, y: state.y - 4, width: 26, height: 3, color: ctx.color(BLUE) });
+    state.y -= 32;
+    for (const l of wrap(`Aceptación del presupuesto ${p.numero}`, bold, 22, CW)) { text(l, M, state.y, { f: bold, size: 22, c: NAVY });state.y -= 28; }
     state.y -= 4;
-    for (const l of wrap(`${a.nombre}${a.dni ? `, con documento ${a.dni},` : ""} declara que ha leído el presupuesto ${p.numero} de ${settings().nombre} («${p.servicio}», ${eur(p.total)} IVA incluido), que acepta su contenido, su forma de pago y sus condiciones, y que encarga el inicio de los trabajos.`, font, 10.5, W - 2 * M)) { text(l, M, state.y, { size: 10.5 });state.y -= 15; }
-    state.y -= 16;
+    const decl = wrap(`${a.nombre}${a.dni ? `, con documento ${a.dni},` : ""} declara que ha leído el presupuesto ${p.numero} de ${settings().nombre} («${p.servicio}», ${eur(p.total)} IVA incluido), que acepta su contenido, su forma de pago y sus condiciones, y que encarga el inicio de los trabajos.`, font, 10.5, CW - 36);
+    const dh = 26 + decl.length * 15;box(M, state.y + 8, CW, dh, { fill: [0.91, 0.965, 0.933] });
+    decl.forEach((l, i) => text(l, M + 18, state.y - 12 - i * 15, { size: 10.5, c: [0.12, 0.25, 0.18] }));
+    state.y -= dh + 18;
     const rows = [["Aceptado por", a.nombre], ["Documento", a.dni || "—"], ["Correo", a.email || "—"], ["Teléfono", a.telefono || "—"], ["En nombre de", p.cliente.nombre], ["Fecha y hora", `${dateTime(a.fecha)} (hora de Madrid)`], ["Dirección IP", a.ip || "—"], ["Navegador", a.navegador || "—"], ["Presupuesto", `${p.numero} · versión ${p.version} · ${eur(p.total)}`], ["Huella SHA-256", a.hash]];
     for (const [k, v] of rows) {
-      const lines = wrap(v, k === "Huella SHA-256" ? font : bold, k === "Huella SHA-256" ? 8 : 10, W - 2 * M - 130);
-      text(k, M, state.y, { size: 9, c: MUTED });lines.forEach((l, i) => text(l, M + 130, state.y - i * 12, { f: k === "Huella SHA-256" ? font : bold, size: k === "Huella SHA-256" ? 8 : 10, c: NAVY }));
-      state.y -= lines.length * 12 + 6;line(M, state.y, W - M);state.y -= 14;
+      const mono = k === "Huella SHA-256", lines = wrap(v, mono ? font : bold, mono ? 8 : 10, CW - 140);
+      label(k, M, state.y + 1);lines.forEach((l, i) => text(l, M + 140, state.y - i * 12, { f: mono ? font : bold, size: mono ? 8 : 10, c: NAVY }));
+      state.y -= lines.length * 12 + 7;line(M, state.y, W - M);state.y -= 15;
     }
-    state.y -= 6;
-    for (const l of wrap("La huella SHA-256 identifica el contenido exacto del presupuesto aceptado: cualquier cambio posterior en el presupuesto daría una huella distinta. A continuación se incluye el presupuesto aceptado.", font, 8.5, W - 2 * M)) { text(l, M, state.y, { size: 8.5, c: MUTED });state.y -= 11.5; }
-    w.finish();
-    drawPresupuesto(ctx, p);
+    state.y -= 4;
+    for (const l of wrap("La huella SHA-256 identifica el contenido exacto del presupuesto aceptado: cualquier cambio posterior daría una huella distinta. A continuación se incluye el presupuesto aceptado.", font, 8.3, CW)) { text(l, M, state.y, { size: 8.3, c: MUTED });state.y -= 11.5; }
+    drawPresupuesto(ctx, p);footers(ctx);
     ctx.doc.setTitle(`Aceptación ${p.numero}`);ctx.doc.setAuthor(settings().nombre);
     return Buffer.from(await ctx.doc.save());
   }
