@@ -290,6 +290,16 @@ module.exports = function ({ dataDirectory, davRequest, json, readJson, readBuff
       }).catch(() => json(res, 400, { error: "No se pudieron guardar los ajustes." }));
       return true;
     }
+    // Vista previa del PDF con los datos del formulario, sin guardar nada.
+    if (requestPath === "/api/presupuestos/preview" && method === "POST") {
+      readJson(req, 128 * 1024).then(async body => {
+        const list = load(), existing = body.id ? list.find(x => x.id === body.id) : null;
+        const p = clean(body, existing ? { ...existing } : { id: "preview", numero: nextNumber(list), fecha: now(), version: 1 });
+        if (!p.cliente.nombre) p.cliente.nombre = "Cliente";
+        sendPdf(res, await presupuestoPdf(p), `Vista previa ${p.numero}.pdf`);
+      }).catch(() => json(res, 400, { error: "No se pudo generar la vista previa." }));
+      return true;
+    }
     if (requestPath === "/api/presupuestos" && method === "POST") {
       readJson(req, 128 * 1024).then(async body => {
         const list = load(), p = clean(body, { id: crypto.randomUUID(), token: crypto.randomBytes(24).toString("base64url"), numero: nextNumber(list), fecha: now(), estado: "borrador", version: 1, creadoPor: user.name, documentos: [], historial: [] });

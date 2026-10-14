@@ -94,7 +94,7 @@
           <label class="pq-full">Notas internas (no las ve el cliente)<textarea name="notas" rows="2">${esc(p.notas||"")}</textarea></label>
         </fieldset>
         <p class="pq-error" role="alert"></p>
-        <div class="pq-actions"><button type="button" class="secondary-button" data-pq-close>Cancelar</button><button type="submit" class="primary blue-button">${existing?"Guardar cambios":"Crear presupuesto"}</button></div>
+        <div class="pq-actions"><button type="button" class="secondary-button" data-pq-close>Cancelar</button><button type="button" class="secondary-button" data-pq-preview>Previsualizar presupuesto</button><button type="submit" class="primary blue-button">${existing?"Guardar cambios":"Crear presupuesto"}</button></div>
       </form>`,"pq-modal-form");
     const f=shell.querySelector("form"),box=f.querySelector(".pq-conceptos");
     const conceptRow=c=>`<div class="pq-concepto"><textarea rows="1" placeholder="Descripción del concepto">${esc(c.descripcion)}</textarea><input inputmode="decimal" placeholder="0,00" value="${c.importe!==""&&c.importe!==undefined?String(c.importe).replace(".",","):""}"><span>€</span><button type="button" data-pq-del aria-label="Quitar concepto">×</button></div>`;
@@ -109,15 +109,26 @@
       sync()});
     f.addEventListener("click",e=>{if(e.target.closest("[data-pq-add]")){box.insertAdjacentHTML("beforeend",conceptRow({descripcion:"",importe:""}));box.lastElementChild.querySelector("textarea").focus();sync()}const del=e.target.closest("[data-pq-del]");if(del&&box.children.length>1){del.parentElement.remove();sync()}});
     sync();
-    f.addEventListener("submit",async e=>{
-      e.preventDefault();const err=f.querySelector(".pq-error");err.textContent="";
+    const collect=()=>{
       const cliente=tipo()==="cliente"?clients.find(x=>(x.id||x.name)===f.carpeta.value.trim()):null;
-      if(tipo()==="cliente"&&!cliente){err.textContent="Elige un cliente de la lista o marca «Cliente nuevo (provisional)».";return}
       const pct=f.plan.value==="unico"?100:f.plan.value==="mitad"?50:Math.min(100,Math.max(1,num(f.pct.value)));
       const body={cliente:{carpeta:cliente?(cliente.id||cliente.name):"",nombre:cliente?(cliente.name||cliente.id):f.nombre.value.trim(),nif:f.nif.value.trim(),email:f.email.value.trim(),telefono:f.telefono.value.trim()},marca:f.marca.value,servicio:f.servicio.value.trim(),
         conceptos:[...box.querySelectorAll(".pq-concepto")].map(r=>({descripcion:r.querySelector("textarea").value.trim(),importe:num(r.querySelector("input").value)})).filter(c=>c.descripcion||c.importe),
         ivaPct:Number(f.ivaPct.value),validez:Number(f.validez.value)||30,pagos:pct>=100?[{etiqueta:"Pago a la aceptación",pct:100}]:[{etiqueta:"Anticipo a la aceptación",pct},{etiqueta:"Al finalizar el trabajo",pct:100-pct}],
         pagoInstrucciones:f.pagoInstrucciones.value.trim(),condiciones:f.condiciones.value.trim(),notas:f.notas.value.trim()};
+      return{body,cliente}};
+    f.querySelector("[data-pq-preview]").addEventListener("click",async()=>{
+      const {body}=collect(),err=f.querySelector(".pq-error");err.textContent="";
+      if(!body.conceptos.length){err.textContent="Añade al menos un concepto para ver la vista previa.";return}
+      const win=window.open("","_blank");
+      try{const r=await fetch("/api/presupuestos/preview",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,id:existing?.id||""})});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||"No se pudo generar la vista previa");
+        const url=URL.createObjectURL(await r.blob());if(win)win.location.href=url;else window.open(url,"_blank");setTimeout(()=>URL.revokeObjectURL(url),300000)}
+      catch(error){win?.close();err.textContent=error.message}
+    });
+    f.addEventListener("submit",async e=>{
+      e.preventDefault();const err=f.querySelector(".pq-error");err.textContent="";
+      const {body,cliente}=collect();
+      if(tipo()==="cliente"&&!cliente){err.textContent="Elige un cliente de la lista o marca «Cliente nuevo (provisional)».";return}
       if(!body.cliente.nombre){err.textContent="Indica el nombre del cliente.";return}
       if(!body.servicio){err.textContent="Indica el título del presupuesto.";return}
       if(!body.conceptos.length){err.textContent="Añade al menos un concepto con su importe.";return}
