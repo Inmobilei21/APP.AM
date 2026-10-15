@@ -3554,7 +3554,7 @@ function openDocumentPreview(file){
   activeDocumentPreviewUrl=url;
   const kind=mime==="application/pdf"||extension==="pdf"?"pdf":mime.startsWith("image/")?"image":mime.startsWith("text/")||["txt","csv","xml","json","html","log"].includes(extension)?"text":mime.startsWith("audio/")?"audio":mime.startsWith("video/")?"video":"other";
   const content=kind==="pdf"||kind==="text"
-    ?`<iframe id="documentPreviewFrame" src="${url}${kind==="pdf"?"#toolbar=0":""}" title="Vista previa de ${escapeHtml(file.name)}"></iframe>`
+    ?`<iframe id="documentPreviewFrame" src="${url}${kind==="pdf"?"#page=1&view=FitH&toolbar=0":""}" title="Vista previa de ${escapeHtml(file.name)}"></iframe>`
     :kind==="image"?`<img src="${url}" alt="Vista previa de ${escapeHtml(file.name)}">`
     :kind==="audio"?`<audio src="${url}" controls></audio>`
     :kind==="video"?`<video src="${url}" controls></video>`
@@ -3566,7 +3566,7 @@ function openDocumentPreview(file){
   let zoom=1;
   shell.querySelectorAll("[data-zoom-step]").forEach(button=>button.addEventListener("click",()=>{
     zoom=nextPreviewZoom(zoom,Number(button.dataset.zoomStep));shell.querySelector("[data-zoom-label]").textContent=`${Math.round(zoom*100)} %`;
-    if(kind==="pdf"){const frame=shell.querySelector("#documentPreviewFrame"),fresh=frame.cloneNode();fresh.src=`${url}#toolbar=0&zoom=${Math.round(zoom*100)}`;frame.replaceWith(fresh)}
+    if(kind==="pdf"){const frame=shell.querySelector("#documentPreviewFrame"),fresh=frame.cloneNode();fresh.src=`${url}#page=1&toolbar=0&zoom=${Math.round(zoom*100)}`;frame.replaceWith(fresh)}
     else{const image=shell.querySelector(".document-preview-body img");if(image){image.style.maxWidth="none";image.style.maxHeight="none";image.style.width=zoom===1?"":`${Math.round(zoom*100)}%`}}
   }));
   shell.querySelector("#downloadPreviewDocument").addEventListener("click",()=>{const link=document.createElement("a");link.href=url;link.download=file.name;document.body.appendChild(link);link.click();link.remove()});

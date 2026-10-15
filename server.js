@@ -313,6 +313,23 @@ async function listDavPdfs(rootPath) {
   }
   return files;
 }
+// Aviso de cambios para que la app se actualice sola: cada escritura sube la revisión de su apartado y la app la
+// consulta cada pocos segundos (GET /api/changes). Las carpetas de declaraciones que se están usando se revisan cada
+// 3 minutos por si alguien añade un PDF directamente en el servidor, sin pasar por la app.
+const changes = { rev: 1, areas: {} };
+function markChanged(area) { changes.rev++;changes.areas[area] = changes.rev;if (area === "archivos") webdavPdfCache.clear(); }
+const pdfWatch = new Map();
+const pdfSignature = files => files.map(file => `${file.path}|${file.modified || ""}`).sort().join("\n");
+setInterval(async () => {
+  for (const [davPath, watch] of pdfWatch) {
+    if (Date.now() - watch.used > 30 * 60 * 1000) { pdfWatch.delete(davPath);continue; }
+    try {
+      const files = await listDavPdfs(davPath), signature = pdfSignature(files);
+      if (watch.signature && signature !== watch.signature) { markChanged("archivos");webdavPdfCache.set(davPath, { files, at: Date.now() }); }
+      watch.signature = signature;
+    } catch {}
+  }
+}, 3 * 60 * 1000).unref();
 function parseDavEntries(xml, requestedPath) {
   const requestedParts = cleanDavPath(requestedPath), requestedName = requestedParts.at(-1) || decodeURIComponent(webdavRoot.split("/").at(-1));
   const blocks = [...xml.matchAll(/<(?:[^:>]+:)?response\b[^>]*>([\s\S]*?)<\/(?:[^:>]+:)?response>/gi)].map(match => match[1]);
@@ -449,6 +466,12 @@ const portalDocs = require("./portal-docs")({ dataDirectory, davRequest, parseDa
 
 http.createServer((req, res) => {
   const requestPath = req.url.split("?")[0];
+  if (requestPath === "/api/changes" && req.method === "GET") { if (!requireUser(req, res)) return;return json(res, 200, changes); }
+  // Escrituras que avisan a las demás pantallas abiertas (cuando terminan).
+  if (["POST", "PUT", "DELETE"].includes(req.method)) {
+    const area = requestPath.startsWith("/api/presupuestos") || requestPath.startsWith("/api/p/") ? "presupuestos" : requestPath === "/api/libros" ? "libros" : requestPath.startsWith("/api/billing") && requestPath !== "/api/billing/read" ? "facturacion" : requestPath.startsWith("/api/metadata/") ? "clientes" : requestPath.startsWith("/api/contabilidad/") ? "contabilidad" : "";
+    if (area) res.on("finish", () => { if (res.statusCode < 400) markChanged(area); });
+  }
   if ((requestPath.startsWith("/api/presupuestos") || requestPath.startsWith("/api/p/")) && presupuestos(req, res, requestPath)) return;
   if (requestPath === "/api/version" && req.method === "GET") {
     return json(res, 200, { version: applicationVersion });
@@ -472,8 +495,9 @@ http.createServer((req, res) => {
     if (!requireUser(req, res)) return;
     const params = new URL(req.url, "http://localhost").searchParams, davPath = params.get("path") || "";
     const cached = webdavPdfCache.get(davPath);
+    const watch = pdfWatch.get(davPath) || { signature: "", used: 0 };watch.used = Date.now();pdfWatch.set(davPath, watch);
     if (cached && !params.get("refresh") && Date.now() - cached.at < 5 * 60 * 1000) return json(res, 200, { files: cached.files, at: cached.at });
-    return listDavPdfs(davPath).then(files => { webdavPdfCache.set(davPath, { files, at: Date.now() }); json(res, 200, { files, at: Date.now() }); })
+    return listDavPdfs(davPath).then(files => { webdavPdfCache.set(davPath, { files, at: Date.now() });watch.signature = pdfSignature(files); json(res, 200, { files, at: Date.now() }); })
       .catch(error => json(res, error.status || 502, { error: error.message }));
   }
   if (requestPath === "/api/webdav/stat" && req.method === "GET") {
@@ -500,7 +524,7 @@ http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": response.headers.get("content-type") || "application/octet-stream", "Content-Length": data.length, "Cache-Control": "private, no-store" });res.end(data);
     }).catch(error => json(res, error.status || 502, { error: error.message }));
   }
-  if (requestPath.startsWith("/api/webdav/") && ["PUT", "POST", "DELETE"].includes(req.method)) webdavPdfCache.clear();
+  if (requestPath.startsWith("/api/webdav/") && ["PUT", "POST", "DELETE"].includes(req.method)) { webdavPdfCache.clear();res.on("finish", () => markChanged("archivos")); }
   if (requestPath === "/api/webdav/file" && req.method === "PUT") {
     if (!requireUser(req, res)) return;
     const davPath = new URL(req.url, "http://localhost").searchParams.get("path") || "";

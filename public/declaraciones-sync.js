@@ -40,7 +40,39 @@
   }
   document.addEventListener("focusout",()=>{if(refreshWanted)setTimeout(()=>{if(!editing())refreshOpenView()},200)});
 
+  // Cambios en el servidor (archivos, facturas del libro, presupuestos, fichas…): se actualiza la pantalla abierta.
+  let changesRev=0;
+  async function pullChanges(){
+    try{
+      const r=await fetch("/api/changes",{credentials:"same-origin",cache:"no-store"});if(!r.ok)return;
+      const {rev,areas={}}=await r.json();
+      if(!changesRev){changesRev=rev;return}
+      if(rev===changesRev)return;
+      const changed=Object.keys(areas).filter(a=>areas[a]>changesRev);changesRev=rev;
+      if(!changed.length)return;
+      if(changed.includes("archivos")){try{declarationDocsCache=null;declarationDocsAt=0}catch{}}
+      if(changed.includes("libros"))window.dispatchEvent(new Event("app-am-libros"));
+      window.dispatchEvent(new CustomEvent("app-am-changes",{detail:{areas:changed}}));
+      refreshForChanges(changed);
+    }catch{}
+  }
+  let changesWanted=null;
+  function refreshForChanges(changed){
+    if(editing()){changesWanted=changed;return}
+    changesWanted=null;
+    try{
+      if(document.querySelector("#tdMain")&&typeof renderTaxDraftMain==="function"){
+        if(changed.includes("archivos")&&typeof loadTaxDraftDocuments==="function")loadTaxDraftDocuments();else if(changed.some(a=>["libros","clientes","contabilidad"].includes(a)))renderTaxDraftMain();
+      }
+      else if(changed.includes("archivos")&&document.querySelector("#taxRows")&&typeof loadTaxModel==="function")loadTaxModel(activeTaxModel);
+      else if(changed.includes("archivos")&&document.querySelector("#historyTaxRows")&&typeof loadHistoricalModel==="function")loadHistoricalModel(activeHistoryModel);
+      if(changed.includes("facturacion")&&typeof refreshBillingData==="function")refreshBillingData(true);
+      if(changed.includes("presupuestos")&&document.querySelector('[data-management-panel="presupuestos"]:not([hidden])')&&typeof openManagementSection==="function"&&!document.querySelector("#pqModal"))openManagementSection("presupuestos");
+    }catch(error){console.error("Actualizar con los cambios del servidor",error)}
+  }
+  document.addEventListener("focusout",()=>{if(changesWanted)setTimeout(()=>{if(changesWanted&&!editing())refreshForChanges(changesWanted)},200)});
   async function pull(){
+    pullChanges();
     try{
       const response=await fetch(`/api/declaraciones${since?`?since=${encodeURIComponent(since)}`:""}`,{credentials:"same-origin",cache:"no-store"});
       if(!response.ok)return false;
