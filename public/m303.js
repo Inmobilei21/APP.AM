@@ -168,7 +168,8 @@ function calc(period){
   c["69"]=tdRound(c["66"]+c["77"]-c["78"]+c["68"]+c["108"]);c["71"]=tdRound(c["69"]-c["70"]+c["109"]-c["112"]);
   c["111"]=tdRound(val("111"));
   const list=c["71"]>0?TIPOS_INGRESO:c["71"]<0?TIPOS_NEG:TIPOS_CERO,{list:ibans,pref}=clientIbans();
-  const tipo=list.some(t=>t[0]===m.tipo)?m.tipo:list===TIPOS_INGRESO?(ibans.length?"U":"I"):list[0][0];
+  // Por defecto «A ingresar»: la domiciliación (U) se elige a mano en «Forma de pago».
+  const tipo=list.some(t=>t[0]===m.tipo)?m.tipo:list===TIPOS_INGRESO?"I":list[0][0];
   const code=list.find(t=>t[0]===tipo)[2];
   const devFields=DEV.flatMap(([,b,t,cu])=>[b,t,cu]).filter(Boolean),dedFields=DED.flatMap(([,b,cu])=>[b,cu]).filter(Boolean);
   const over=list=>list.filter(n=>has(v[n])&&Math.abs(num(v[n])-(c["auto"+n]||0))>0.004).map(n=>({n,manual:num(v[n]),auto:c["auto"+n]||0}));
@@ -692,6 +693,9 @@ function aeat303(draft){
   if(!/^\d{4}$/.test(year)||!/^[1-4]T$/.test(period))throw new Error("Ejercicio o período no válido.");
   const code=c["71"]>0?(x.code==="U"&&!x.iban?"I":x.code):c["71"]<0?x.code:"N";
   if((code==="D"||code==="X")&&!x.iban)throw new Error("Falta la cuenta para la devolución.");
+  // Plazo de domiciliación: hasta el día 15 del mes de presentación (25 de enero en el 4T).
+  if(code==="U"){const q=Number(period[0]),limit=q===4?new Date(Number(year)+1,0,25,23,59,59):new Date(Number(year),q*3,15,23,59,59);
+    if(Date.now()>limit.getTime())throw new Error(`El plazo para domiciliar el ${period} terminó el ${limit.toLocaleDateString("es-ES")}: la AEAT no admite la domiciliación. Elige «A ingresar» en «Forma de pago».`)}
   const yn=k=>f[k]?"1":"2";
   // Prorrata especial y su revocación (Nota 6 del DR303): «1» solo en el último periodo; en el resto, «2».
   const fecha=f.concurso&&/^\d{8}$/.test(String(f.fechaConcurso||""))?f.fechaConcurso:" ".repeat(8);
