@@ -80,7 +80,7 @@ function calc(period){
   c["17"]=tdRound(c["14"]-c["15"]-c["16"]);
   const compl=tdCompl(M,period);c["18"]=compl.deducir;c["19"]=tdRound(c["17"]-c["18"]);
   return{c,q,auto,retTotal,manual,fuente,emit,recib,secI,secII,modalidad,pct,variacion,ing,gas,ret,prev,ingresos,gastosContables,totalGastos,previo,dificil,pendiente,topeVivienda,compl,m,
-    pago:{forma:m.formaPago==="efectivo"&&!fisica()?"adeudo":m.formaPago||"domiciliacion",iban:m.iban??((taxDrafts.clientData?.bank?.ibans||[]).find(Boolean)||""),nrc:m.nrc||"",aDeducir:m.aDeducir===true}};
+    pago:{forma:m.formaPago==="efectivo"&&!fisica()?"adeudo":m.formaPago||"domiciliacion",iban:m.iban??((clientBankData(taxDrafts.clientData).ibans||[]).find(Boolean)||""),nrc:m.nrc||"",aDeducir:m.aDeducir===true}};
 }
 const LABELS={
   "01":"Ingresos computables correspondientes al conjunto de las actividades ejercidas",
@@ -157,7 +157,7 @@ function grid(r,editable=true){
   </div>`;
 }
 function pagoBlock(r){
-  const res=r.c["19"],p=r.pago,ibans=(taxDrafts.clientData?.bank?.ibans||[]).filter(Boolean);
+  const res=r.c["19"],p=r.pago,ibans=(clientBankData(taxDrafts.clientData).ibans||[]).filter(Boolean);
   if(res>0){
     const opt=(v,l)=>`<label class="m130-radio"><input type="radio" name="m130pago" data-m130="formaPago" value="${v}"${p.forma===v?" checked":""}><span>${l}</span></label>`;
     return `<div class="m130-pago"><h6>Ingreso · ${tdEur(res)}</h6><div class="m130-radios">${opt("domiciliacion","Domiciliación")}${opt("adeudo","Adeudo en cuenta (NRC)")}${fisica()?opt("efectivo","Efectivo"):""}</div>

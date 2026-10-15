@@ -46,7 +46,7 @@ const TIPOS_INGRESO=[["I","A ingresar","I"],["U","Domiciliación del importe a i
 const TIPOS_NEG=[["C","A compensar","C"],["D","Devolución por transferencia (cuenta en España)","D"],["X","Devolución por transferencia al extranjero","X"],["V","Devolución a anotar en cuenta corriente tributaria","V"]];
 const TIPOS_CERO=[["N","Sin actividad / resultado cero","N"]];
 const CONTROL_PAGO={U:"Domicil.",I:"N.R.C.",IP:"N.R.C.","RD-APL":"Aplaz.","IP-APL":"Aplaz.","RD-COM":"Compensación","IP-COM":"Compensación",G:"Compensación","RD-IMP":"Pte. Pago","IP-IMP":"Pte. Pago","RD-TRF":"Pte. Pago","RD-PHE":"Pte. Pago","IP-PHE":"Pte. Pago",C:"Compensación",D:"Devolver",X:"Devolver",V:"Devolver",N:"Negativa"};
-function clientIbans(){const bank=taxDrafts.clientData?.bank||{},list=(bank.ibans||[]).map(i=>String(i).replace(/\s+/g,"").toUpperCase()).filter(Boolean),pref=String(bank.ibanPreferido||"").replace(/\s+/g,"").toUpperCase();
+function clientIbans(){const bank=clientBankData(taxDrafts.clientData),list=(bank.ibans||[]).map(i=>String(i).replace(/\s+/g,"").toUpperCase()).filter(Boolean),pref=String(bank.ibanPreferido||"").replace(/\s+/g,"").toUpperCase();
   return{list:pref&&list.includes(pref)?[pref,...list.filter(i=>i!==pref)]:list,pref:list.includes(pref)?pref:""}}
 
 /* --- IVA devengado desde la contabilidad (facturas emitidas de AMCOMTA) o, si no hay, desde las facturas guardadas --- */

@@ -40,7 +40,7 @@ function aeatFile(draft){
 async function askIban(draft){
   const result=Number(aeatBoxes(draft).find(box=>box.n===AEAT_FILE_MODELS[draft.model]?.result)?.value)||0;if(!(result>0))return"";
   let client=null;try{client=(await getAllClientMetadata()).find(item=>item.name===draft.client||item.id===draft.client)}catch{}
-  const iban=(client?.bank?.ibans||[]).find(Boolean)||"";
+  const iban=(clientBankData(client).ibans||[]).find(Boolean)||"";
   if(!iban)return"";
   return await appConfirm({eyebrow:"FICHERO AEAT",title:`¿Domiciliar el pago de ${tdEur(result)}?`,message:`Cuenta ${iban}`,ok:"Domiciliar",cancel:"Ingreso sin domiciliar"})?iban:"";
 }
@@ -56,7 +56,7 @@ async function downloadAeatFile(draft){
 window.downloadAeatFile=downloadAeatFile;
 /* --- Forma de pago (se guarda en Control y va al fichero): domiciliación (U) con el IBAN de la ficha, adeudo en
    cuenta o efectivo (I). Si el resultado es cero o negativo, la declaración es negativa (N). --- */
-function clientIbans(){const bank=taxDrafts.clientData?.bank||{},list=(bank.ibans||[]).map(i=>String(i).replace(/\s+/g,"").toUpperCase()).filter(Boolean),pref=String(bank.ibanPreferido||"").replace(/\s+/g,"").toUpperCase();
+function clientIbans(){const bank=clientBankData(taxDrafts.clientData),list=(bank.ibans||[]).map(i=>String(i).replace(/\s+/g,"").toUpperCase()).filter(Boolean),pref=String(bank.ibanPreferido||"").replace(/\s+/g,"").toUpperCase();
   return{list:pref&&list.includes(pref)?[pref,...list.filter(i=>i!==pref)]:list,pref:list.includes(pref)?pref:""}}
 // Tipo de declaración, con las mismas opciones que la sede de la AEAT. En el fichero solo existen I (ingreso),
 // U (domiciliación), G (ingreso a anotar en la cuenta corriente tributaria) y N (negativa): las de reconocimiento
