@@ -342,7 +342,7 @@ function currentDraft(period){
   const d=taxDraftBuild(M,period);return{...d,client:taxDrafts.client,cif:taxDrafts.clientData?.cif||"",pago:d.calc.pago};
 }
 if(typeof taxDraftDetail==="function"){const previous=taxDraftDetail;taxDraftDetail=function(draft){const html=previous.apply(this,arguments);
-  return draft.model===M?html.replace('<button type="button" class="secondary-button" data-td-copy>',`<button type="button" class="secondary-button" data-m130-file="${escapeHtml(draft.period)}" title="Fichero para importar en la sede de la AEAT (presentación mediante fichero)">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy>`):html}}
+  return draft.model===M?html.replace('<button type="button" class="secondary-button" data-td-copy',`<button type="button" class="secondary-button" data-m130-file="${escapeHtml(draft.period)}" title="Fichero para importar en la sede de la AEAT (presentación mediante fichero)">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy`):html}}
 document.addEventListener("click",event=>{const button=event.target.closest("[data-m130-file]");if(!button)return;event.preventDefault();download130(currentDraft(button.dataset.m130File))});
 if(typeof openConfirmedTaxDraft==="function"){
   const previousOpen=openConfirmedTaxDraft;

@@ -583,7 +583,7 @@ function grid(r){
 if(typeof taxDraftBoxes==="function"){const previous=taxDraftBoxes;taxDraftBoxes=function(boxes,withEyes=true,model=""){
   if(model===M&&taxDrafts.model===M&&/^\dT$/.test(taxDrafts.open||""))return grid(calc(taxDrafts.open));return previous.apply(this,arguments)}}
 if(typeof taxDraftDetail==="function"){const previous=taxDraftDetail;taxDraftDetail=function(draft){const html=previous.apply(this,arguments);if(draft.model!==M)return html;
-  return html.replace('<button type="button" class="secondary-button" data-td-copy>',`<button type="button" class="secondary-button" data-m303-file="${escapeHtml(draft.period)}">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy>`)}}
+  return html.replace('<button type="button" class="secondary-button" data-td-copy',`<button type="button" class="secondary-button" data-m303-file="${escapeHtml(draft.period)}">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy`)}}
 function syncControl(period){
   const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);if(data.notRequired)return;
   const value=CONTROL_PAGO[calc(period).tipo]||"N.R.C.";if(data.payment!==value){data.payment=value;localStorage.setItem(key,JSON.stringify(data))}

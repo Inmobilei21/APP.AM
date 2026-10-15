@@ -149,7 +149,8 @@ if(typeof taxDraftBoxes==="function"){const previous=taxDraftBoxes;taxDraftBoxes
   if(model===M&&taxDrafts.model===M&&taxDrafts.open)return grid(calc(taxDrafts.open),withEyes);return previous.apply(this,arguments)}}
 if(typeof taxDraftDetail==="function"){const previous=taxDraftDetail;taxDraftDetail=function(draft){const html=previous.apply(this,arguments);if(draft.model!==M)return html;
   return html.replace('<div class="td-checks">',`${optionsBlock(draft.calc||calc(draft.period))}<div class="td-checks">`)
-    .replace('<button type="button" class="secondary-button" data-td-copy>',`<button type="button" class="secondary-button" data-m349-file="${escapeHtml(draft.period)}">Fichero AEAT</button><button type="button" class="secondary-button" data-m349-view="${escapeHtml(draft.period)}">Ver borrador</button><button type="button" class="secondary-button" data-td-copy>`)}}
+    // «Fichero AEAT» y el «Ver borrador» propio del 349 en lugar del genérico.
+    .replace(/<button type="button" class="secondary-button" data-td-copy[^>]*>[^<]*<\/button>/,`<button type="button" class="secondary-button" data-m349-file="${escapeHtml(draft.period)}">Fichero AEAT</button><button type="button" class="secondary-button" data-m349-view="${escapeHtml(draft.period)}">Ver borrador</button>`)}}
 function bind(box,period){
   const rerender=()=>renderTaxDraftMain();
   box.querySelectorAll("[data-m349-section]").forEach(b=>b.addEventListener("click",()=>{taxDrafts.m349Open=taxDrafts.m349Open===b.dataset.m349Section?"":b.dataset.m349Section;rerender()}));

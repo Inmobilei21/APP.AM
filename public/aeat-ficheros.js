@@ -139,7 +139,7 @@ const previousDetail=taxDraftDetail;
 taxDraftDetail=function(draft,control){
   const html=previousDetail.apply(this,arguments);
   if(!AEAT_FILE_MODELS[draft.model])return html;
-  return html.replace('<button type="button" class="secondary-button" data-td-copy>',`<button type="button" class="secondary-button" data-aeat-file="${escapeHtml(draft.model)}|${escapeHtml(draft.period)}" title="Fichero para importar en la sede de la AEAT (presentación mediante fichero)">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy>`);
+  return html.replace('<button type="button" class="secondary-button" data-td-copy',`<button type="button" class="secondary-button" data-aeat-file="${escapeHtml(draft.model)}|${escapeHtml(draft.period)}" title="Fichero para importar en la sede de la AEAT (presentación mediante fichero)">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy`);
 };
 document.addEventListener("click",event=>{
   const button=event.target.closest("[data-aeat-file]");if(!button)return;
