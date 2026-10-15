@@ -168,8 +168,7 @@ function calc(period){
   c["69"]=tdRound(c["66"]+c["77"]-c["78"]+c["68"]+c["108"]);c["71"]=tdRound(c["69"]-c["70"]+c["109"]-c["112"]);
   c["111"]=tdRound(val("111"));
   const list=c["71"]>0?TIPOS_INGRESO:c["71"]<0?TIPOS_NEG:TIPOS_CERO,{list:ibans,pref}=clientIbans();
-  // Por defecto «A ingresar»: la domiciliación (U) se elige a mano en «Forma de pago».
-  const tipo=list.some(t=>t[0]===m.tipo)?m.tipo:list===TIPOS_INGRESO?"I":list[0][0];
+  const tipo=list.some(t=>t[0]===m.tipo)?m.tipo:list===TIPOS_INGRESO?(ibans.length?"U":"I"):list[0][0];
   const code=list.find(t=>t[0]===tipo)[2];
   const devFields=DEV.flatMap(([,b,t,cu])=>[b,t,cu]).filter(Boolean),dedFields=DED.flatMap(([,b,cu])=>[b,cu]).filter(Boolean);
   const over=list=>list.filter(n=>has(v[n])&&Math.abs(num(v[n])-(c["auto"+n]||0))>0.004).map(n=>({n,manual:num(v[n]),auto:c["auto"+n]||0}));
@@ -725,7 +724,8 @@ function aeat303(draft){
     // IBAN válido (dígitos de control) y marca SEPA según la cuenta (Nota 2): «0» es solo para la página sin cuenta.
     const ibanOk=/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)&&[...(iban.slice(4)+iban.slice(0,4))].reduce((r,ch)=>Number(String(r)+(/[A-Z]/.test(ch)?ch.charCodeAt(0)-55:ch))%97,0)===1;
     if(!ibanOk||(iban.startsWith("ES")&&iban.length!==24))throw new Error(`El IBAN ${iban} no es válido: revísalo en la ficha del cliente.`);
-    const EU="AT BE BG CY CZ DE DK EE FI FR GR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK".split(" "),sepa=iban.startsWith("ES")?"1":EU.includes(iban.slice(0,2))?"2":"3";
+    // Marca SEPA solo en devoluciones (D, X): en domiciliaciones va en blanco (error EDID113 de la AEAT).
+    const EU="AT BE BG CY CZ DE DK EE FI FR GR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK".split(" "),sepa=code==="D"||code==="X"?(iban.startsWith("ES")?"1":EU.includes(iban.slice(0,2))?"2":"3"):" ";
     did="<T303DID00>"+RAW(code==="X"?x.swift:"",11)+RAW(iban,34)+" ".repeat(70+35+30)+(code==="X"?RAW(iban.slice(0,2),2):"  ")+sepa+" ".repeat(617)+"</T303DID00>";
     if(did.length!==823)throw new Error("Error interno en la página DID del 303.");
   }
