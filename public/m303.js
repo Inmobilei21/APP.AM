@@ -718,7 +718,10 @@ function aeat303(draft){
   let did="";const iban=String(x.iban||"").replace(/\s+/g,"").toUpperCase();
   // Solo con domiciliación (U), devolución (D, X) o rectificativa con casilla 111: con «I» la AEAT rechaza la página DID.
   if(iban&&(["U","D","X"].includes(code)||m.rect&&c["111"]>0)){
-    const sepa=code==="D"||code==="X"||(m.rect&&c["111"]>0)?(iban.startsWith("ES")?"1":code==="X"?"2":"1"):"0";
+    // IBAN válido (dígitos de control) y marca SEPA según la cuenta (Nota 2): «0» es solo para la página sin cuenta.
+    const ibanOk=/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)&&[...(iban.slice(4)+iban.slice(0,4))].reduce((r,ch)=>Number(String(r)+(/[A-Z]/.test(ch)?ch.charCodeAt(0)-55:ch))%97,0)===1;
+    if(!ibanOk||(iban.startsWith("ES")&&iban.length!==24))throw new Error(`El IBAN ${iban} no es válido: revísalo en la ficha del cliente.`);
+    const EU="AT BE BG CY CZ DE DK EE FI FR GR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK".split(" "),sepa=iban.startsWith("ES")?"1":EU.includes(iban.slice(0,2))?"2":"3";
     did="<T303DID00>"+RAW(code==="X"?x.swift:"",11)+RAW(iban,34)+" ".repeat(70+35+30)+(code==="X"?RAW(iban.slice(0,2),2):"  ")+sepa+" ".repeat(617)+"</T303DID00>";
     if(did.length!==823)throw new Error("Error interno en la página DID del 303.");
   }
