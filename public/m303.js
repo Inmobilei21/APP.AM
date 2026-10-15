@@ -724,8 +724,9 @@ function aeat303(draft){
     // IBAN válido (dígitos de control) y marca SEPA según la cuenta (Nota 2): «0» es solo para la página sin cuenta.
     const ibanOk=/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)&&[...(iban.slice(4)+iban.slice(0,4))].reduce((r,ch)=>Number(String(r)+(/[A-Z]/.test(ch)?ch.charCodeAt(0)-55:ch))%97,0)===1;
     if(!ibanOk||(iban.startsWith("ES")&&iban.length!==24))throw new Error(`El IBAN ${iban} no es válido: revísalo en la ficha del cliente.`);
-    // Marca SEPA solo en devoluciones (D, X): en domiciliaciones va en blanco (error EDID113 de la AEAT).
-    const EU="AT BE BG CY CZ DE DK EE FI FR GR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK".split(" "),sepa=code==="D"||code==="X"?(iban.startsWith("ES")?"1":EU.includes(iban.slice(0,2))?"2":"3"):" ";
+    // Marca SEPA (campo numérico): 1, 2 o 3 solo en devoluciones (D, X). En domiciliaciones, «0» (vacía): con «1» la
+    // AEAT da EDID113 (no puede tener contenido si no es a devolver) y en blanco, E060110 (caracteres no válidos).
+    const EU="AT BE BG CY CZ DE DK EE FI FR GR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK".split(" "),sepa=code==="D"||code==="X"?(iban.startsWith("ES")?"1":EU.includes(iban.slice(0,2))?"2":"3"):"0";
     did="<T303DID00>"+RAW(code==="X"?x.swift:"",11)+RAW(iban,34)+" ".repeat(70+35+30)+(code==="X"?RAW(iban.slice(0,2),2):"  ")+sepa+" ".repeat(617)+"</T303DID00>";
     if(did.length!==823)throw new Error("Error interno en la página DID del 303.");
   }
