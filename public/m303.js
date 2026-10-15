@@ -693,8 +693,9 @@ function aeat303(draft){
   const code=c["71"]>0?(x.code==="U"&&!x.iban?"I":x.code):c["71"]<0?x.code:"N";
   if((code==="D"||code==="X")&&!x.iban)throw new Error("Falta la cuenta para la devolución.");
   const yn=k=>f[k]?"1":"2";
+  // Prorrata especial y su revocación (Nota 6 del DR303): «1» solo en el último periodo; en el resto, «2».
   const fecha=f.concurso&&/^\d{8}$/.test(String(f.fechaConcurso||""))?f.fechaConcurso:" ".repeat(8);
-  const flags="2"+yn("redeme")+(f.soloRS?"1":f.simplificado?"2":"3")+yn("conjunta")+yn("caja")+yn("destCaja")+(last?yn("prorrata"):" ")+(last?yn("revocacion"):" ")+yn("concurso")+fecha+(f.concurso&&["1","2"].includes(f.tipoConcurso)?f.tipoConcurso:" ")+yn("sii")+(last?yn("exonerado"):"0")+(last&&f.exonerado?yn("volumen"):"0")+"0";
+  const flags="2"+yn("redeme")+(f.soloRS?"1":f.simplificado?"2":"3")+yn("conjunta")+yn("caja")+yn("destCaja")+(last?yn("prorrata"):"2")+(last?yn("revocacion"):"2")+yn("concurso")+fecha+(f.concurso&&["1","2"].includes(f.tipoConcurso)?f.tipoConcurso:" ")+yn("sii")+(last?yn("exonerado"):"0")+(last&&f.exonerado?yn("volumen"):"0")+"0";
   const m17=n=>NUM(c[n],17),s17=n=>SIG(c[n],17);
   let p1="<T30301000>"+" "+code+RAW(nif,9)+AN(draft.client.replace(/,/g," "),80)+year+period+flags
     +m17("150")+"00000"+m17("152")+m17("165")+"00000"+m17("167")+m17("01")+"00400"+m17("03")+m17("153")+"00000"+m17("155")+m17("04")+"01000"+m17("06")+m17("07")+"02100"+m17("09")
@@ -715,7 +716,8 @@ function aeat303(draft){
     p4+=" ".repeat(600)+"</T30304000>";}
   // Página DID: cuenta de domiciliación o devolución (también si la rectificativa tiene importe en la casilla 111).
   let did="";const iban=String(x.iban||"").replace(/\s+/g,"").toUpperCase();
-  if(iban&&(["U","D","X","I","G"].includes(code)||m.rect&&c["111"]>0)){
+  // Solo con domiciliación (U), devolución (D, X) o rectificativa con casilla 111: con «I» la AEAT rechaza la página DID.
+  if(iban&&(["U","D","X"].includes(code)||m.rect&&c["111"]>0)){
     const sepa=code==="D"||code==="X"||(m.rect&&c["111"]>0)?(iban.startsWith("ES")?"1":code==="X"?"2":"1"):"0";
     did="<T303DID00>"+RAW(code==="X"?x.swift:"",11)+RAW(iban,34)+" ".repeat(70+35+30)+(code==="X"?RAW(iban.slice(0,2),2):"  ")+sepa+" ".repeat(617)+"</T303DID00>";
     if(did.length!==823)throw new Error("Error interno en la página DID del 303.");
