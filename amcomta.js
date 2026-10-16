@@ -38,8 +38,9 @@ module.exports = function ({ dataDirectory }) {
 
     // Histórico de facturas recibidas: NIF usado y cuenta de gasto habitual de cada proveedor.
     const supplierByEntry = new Map(), invoiceNif = new Map(), withholding = new Map();
+    const customerByEntry = new Map(), customerNif = new Map();
     for (const row of rows("Facturas", ["Fecha", "Asiento", "Emitida", "Cuenta", "Cif", "Cuenta IRPF", "% IRPF", "ClavePercepcion"])) {
-      if (isTrue(row.Emitida)) continue;
+      if (isTrue(row.Emitida)) { const account = text(row.Cuenta);customerByEntry.set(dateKey(row.Fecha, row.Asiento), account);if (row.Cif && !customerNif.has(account)) customerNif.set(account, nif(row.Cif));continue; }
       const account = text(row.Cuenta), irpf = text(row["Cuenta IRPF"]);
       if (irpf && Number(row["% IRPF"])) {
         const key = `${irpf}|${Number(row["% IRPF"])}|${text(row.ClavePercepcion)}`, counter = withholding.get(account) || new Map();
@@ -48,9 +49,14 @@ module.exports = function ({ dataDirectory }) {
       supplierByEntry.set(dateKey(row.Fecha, row.Asiento), account);
       if (row.Cif && !invoiceNif.has(account)) invoiceNif.set(account, nif(row.Cif));
     }
-    const usage = new Map(), expenseUsed = new Set(), incomeUsage = new Map();
+    const usage = new Map(), expenseUsed = new Set(), incomeUsage = new Map(), customerUsage = new Map();
     for (const row of rows("Bases Factura", ["Fecha", "Asiento", "Emitida", "Cuenta"])) {
-      if (isTrue(row.Emitida)) { const income = text(row.Cuenta); if (income) incomeUsage.set(income, (incomeUsage.get(income) || 0) + 1); continue; }
+      if (isTrue(row.Emitida)) {
+        const income = text(row.Cuenta); if (income) incomeUsage.set(income, (incomeUsage.get(income) || 0) + 1);
+        const customer = customerByEntry.get(dateKey(row.Fecha, row.Asiento));
+        if (customer && income) { const counter = customerUsage.get(customer) || new Map();counter.set(income, (counter.get(income) || 0) + 1);customerUsage.set(customer, counter); }
+        continue;
+      }
       const supplier = supplierByEntry.get(dateKey(row.Fecha, row.Asiento)), expense = text(row.Cuenta);
       if (!supplier || !expense) continue;
       expenseUsed.add(expense);
@@ -73,6 +79,13 @@ module.exports = function ({ dataDirectory }) {
     const incomeCodes = new Set([...accountNames.keys()].filter(code => code.startsWith("7")));
     incomeUsage.forEach((count, code) => { if (accountNames.has(code)) incomeCodes.add(code); });
     const ingresos = [...incomeCodes].sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "", facturas: incomeUsage.get(cuenta) || 0 }));
+    // Clientes (cuentas 43…) con su NIF y la cuenta de ingresos que más usan en las facturas emitidas.
+    const customerCodes = new Set([...accountNames.keys(), ...records.keys()].filter(code => /^43/.test(code)));
+    const clientes = [...customerCodes].sort().map(cuenta => {
+      const record = records.get(cuenta) || {}, counter = customerUsage.get(cuenta);
+      const habitual = counter ? [...counter.entries()].sort((a, b) => b[1] - a[1])[0][0] : "";
+      return { cuenta, nombre: record.nombre || accountNames.get(cuenta) || "", nif: record.nif || customerNif.get(cuenta) || "", ingreso: record.gasto && /^7/.test(record.gasto) && accountNames.has(record.gasto) ? record.gasto : habitual, facturas: counter ? [...counter.values()].reduce((a, b) => a + b, 0) : 0 };
+    });
     const ingresoHabitual = [...incomeUsage.entries()].filter(([code]) => accountNames.has(code)).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
     const retenciones = [...accountNames.keys()].filter(code => code.startsWith("4751")).sort().map(cuenta => ({ cuenta, nombre: accountNames.get(cuenta) || "" }));
     // Facturas recibidas con retención de IRPF: base de los borradores de los modelos 115 (alquileres) y 111.
@@ -260,12 +273,12 @@ module.exports = function ({ dataDirectory }) {
       ivaRecibidas.push([entry.fecha, supplier.doc || supplier.concepto, record.nombre || accountNames.get(supplier.code) || supplier.code, record.nif || "", base, 0, 0, costs.every(line => line.code.startsWith("2")) ? 1 : 0, 0, "", 2]);
     }
     ivaRecibidas.sort((a, b) => a[0].localeCompare(b[0]));
-    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347, capital, resultados, resultadosEjercicio: pygYear, retencionesSoportadas, pagosACuenta, ivaEmitidas, ivaRecibidas };
+    return { empresa: text(general.Nombre), ejercicio: inicio ? inicio.getUTCFullYear() : "", digitos: digits, proveedores, clientes, gastos, ingresos, ingresoHabitual, retenciones, retencionesIrpf, nominas, trabajadores, terceros347, capital, resultados, resultadosEjercicio: pygYear, retencionesSoportadas, pagosACuenta, ivaEmitidas, ivaRecibidas };
   }
 
   // Versión del resumen: al leer más datos de la base se sube y los resúmenes antiguos se
   // recalculan solos a partir del .MDB guardado, sin tener que volver a subirlo.
-  const VERSION = 9;
+  const VERSION = 10;
   const mdbFor = client => fileFor(client).replace(/\.json$/, ".mdb");
   // ¿La empresa de la base es la del cliente elegido? (evita guardar la base de otro cliente)
   const words = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ")
