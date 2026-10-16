@@ -5965,3 +5965,24 @@ function amBankFromIban(value){const iban=String(value||"").replace(/\s+/g,"").t
 })();
 // Datos bancarios del cliente: se guardan en la ficha dentro de «commercialRegistry.bank» (las fichas antiguas, en «bank»).
 function clientBankData(client){return client?.commercialRegistry?.bank?.ibans?.length?client.commercialRegistry.bank:client?.bank||client?.commercialRegistry?.bank||{}}
+/* Botones del borrador de facturas: icono en cada uno, rueda mientras guarda y confirmación verde al terminar. */
+(function(){
+  const ICONS={
+    downloadInvoiceDraft:'<path d="M4 4h16v16H4z" fill="none"/><path d="M8 3h6l5 5v13H8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10.5 12.5l3 4m0-4l-3 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    downloadInvoiceEntries:'<path d="M12 4v11m0 0l-4-4m4 4l4-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 19h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
+    saveInvoiceBookOnly:'<path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h7V4M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+    confirmInvoiceDraft:'<path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'
+  };
+  const decorate=button=>{if(!ICONS[button.id]||button.querySelector("svg"))return;button.insertAdjacentHTML("afterbegin",`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[button.id]}</svg>`)};
+  const setup=()=>{
+    const box=document.querySelector(".invoice-draft-buttons");if(!box||box.dataset.decorated)return;box.dataset.decorated="1";
+    box.querySelectorAll("button").forEach(decorate);
+    // Los textos los cambian las propias acciones («Guardando…»): se vuelve a poner el icono y se marca el estado.
+    new MutationObserver(records=>{for(const r of records){const button=r.target.closest?.("button")||r.target;if(!(button instanceof HTMLButtonElement))continue;
+      if(r.type==="attributes"&&r.attributeName==="disabled"){button.classList.toggle("is-busy",button.disabled);if(!button.disabled){button.classList.add("is-done");setTimeout(()=>button.classList.remove("is-done"),1400)}}
+      decorate(button)}}).observe(box,{subtree:true,childList:true,attributes:true,attributeFilter:["disabled"]});
+    // Las descargas terminan al momento: confirmación breve.
+    box.addEventListener("click",event=>{const button=event.target.closest("button");if(!button||!/^download/.test(button.id))return;setTimeout(()=>{if(!button.disabled){button.classList.add("is-done");setTimeout(()=>button.classList.remove("is-done"),1400)}},80)});
+  };
+  new MutationObserver(setup).observe(document.documentElement,{childList:true,subtree:true});setup();
+})();

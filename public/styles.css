@@ -6104,3 +6104,19 @@ body.pq-open{overflow:hidden}
 .pq-viewer-body canvas,.pq-viewer-body img{background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.15);max-width:100%}
 .pq-viewer-msg{margin:auto;color:var(--muted);font-size:14px}
 @media(max-width:760px){.pq-viewer{padding:0}.pq-viewer-box{border-radius:0}.pq-viewer-body{padding:10px}}
+/* Botones del borrador de facturas: iconos, respuesta al pasar el ratón y al pulsar, y estado «guardando» */
+.invoice-draft-confirm{flex-wrap:wrap}
+.invoice-draft-confirm .invoice-draft-buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.invoice-draft-confirm .invoice-draft-buttons button{min-width:0;width:auto;height:46px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:9px;border-radius:13px;font-weight:700;cursor:pointer;transition:transform .12s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease,color .15s ease}
+.invoice-draft-confirm .invoice-draft-buttons button svg{width:17px;height:17px;flex:none}
+.invoice-draft-confirm .invoice-draft-buttons .secondary-button:hover:not(:disabled){border-color:#9fb0ee;background:#f4f6ff;color:var(--blue);transform:translateY(-1px);box-shadow:0 6px 16px rgba(24,41,155,.12)}
+.invoice-draft-confirm .invoice-draft-buttons .blue-button{min-width:260px;box-shadow:0 8px 20px rgba(14,24,53,.22)}
+.invoice-draft-confirm .invoice-draft-buttons .blue-button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 26px rgba(24,41,155,.32);background:var(--blue)}
+.invoice-draft-confirm .invoice-draft-buttons button:active:not(:disabled){transform:translateY(0) scale(.97)}
+.invoice-draft-confirm .invoice-draft-buttons button:focus-visible{outline:3px solid #c7d0f5;outline-offset:2px}
+.invoice-draft-confirm .invoice-draft-buttons button.is-busy{cursor:progress;opacity:.9}
+.invoice-draft-confirm .invoice-draft-buttons button.is-busy svg{display:none}
+.invoice-draft-confirm .invoice-draft-buttons button.is-busy::before{content:"";width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:invoiceSpin .7s linear infinite}
+.invoice-draft-confirm .invoice-draft-buttons button.is-done{border-color:#86d3a8;background:#ecf9f1;color:#0f7a4a}
+@keyframes invoiceSpin{to{transform:rotate(360deg)}}
+@media(max-width:760px){.invoice-draft-confirm .invoice-draft-buttons button,.invoice-draft-confirm .invoice-draft-buttons .blue-button{width:100%;min-width:0}}
