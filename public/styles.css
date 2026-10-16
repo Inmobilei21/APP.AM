@@ -6123,3 +6123,8 @@ body.pq-open{overflow:hidden}
 .am-fichas{margin:8px 0 0;padding:10px 14px;border-radius:12px;background:#f5f7fb;border:1px solid #e3e7f0;font-size:12.5px;color:#4c5870}
 .am-fichas p{margin:2px 0}.am-fichas-con{margin-left:8px;font-weight:700}.am-fichas-con.ok{color:#0f7a4a}.am-fichas-con.off{color:#9a5b00}
 .am-fichas-err{color:#b42318}.am-fichas-err button{height:28px;padding:0 10px;margin-left:6px;font-size:12px}
+/* Barra al seleccionar texto en la vista previa de facturas */
+.pv-sel-bar{position:fixed;z-index:3000;display:flex;align-items:center;gap:4px;padding:5px;border-radius:12px;background:#0f2557;box-shadow:0 12px 30px rgba(8,20,55,.35);font-size:12px}
+.pv-sel-bar span{color:#a9b8ec;font-weight:700;padding:0 4px 0 8px}
+.pv-sel-bar button{border:0;border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font:700 12px inherit;font-family:inherit;padding:6px 9px;cursor:pointer;white-space:nowrap}
+.pv-sel-bar button:hover{background:rgba(255,255,255,.22)}.pv-sel-bar button.main{background:#fff;color:#0f2557}

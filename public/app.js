@@ -2725,8 +2725,8 @@ async function invoiceFileText(file,onOcr){
     const result=await worker.recognize(canvas);
     return (result.data.text||"").replace(/^(N[uú]mero\s*[:#-]?\s*[A-Z0-9][A-Z0-9\-/.]{1,})\b.*$/gim,"$1").replace(/^(Fecha\s*[:.-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b.*$/gim,"$1");
   }
-  const pdfjs=await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs");
-  pdfjs.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+  const pdfjs=await import("/vendor/pdfjs/pdf.min.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc="/vendor/pdfjs/pdf.worker.min.mjs";
   const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;let text="";
   for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
     const page=await pdf.getPage(pageNumber),content=await page.getTextContent(),lines=[];
@@ -4859,8 +4859,20 @@ setInterval(refreshSuggestions,15000);
       return{...cab,...(k===0?retencion:{}),concept:[concepto,t.concepto&&t.concepto!==concepto?String(t.concepto).trim():""].filter(Boolean).join(" · "),base:dinero(t.base),vatRate:String(num(t.tipo)),vat:dinero(t.cuota),total:linea.toFixed(2),observation:[...new Set([...notas,...comun].filter(Boolean))].join(". ")};
     });
   }
+  // Si la conexión se corta (p. ej. el servidor se está reiniciando) o el servidor está ocupado, se reintenta antes
+  // de pasar al lector anterior.
+  async function enviarConReintentos(file,client){
+    const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    for(let intento=1;;intento++){
+      try{
+        const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||""),"X-Client-Nif":encodeURIComponent(invoiceAccounting.client===client?invoiceAccounting.cif||"":""),"X-Invoice-Type":invoiceProcessorType()},body:file});
+        if([429,502,503,504].includes(r.status)&&intento<4){await wait(intento*4000);continue}
+        return r;
+      }catch(error){if(intento>=4)throw error;await wait(intento*4000)}
+    }
+  }
   async function leerConIA(file,client){
-    const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||""),"X-Client-Nif":encodeURIComponent(invoiceAccounting.client===client?invoiceAccounting.cif||"":""),"X-Invoice-Type":invoiceProcessorType()},body:file});
+    const r=await enviarConReintentos(file,client);
     const data=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(data.error||`Error ${r.status}`);
     const lista=Array.isArray(data.facturas)?data.facturas:[];
@@ -6003,4 +6015,56 @@ function clientBankData(client){return client?.commercialRegistry?.bank?.ibans?.
     box.addEventListener("click",event=>{const button=event.target.closest("button");if(!button||!/^download/.test(button.id))return;setTimeout(()=>{if(!button.disabled){button.classList.add("is-done");setTimeout(()=>button.classList.remove("is-done"),1400)}},80)});
   };
   new MutationObserver(setup).observe(document.documentElement,{childList:true,subtree:true});setup();
+})();
+/* Vista previa de facturas: al seleccionar texto del PDF sale una barra para copiarlo o pasarlo directamente al campo
+   de la factura en el borrador (nº, fecha, proveedor, NIF, importes). */
+(function(){
+  const clean=text=>String(text||"").replace(/\u0000/g,"-").replace(/[ \s]+/g," ").trim();
+  const MONTHS={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12,enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12,jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12,ene:1,abr:4,ago:8,dic:12};
+  const pad=n=>String(n).padStart(2,"0");
+  function toDate(text){
+    const t=clean(text).toLowerCase();let m=t.match(/(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})/);if(m)return `${pad(m[1])}/${pad(m[2])}/${m[3].length===2?"20"+m[3]:m[3]}`;
+    m=t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return `${pad(m[3])}/${pad(m[2])}/${m[1]}`;
+    m=t.match(/([a-záéíóú]+)\.?\s+(\d{1,2}),?\s+(\d{4})/);if(m&&MONTHS[m[1]])return `${pad(m[2])}/${pad(MONTHS[m[1]])}/${m[3]}`;
+    m=t.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)\.?\s+(?:de\s+)?(\d{4})/);if(m&&MONTHS[m[2]])return `${pad(m[1])}/${pad(MONTHS[m[2]])}/${m[3]}`;
+    return clean(text);
+  }
+  const FIELDS=[["number","Nº factura"],["date","Fecha"],["supplier","Nombre"],["supplierNif","NIF"],["base","Base"],["vat","Cuota"],["total","Total"]];
+  let bar=null,selected="";
+  const hide=()=>{bar?.remove();bar=null};
+  function show(rect){
+    hide();bar=document.createElement("div");bar.className="pv-sel-bar";
+    bar.innerHTML=`<button type="button" data-pv="copy" class="main">Copiar</button><span>Pasar a:</span>${FIELDS.map(([f,l])=>`<button type="button" data-pv="${f}">${l}</button>`).join("")}`;
+    document.body.append(bar);
+    const w=bar.offsetWidth,h=bar.offsetHeight,left=Math.max(8,Math.min(rect.left+rect.width/2-w/2,innerWidth-w-8)),top=rect.top-h-10>8?rect.top-h-10:rect.bottom+10;
+    bar.style.left=`${left}px`;bar.style.top=`${top}px`;
+    bar.addEventListener("mousedown",event=>event.preventDefault());
+    bar.addEventListener("click",async event=>{
+      const b=event.target.closest("[data-pv]");if(!b)return;const field=b.dataset.pv;
+      if(field==="copy"){try{await navigator.clipboard.writeText(selected)}catch{document.execCommand("copy")}b.textContent="✓ Copiado";setTimeout(hide,700);return}
+      const modal=document.querySelector("#invoicePreview"),index=Number(modal?.dataset.index);
+      const input=document.querySelector(`#invoiceDraftRows [data-invoice-row="${index}"][data-invoice-field="${field}"]`);
+      if(!input){b.textContent="No está en el borrador";return}
+      let value=selected;
+      if(field==="date")value=toDate(selected);
+      else if(["base","vat","total"].includes(field)){const amount=typeof invoiceAmount==="function"?invoiceAmount(selected.replace(/[^\d.,\-]/g,"")):selected;value=typeof invoiceFormatField==="function"?invoiceFormatField(field,amount):amount}
+      else if(field==="supplierNif")value=selected.toUpperCase().replace(/[^A-Z0-9]/g,"");
+      input.value=value;input.title=value;input.classList.remove("needs-account");
+      input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("focusout",{bubbles:true}));
+      b.textContent="✓";setTimeout(()=>{hide();if(typeof openInvoicePreview==="function")openInvoicePreview(index)},450);
+    });
+  }
+  document.addEventListener("mouseup",event=>{
+    if(bar&&bar.contains(event.target))return;
+    setTimeout(()=>{
+      const sel=getSelection(),doc=document.querySelector("#invoicePreviewDoc");
+      if(!doc||!sel||sel.isCollapsed||!doc.contains(sel.anchorNode)){hide();return}
+      selected=clean(sel.toString());if(!selected||selected.length>300){hide();return}
+      show(sel.getRangeAt(0).getBoundingClientRect());
+    },10);
+  });
+  // Al copiar con Ctrl+C desde el PDF, los caracteres sin traducir de algunas tipografías (el guion) salen bien.
+  document.addEventListener("copy",event=>{const sel=getSelection();if(!sel||!document.querySelector("#invoicePreviewDoc")?.contains(sel.anchorNode))return;event.clipboardData.setData("text/plain",clean(sel.toString()));event.preventDefault()});
+  document.addEventListener("scroll",event=>{if(bar&&event.target?.id==="invoicePreviewDoc")hide()},true);
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")hide()});
 })();
