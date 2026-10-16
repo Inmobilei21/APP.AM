@@ -70,7 +70,7 @@ async function selectTaxDraftClient(name,clients){
 // Sube la base de AMCOMTA (.MDB) de un cliente. Si la empresa de la base no coincide con el
 // cliente se pide confirmación antes de guardarla. Devuelve el resumen guardado o null.
 async function uploadClientAccountingBase(client,file){
-  const send=force=>fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}${force?"&force=1":""}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
+  const send=force=>fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}${force?"&force=1":""}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream","X-File-Name":encodeURIComponent(file.name||"")},body:file});
   let response=await send(false),result=await response.json().catch(()=>({}));
   if(response.status===409){
     if(!await appConfirm({eyebrow:"BASE DE DATOS DE CONTABILIDAD",title:"¿Es de otra empresa?",message:`${result.error}\n\n¿Seguro que quieres guardarla como la contabilidad de ${client}?`,ok:"Guardar igualmente",danger:true}))return null;

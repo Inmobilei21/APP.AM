@@ -288,11 +288,11 @@ module.exports = function ({ dataDirectory }) {
     if (!target.length || !found.size) return true;
     return target.filter(word => found.has(word)).length / target.length >= 0.5;
   }
-  async function save(client, buffer, user, force = false) {
+  async function save(client, buffer, user, force = false, archivo = "") {
     const summary = await summarize(buffer);
     if (!force && !sameCompany(client, summary.empresa)) throw Object.assign(new Error(`Esta base de datos es de «${summary.empresa}», no de «${client}».`), { status: 409, empresa: summary.empresa });
     let previous = null;try { previous = JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch {}
-    const record = { client, ...summary, fichasNuevas: previous?.fichasNuevas || [], version: VERSION, actualizado: new Date().toISOString(), actualizadoPor: user?.name || "" };
+    const record = { client, ...summary, archivo: text(archivo).slice(0, 120) || previous?.archivo || "", fichasNuevas: previous?.fichasNuevas || [], version: VERSION, actualizado: new Date().toISOString(), actualizadoPor: user?.name || "" };
     fs.mkdirSync(directory, { recursive: true });
     fs.writeFileSync(mdbFor(client), buffer);
     fs.writeFileSync(fileFor(client), JSON.stringify(record));
@@ -326,18 +326,22 @@ module.exports = function ({ dataDirectory }) {
   }
   // Fichas creadas desde la app y aún no leídas de la base: se suman a los proveedores hasta que
   // AMCOMTA las tenga (al subir de nuevo el .MDB, la ficha de la base manda y la provisional desaparece).
+  // Fichas creadas desde la app que aún no están en la base leída: se suman a proveedores (40/41) o a clientes (43).
   function withNewAccounts(record) {
     if (!record) return record;
-    const known = new Set((record.proveedores || []).filter(item => !item.nueva).map(item => item.cuenta));
+    const known = new Set([...(record.proveedores || []), ...(record.clientes || [])].filter(item => !item.nueva).map(item => item.cuenta));
     const pending = (record.fichasNuevas || []).filter(item => !known.has(item.cuenta));
-    return { ...record, fichasNuevas: pending, proveedores: [...(record.proveedores || []).filter(item => !item.nueva), ...pending.map(item => ({ ...item, nueva: true, facturas: 0 }))].sort((a, b) => a.cuenta.localeCompare(b.cuenta)) };
+    const add = (list, isCustomer) => [...(list || []).filter(item => !item.nueva), ...pending.filter(item => /^43/.test(item.cuenta) === isCustomer).map(item => ({ ...item, nueva: true, facturas: 0, ...(isCustomer ? { ingreso: item.gasto } : {}) }))].sort((a, b) => a.cuenta.localeCompare(b.cuenta));
+    return { ...record, fichasNuevas: pending, proveedores: add(record.proveedores, false), clientes: add(record.clientes, true) };
   }
   function addAccounts(client, fichas) {
     let record = null;try { record = JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch { return null; }
     const list = new Map((record.fichasNuevas || []).map(item => [item.cuenta, item]));
     for (const item of fichas) {
       const cuenta = text(item.cuenta).replace(/\D/g, "");if (!/^4\d{5,11}$/.test(cuenta)) continue;
-      list.set(cuenta, { cuenta, nombre: text(item.nombre).slice(0, 100), nif: nif(item.nif).slice(0, 20), gasto: text(item.gasto).replace(/\D/g, ""), tipoEntidad: text(item.tipoEntidad).slice(0, 20), modalidad: Number(item.modalidad) || 0, pais: text(item.pais).toUpperCase().slice(0, 2), creada: new Date().toISOString() });
+      // Queda «pendiente» hasta que el conector AMCOMTA del NAS la da de alta en la base del cliente.
+      const previous = list.get(cuenta);
+      list.set(cuenta, { cuenta, nombre: text(item.nombre).slice(0, 100), nif: nif(item.nif).slice(0, 20), gasto: text(item.gasto).replace(/\D/g, ""), tipoEntidad: text(item.tipoEntidad).slice(0, 20), modalidad: Number(item.modalidad) || 0, pais: text(item.pais).toUpperCase().slice(0, 2), creada: previous?.creada || new Date().toISOString(), estado: previous?.estado === "creada" ? "creada" : "pendiente", mensaje: previous?.estado === "creada" ? previous.mensaje : "", base: previous?.base || "" });
     }
     record.fichasNuevas = [...list.values()];
     fs.writeFileSync(fileFor(client), JSON.stringify(record));
@@ -346,5 +350,46 @@ module.exports = function ({ dataDirectory }) {
   function remove(client) {
     for (const file of [fileFor(client), mdbFor(client)]) { try { fs.unlinkSync(file); } catch {} }
   }
-  return { save, load, remove, summarize, sameCompany, addAccounts };
+  /* ---------- Conector AMCOMTA (NAS): fichas pendientes de crear en las bases y su resultado ---------- */
+  const EU = new Set("AT BE BG CY CZ DE DK EE EL GR FI FR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK XI".split(" "));
+  // Valores en las columnas de la tabla Fichas de AMCOMTA. TipoIdentificacion: 0 NIF español, 2 NIF-IVA (UE), 6 otro.
+  // TipoEntidad: 1 en las fichas españolas de las bases revisadas, 2 en extranjeras y 0 sin determinar (pendiente de
+  // confirmar con la prueba en AMCOMTA).
+  function fichaCampos(item) {
+    const pais = item.pais || "ES", foreign = pais !== "ES";
+    return { Nif: item.nif || "", "Razón Social": item.nombre || "", Contrapartida: item.gasto || "", ModalidadFiscal: Number(item.modalidad) || 0, TipoEntidad: item.tipoEntidad === "sin" ? 0 : foreign ? 2 : 1, PaisIdentificacion: foreign ? pais : "", TipoIdentificacion: foreign ? (EU.has(pais) ? 2 : 6) : 0 };
+  }
+  const fichaId = (client, cuenta) => `${crypto.createHash("sha1").update(String(client).toLocaleLowerCase("es")).digest("hex").slice(0, 16)}:${cuenta}`;
+  function records() {
+    let files = [];try { files = fs.readdirSync(directory).filter(name => name.endsWith(".json")); } catch {}
+    return files.map(name => { try { return JSON.parse(fs.readFileSync(path.join(directory, name), "utf8")); } catch { return null; } }).filter(Boolean);
+  }
+  function pendingFichas() {
+    const out = [];
+    for (const record of records()) {
+      const known = new Set([...(record.proveedores || []), ...(record.clientes || [])].map(item => item.cuenta));
+      for (const item of record.fichasNuevas || []) {
+        if (known.has(item.cuenta) || !["pendiente", "esperando", undefined].includes(item.estado)) continue;
+        out.push({ id: fichaId(record.client, item.cuenta), cliente: record.client, empresa: record.empresa || "", ejercicio: String(record.ejercicio || ""), archivo: record.archivo || "", cuenta: item.cuenta, nombreCuenta: item.nombre || "", campos: fichaCampos(item) });
+      }
+    }
+    return out;
+  }
+  function fichaResult({ id, estado, mensaje, base }) {
+    const [hash, cuenta] = String(id || "").split(":");if (!hash || !cuenta) return false;
+    for (const record of records()) {
+      if (fichaId(record.client, cuenta) !== `${hash}:${cuenta}`) continue;
+      const item = (record.fichasNuevas || []).find(f => f.cuenta === cuenta);if (!item) return false;
+      Object.assign(item, { estado: ["creada", "esperando", "error"].includes(estado) ? estado : "error", mensaje: text(mensaje).slice(0, 300), base: text(base).slice(0, 120), revisada: new Date().toISOString() });
+      fs.writeFileSync(fileFor(record.client), JSON.stringify(record));return true;
+    }
+    return false;
+  }
+  // Reintentar una ficha con error (desde la app).
+  function retryFicha(client, cuenta) {
+    let record = null;try { record = JSON.parse(fs.readFileSync(fileFor(client), "utf8")); } catch { return null; }
+    const item = (record.fichasNuevas || []).find(f => f.cuenta === cuenta);if (item) { item.estado = "pendiente";item.mensaje = ""; }
+    fs.writeFileSync(fileFor(client), JSON.stringify(record));return withNewAccounts(record);
+  }
+  return { save, load, remove, summarize, sameCompany, addAccounts, pendingFichas, fichaResult, retryFicha };
 };

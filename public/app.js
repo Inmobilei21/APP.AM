@@ -2880,14 +2880,31 @@ function invoiceAccountTitle(field,value){
   return item?`${account} · ${item.nombre}`:(account?`${account} · no existe en la contabilidad cargada`:"Sin cuenta: escribe p. ej. 410.98 y se completa con ceros");
 }
 function renderInvoiceAccountingStatus(){
-  const box=document.querySelector("#invoiceAccounting");if(!box)return;
+  const box=document.querySelector("#invoiceAccounting");if(!box)return;document.querySelectorAll(".am-fichas").forEach(el=>el.remove());
   const {client,data,loading}=invoiceAccounting,issued=invoiceProcessorType()==="emitidas";box.hidden=!client||(!invoiceReceivedMode()&&!issued);if(box.hidden)return;
   const date=data?.actualizado?new Intl.DateTimeFormat("es-ES").format(new Date(data.actualizado)):"";
   const has=data?.proveedores?.length;
   box.className=`invoice-accounting${has?" ready":""}`;
   box.innerHTML=loading?`<span>⟳</span><p><strong>${escapeHtml(loading)}</strong></p>`:`<span>${has?"✓":"!"}</span><p>${has?`<strong>Contabilidad AMCOMTA: ${escapeHtml(data.empresa||client)}${data.ejercicio?` · ejercicio ${escapeHtml(data.ejercicio)}`:""}</strong><small>${issued?`${(data.clientes||[]).length} clientes · ${(data.ingresos||[]).length} cuentas de ingresos`:`${data.proveedores.length} proveedores · ${data.gastos.length} cuentas de gasto · ${(data.retenciones||[]).length} cuentas de retención`} · actualizada el ${escapeHtml(date)}${issued&&!(data.clientes||[]).length?" · vuelve a cargar la base para ver los clientes":""}</small>`:`<strong>Sin contabilidad de AMCOMTA para este cliente</strong><small>Carga su base de datos (el archivo .MDB de la carpeta VINCULACIÓN) para relacionar las facturas con sus cuentas.</small>`}</p><label class="secondary-button"><input type="file" accept=".mdb,.accdb" hidden>${has?"Actualizar base (.MDB)":"Cargar base (.MDB)"}</label>`;
   box.querySelector("input[type=file]")?.addEventListener("change",event=>{const file=event.target.files[0];if(file)uploadInvoiceAccounting(file)});
+  renderAmcomtaFichas(box);
 }
+/* Fichas nuevas creadas desde la app y su paso a AMCOMTA a través del conector del NAS */
+let amConnector={at:0,data:null};
+async function amConnectorStatus(){if(Date.now()-amConnector.at<30000&&amConnector.data)return amConnector.data;try{amConnector={at:Date.now(),data:await apiJson("/api/conector/amcomta")}}catch{amConnector={at:Date.now(),data:{configurado:false}}}return amConnector.data}
+async function renderAmcomtaFichas(box){
+  const data=invoiceAccounting.data,fichas=(data?.fichasNuevas||[]);if(!fichas.length)return;
+  const status=await amConnectorStatus();if(!box.isConnected||box.hidden||invoiceAccounting.data!==data)return;document.querySelectorAll(".am-fichas").forEach(el=>el.remove());
+  const count=estado=>fichas.filter(f=>(f.estado||"pendiente")===estado).length,minutes=status.visto?Math.round((Date.now()-new Date(status.visto).getTime())/60000):null;
+  const conector=!status.configurado?"conector sin configurar":minutes===null?"el conector del servidor aún no se ha conectado":minutes<=3?"conector conectado":`conector sin conexión desde hace ${minutes} min`;
+  const errors=fichas.filter(f=>f.estado==="error");
+  const div=document.createElement("div");div.className="am-fichas";
+  div.innerHTML=`<p><b>Fichas nuevas para AMCOMTA:</b> ${[count("pendiente")&&`${count("pendiente")} pendientes`,count("esperando")&&`${count("esperando")} esperando a que se cierre la base`,count("creada")&&`${count("creada")} creadas`,errors.length&&`${errors.length} con error`].filter(Boolean).join(" · ")} ${status.configurado?`<span class="am-fichas-con ${minutes!==null&&minutes<=3?"ok":"off"}">● ${escapeHtml(conector)}</span>`:""}</p>${errors.map(f=>`<p class="am-fichas-err">${escapeHtml(f.cuenta)} ${escapeHtml(f.nombre)}: ${escapeHtml(f.mensaje||"error")} <button type="button" class="secondary-button" data-am-retry="${escapeHtml(f.cuenta)}">Reintentar</button></p>`).join("")}`;
+  box.after(div);
+  div.addEventListener("click",async event=>{const b=event.target.closest("[data-am-retry]");if(!b)return;b.disabled=true;try{invoiceAccounting.data=await apiJson("/api/contabilidad/fichas/reintentar",{method:"POST",body:JSON.stringify({client:invoiceAccounting.client,cuenta:b.dataset.amRetry})});renderInvoiceAccountingStatus()}catch(error){alert(error.message)}});
+}
+// Cuando el conector termina, la app recibe el aviso de cambios y vuelve a leer la contabilidad del cliente.
+window.addEventListener("app-am-changes",event=>{if(event.detail?.areas?.includes("contabilidad")&&invoiceAccounting.client&&!invoiceAccounting.loading)apiJson(`/api/contabilidad/base?client=${encodeURIComponent(invoiceAccounting.client)}`).then(data=>{if(data&&invoiceAccounting.client===data.client){invoiceAccounting.data=data;renderInvoiceAccountingStatus()}}).catch(()=>{})});
 function refreshDraftAccounts(){
   if(document.querySelector("#invoiceDraft")?.hidden!==false||!invoiceDraftRecords.length)return;
   invoiceDraftRecords=readInvoiceDraft();renderInvoiceDraft(invoiceDraftRecords);
@@ -2901,7 +2918,7 @@ async function uploadInvoiceAccounting(file){
   const client=invoiceAccounting.client;if(!client)return;
   invoiceAccounting.loading=`Leyendo la base de datos ${file.name} (${Math.max(1,Math.round(file.size/1048576))} MB)…`;renderInvoiceAccountingStatus();
   try{
-    const response=await fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream"},body:file});
+    const response=await fetch(`/api/contabilidad/base?client=${encodeURIComponent(client)}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/octet-stream","X-File-Name":encodeURIComponent(file.name||"")},body:file});
     const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"No se pudo leer la base de datos.");
     if(invoiceAccounting.client===client)invoiceAccounting.data=result;
   }catch(error){alert(error.message)}
@@ -3109,8 +3126,9 @@ function amNewAccountDefaults(record){
   return{nif,pais,tipoEntidad,modalidad};
 }
 function amNextAccounts(count){
-  const list=(invoiceAccounting.data?.proveedores||[]).map(item=>item.cuenta).filter(code=>/^4[01]0\d+$/.test(code)),digits=invoiceAccounting.data?.digitos||10;
-  const prefix=(()=>{const counts=new Map();list.forEach(code=>counts.set(code.slice(0,3),(counts.get(code.slice(0,3))||0)+1));return[...counts].sort((a,b)=>b[1]-a[1])[0]?.[0]||"410"})();
+  const issued=invoiceProcessorType()==="emitidas";
+  const list=amParties().map(item=>item.cuenta).filter(code=>(issued?/^43\d+$/:/^4[01]0\d+$/).test(code)),digits=invoiceAccounting.data?.digitos||10;
+  const prefix=(()=>{const counts=new Map();list.forEach(code=>counts.set(code.slice(0,3),(counts.get(code.slice(0,3))||0)+1));return[...counts].sort((a,b)=>b[1]-a[1])[0]?.[0]||(issued?"430":"410")})();
   const used=new Set(list),numbers=list.filter(code=>code.startsWith(prefix)&&code.length===digits&&!/999$/.test(code)).map(code=>Number(code.slice(3)));
   let next=(numbers.length?Math.max(...numbers):0)+1;const out=[];
   while(out.length<count){const code=prefix+String(next++).padStart(digits-3,"0");if(!used.has(code))out.push(code)}
@@ -3134,7 +3152,7 @@ function amCreateAccountsDialog(missing){
     const rows=missing.map((item,index)=>{const d=amNewAccountDefaults(item.record),code=item.account||codes[index];
       return `<tr data-am-new="${index}"><td><input data-f="cuenta" value="${escapeHtml(code)}" inputmode="decimal" maxlength="12" title="Escribe 410.98 y se completa con ceros"></td><td><input data-f="nombre" value="${escapeHtml(String(item.record.supplier||"").toUpperCase())}" maxlength="100"></td><td><input data-f="nif" value="${escapeHtml(d.nif)}" maxlength="20"${invoiceTaxIdValid(d.nif)?"":' class="needs-account" title="Revisa el NIF"'}></td><td><select data-f="tipoEntidad">${AM_ENTIDADES.map(([v,l])=>`<option value="${v}"${v===d.tipoEntidad?" selected":""}>${l}</option>`).join("")}</select></td><td><select data-f="modalidad">${AM_MODALIDADES.map((l,i)=>`<option value="${i}"${i===d.modalidad?" selected":""}>${escapeHtml(l)}</option>`).join("")}</select></td><td><input data-f="pais" value="${escapeHtml(d.pais)}" maxlength="2" class="am-new-pais"></td><td class="am-new-n">${item.groups.length}</td></tr>`}).join("");
     const shade=document.createElement("div");shade.className="app-confirm";shade.setAttribute("role","dialog");shade.setAttribute("aria-modal","true");
-    shade.innerHTML=`<div class="app-confirm-box am-new-box"><header><p class="eyebrow">CUENTAS NO CREADAS</p><h3>${missing.length===1?"1 proveedor no tiene":`${missing.length} proveedores no tienen`} cuenta en AMCOMTA</h3><p class="app-confirm-sub">¿Crearlas? Revisa los datos de la ficha: el asiento se importará con esta cuenta, su nombre y su NIF.</p></header>
+    shade.innerHTML=`<div class="app-confirm-box am-new-box"><header><p class="eyebrow">CUENTAS NO CREADAS</p><h3>${(()=>{const who=invoiceProcessorType()==="emitidas"?["cliente","clientes"]:["proveedor","proveedores"];return missing.length===1?`1 ${who[0]} no tiene`:`${missing.length} ${who[1]} no tienen`})()} cuenta en AMCOMTA</h3><p class="app-confirm-sub">¿Crear la ficha? Revisa sus datos: la ficha queda guardada, pendiente de darse de alta en AMCOMTA, y el asiento se importará con esta cuenta.</p></header>
       <div class="am-new-wrap"><table class="am-new"><thead><tr><th>Cuenta</th><th>Razón social</th><th>NIF</th><th>Tipo entidad</th><th>Modalidad fiscal</th><th>País</th><th>Fras.</th></tr></thead><tbody>${rows}</tbody></table></div>
       <footer><button type="button" class="secondary-button" data-am="cancel">Revisar</button><button type="button" class="secondary-button" data-am="skip">Importar sin crear</button><button type="button" class="primary blue-button" data-am="ok">Crear cuentas y continuar</button></footer></div>`;
     const done=value=>{document.removeEventListener("keydown",keys);shade.classList.add("out");setTimeout(()=>shade.remove(),160);resolve(value)};
@@ -3176,7 +3194,7 @@ async function confirmInvoiceDraft(client){
   const noDate=groups.filter(group=>!invoiceDateParts(group.record.date));
   if(noDate.length){alert(`Corrige la fecha (DD/MM/AAAA) de ${noDate.length===1?"la factura":"las facturas"} ${noDate.map(group=>group.record.number||group.record.supplier||group.record.file).slice(0,8).join(", ")}${noDate.length>8?"…":""}: hace falta para guardarla en su trimestre.`);return""}
   let entries=null;
-  if(received&&groups.length&&!invoiceWithoutAccounting()&&invoiceAccounting.data?.proveedores?.length){if(!await amCreateMissingAccounts(groups,client))return"";records=readInvoiceDraft();groups=invoiceDocumentGroups(records)}
+  if((received||invoiceProcessorType()==="emitidas")&&groups.length&&!invoiceWithoutAccounting()&&amParties().length){if(!await amCreateMissingAccounts(groups,client))return"";records=readInvoiceDraft();groups=invoiceDocumentGroups(records)}
   const others=otherDocumentGroups(groups);
   const issuedWithAccounts=!received&&invoiceProcessorType()==="emitidas"&&amParties().length>0;
   if((received||issuedWithAccounts)&&groups.length&&!invoiceWithoutAccounting()){entries=amcomtaEntriesText(records);if(entries.missing&&!await appConfirm({eyebrow:"FALTAN CUENTAS",title:`${entries.missing} de ${entries.invoices} ${entries.invoices===1?"factura no tiene":"facturas no tienen"} cuenta`,message:"Les falta la cuenta de proveedor, de gasto o de retención. Se importarán con la cuenta vacía.",ok:"Continuar igualmente",cancel:"Revisar"}))return""}

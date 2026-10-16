@@ -6120,3 +6120,6 @@ body.pq-open{overflow:hidden}
 .invoice-draft-confirm .invoice-draft-buttons button.is-done{border-color:#86d3a8;background:#ecf9f1;color:#0f7a4a}
 @keyframes invoiceSpin{to{transform:rotate(360deg)}}
 @media(max-width:760px){.invoice-draft-confirm .invoice-draft-buttons button,.invoice-draft-confirm .invoice-draft-buttons .blue-button{width:100%;min-width:0}}
+.am-fichas{margin:8px 0 0;padding:10px 14px;border-radius:12px;background:#f5f7fb;border:1px solid #e3e7f0;font-size:12.5px;color:#4c5870}
+.am-fichas p{margin:2px 0}.am-fichas-con{margin-left:8px;font-weight:700}.am-fichas-con.ok{color:#0f7a4a}.am-fichas-con.off{color:#9a5b00}
+.am-fichas-err{color:#b42318}.am-fichas-err button{height:28px;padding:0 10px;margin-left:6px;font-size:12px}

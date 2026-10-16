@@ -317,6 +317,7 @@ async function listDavPdfs(rootPath) {
 // consulta cada pocos segundos (GET /api/changes). Las carpetas de declaraciones que se están usando se revisan cada
 // 3 minutos por si alguien añade un PDF directamente en el servidor, sin pasar por la app.
 const changes = { rev: 1, areas: {} };
+let connectorStatus = { visto: "", version: "", bases: [] };
 function markChanged(area) { changes.rev++;changes.areas[area] = changes.rev;if (area === "archivos") webdavPdfCache.clear(); }
 const pdfWatch = new Map();
 const pdfSignature = files => files.map(file => `${file.path}|${file.modified || ""}`).sort().join("\n");
@@ -972,6 +973,28 @@ http.createServer((req, res) => {
       return record ? json(res, 200, record) : json(res, 404, { error: "El cliente no tiene base de AMCOMTA." });
     }).catch(() => json(res, 400, { error: "No se han podido guardar las cuentas." }));
   }
+  // Conector AMCOMTA del NAS: con su propia clave (variable AMCOMTA_CONNECTOR_TOKEN en Railway y en el contenedor).
+  if (requestPath.startsWith("/api/conector/amcomta/") && req.method === "POST") {
+    const token = process.env.AMCOMTA_CONNECTOR_TOKEN || "", sent = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+    if (!token) return json(res, 503, { error: "Falta AMCOMTA_CONNECTOR_TOKEN en el servidor." });
+    if (!sent || sent.length !== token.length || !crypto.timingSafeEqual(Buffer.from(sent), Buffer.from(token))) return json(res, 401, { error: "Clave del conector no válida." });
+    return readJson(req, 512 * 1024).then(body => {
+      if (requestPath === "/api/conector/amcomta/estado") {
+        connectorStatus = { visto: new Date().toISOString(), version: cleanText(body.version, 20), bases: (Array.isArray(body.bases) ? body.bases : []).slice(0, 500).map(b => ({ archivo: cleanText(b.archivo, 120), empresa: cleanText(b.empresa, 160), ejercicio: cleanText(b.ejercicio, 4), abierta: b.abierta === true })) };
+        return json(res, 200, { fichas: amcomta.pendingFichas() });
+      }
+      if (requestPath === "/api/conector/amcomta/resultado") { const ok = amcomta.fichaResult(body);if (ok) markChanged("contabilidad");return json(res, ok ? 200 : 404, { ok }); }
+      return json(res, 404, { error: "No encontrado." });
+    }).catch(() => json(res, 400, { error: "Petición no válida." }));
+  }
+  if (requestPath === "/api/conector/amcomta" && req.method === "GET") {
+    if (!requireUser(req, res)) return;
+    return json(res, 200, { configurado: Boolean(process.env.AMCOMTA_CONNECTOR_TOKEN), ...connectorStatus });
+  }
+  if (requestPath === "/api/contabilidad/fichas/reintentar" && req.method === "POST") {
+    if (!requireUser(req, res)) return;
+    return readJson(req).then(({ client, cuenta }) => { const record = amcomta.retryFicha(cleanText(client, 200), String(cuenta || "").replace(/\D/g, ""));return record ? json(res, 200, record) : json(res, 404, { error: "No encontrado." }); }).catch(() => json(res, 400, { error: "Petición no válida." }));
+  }
   if (requestPath === "/api/contabilidad/base" && ["GET", "POST", "DELETE"].includes(req.method)) {
     const user = requireUser(req, res);if (!user) return;
     const params = new URL(req.url, "http://localhost").searchParams;
@@ -980,7 +1003,7 @@ http.createServer((req, res) => {
     if (req.method === "DELETE") { amcomta.remove(client); return json(res, 200, { deleted: true }); }
     if (req.method === "GET") return amcomta.load(client).then(record => json(res, 200, record || { client, proveedores: [], gastos: [] })).catch(() => json(res, 200, { client, proveedores: [], gastos: [] }));
     return readBuffer(req, 300 * 1024 * 1024)
-      .then(buffer => amcomta.save(client, buffer, user, params.get("force") === "1"))
+      .then(buffer => { let archivo = "";try { archivo = decodeURIComponent(String(req.headers["x-file-name"] || "")); } catch {} return amcomta.save(client, buffer, user, params.get("force") === "1", archivo); })
       .then(record => json(res, 200, record))
       .catch(error => { console.error("Base de AMCOMTA:", error.message); json(res, error.status || 400, { error: error.status ? error.message : "No se pudo leer la base de datos de AMCOMTA.", empresa: error.empresa }); });
   }
