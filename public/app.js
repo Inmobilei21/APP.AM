@@ -2810,6 +2810,14 @@ const invoiceProcessorType=()=>document.querySelector("#invoiceType")?.value||""
 const invoiceReceivedMode=()=>invoiceProcessorType()==="recibidas";
 const amSp=n=>" ".repeat(Math.max(0,n));
 const amCut=(value,length)=>(String(value??"")+amSp(length)).slice(0,length);
+// Nombres siempre en mayúsculas; NIF «UNKNOWN», «N/A»… se dejan en blanco.
+const amUpper=value=>String(value||"").replace(/\s+/g," ").trim().toLocaleUpperCase("es");
+const amCleanNif=value=>{const nif=String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return/^(UNKNOWN|NA|NONE|NULL|DESCONOCIDO|SINNIF)$/.test(nif)?"":nif};
+// Cuentas genéricas (410.9999 acreedores varios, 430.9999 clientes varios…): nombre y NIF los del borrador, no los de la cuenta.
+const amGenericAccount=(account,known)=>/9999$/.test(account||"")||/VARIOS|DIVERSOS|CONTADO|GENERIC/i.test(normalizeFiscalText(known?.nombre||""));
+// El fichero de AMCOMTA solo admite 10 caracteres de número de factura (el número completo va en el concepto):
+// sin espacios; si no cabe, sin separadores; y si aún no cabe, los 10 últimos, que son los que distinguen la factura.
+const amInvoiceNumber=value=>{const number=String(value||"").replace(/\s+/g,"");if(number.length<=10)return number;const compact=number.replace(/[-\/._]/g,"");return compact.length<=10?compact:number.slice(-10)};
 const amPad=(value,length)=>{const t=String(value??"");return t+amSp(length-t.length)};
 const amNum=value=>{const n=Math.round((invoiceParseNumber(value)??0)*100)/100;return String(n).replace(".",",")};
 function amNif(value){const clean=String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return clean.length>9&&clean.startsWith("ES")?clean.slice(2):clean}
@@ -2938,7 +2946,8 @@ function buildAmcomtaEntries(records){
     const holder=items.find(item=>invoiceParseNumber(item.retentionRate)),rate=holder?invoiceParseNumber(holder.retentionRate):0;
     const withholdingAccount=rate?amAccount(holder.retentionAccount):"",retention=rate?Math.round(base*rate)/100:0,key=rate?amWithholdingKey(rate,withholdingAccount,known):" ";
     if(incomplete||(rate&&!withholdingAccount))missing++;
-    lines.push([++order,"A"+amCut(date,10)+"0   "+"N"+"S"+"  "+amSp(10)+amCut(account,10)+"  "+amCut(known?.nombre||first.supplier,50)+amCut(known?.nif||first.supplierNif,13)+amCut(number,10)+amCut(date,10)+amCut("S/Factura nº   "+number,50)+amCut(number,10)+"8 "+"1    "
+    const generic=amGenericAccount(account,known),name=amUpper(generic?first.supplier||known?.nombre:known?.nombre||first.supplier),nif=amCleanNif(generic?first.supplierNif||known?.nif:known?.nif||first.supplierNif),short=amInvoiceNumber(number);
+    lines.push([++order,"A"+amCut(date,10)+"0   "+"N"+"S"+"  "+amSp(10)+amCut(account,10)+"  "+amCut(name,50)+amCut(nif,13)+amCut(short,10)+amCut(date,10)+amCut("S/Factura nº   "+number,50)+amCut(short,10)+"8 "+"1    "
       +(rate?amPad(amNum(base),15)+amPad(amNum(rate),5)+amCut(withholdingAccount,10)+"  ":amSp(32))+amSp(15)+amSp(12)+amCut(date,10)+"  "+amSp(50)+amPad(amNum(base),15)+amPad(amNum(vat),15)+amSp(15)+"S"
       +"N"+amSp(8)+key+amPad(rate?amNum(retention):" ",15)+amSp(250)+"0"]);
     for(const item of lines_){
@@ -2969,7 +2978,7 @@ function buildAmcomtaIssuedEntries(records){
     const base=lines_.reduce((sum,item)=>sum+(invoiceParseNumber(item.base)||0),0),vat=lines_.reduce((sum,item)=>sum+(invoiceParseNumber(item.vat)||0),0);
     const holder=items.find(item=>invoiceParseNumber(item.retentionRate)),rate=holder?invoiceParseNumber(holder.retentionRate):0;
     const retention=rate?(Math.abs(invoiceParseNumber(holder.retention)||0)||Math.round(base*rate)/100):0;
-    lines.push([++order,"A"+amCut(date,10)+"0   "+"N"+"E"+"  "+amSp(10)+amCut(account,10)+"  "+amCut(first.supplier||known?.nombre,50)+amCut(first.supplierNif||known?.nif,13)+amCut(number,10)+amCut(date,10)+amCut("N/FACTURA "+number,50)+amCut(number,10)+"7 "+"1    "
+    lines.push([++order,"A"+amCut(date,10)+"0   "+"N"+"E"+"  "+amSp(10)+amCut(account,10)+"  "+amCut(amUpper(first.supplier||known?.nombre),50)+amCut(amCleanNif(first.supplierNif||known?.nif),13)+amCut(amInvoiceNumber(number),10)+amCut(date,10)+amCut("N/FACTURA "+number,50)+amCut(amInvoiceNumber(number),10)+"7 "+"1    "
       +(rate?amPad(amNum(base),15)+amPad(amNum(rate),5)+"4730000000  ":amSp(32))+amSp(15)+amSp(12)+amSp(10)+"  "+amSp(50)+amPad(amNum(base),15)+amPad(amNum(vat),15)+amSp(15)+"S"
       +"N"+amSp(8)+" "+amPad(rate?amNum(retention):" ",15)+amSp(250)+"0"+"1"]);
     for(const item of lines_){
@@ -3260,6 +3269,7 @@ function sortInvoiceRecords(records){
 function renderInvoiceDraft(records){
   const draft=document.querySelector("#invoiceDraft"),body=document.querySelector("#invoiceDraftRows");if(!draft||!body)return;
   const received=invoiceReceivedMode(),withBase=(received||invoiceProcessorType()==="emitidas")&&Boolean(amParties().length);
+  records.forEach(record=>{if(record.supplier)record.supplier=amUpper(record.supplier)});
   applyInvoiceAccounts(records);if(received)applyInvoiceVatChecks(records);
   const issued=invoiceProcessorType()==="emitidas";
   if(issued&&invoiceAccounting.data?.ingresoHabitual)records.forEach(record=>{if(!record.expenseAccount)record.expenseAccount=invoiceAccounting.data.ingresoHabitual});
@@ -3373,7 +3383,7 @@ function invoiceToggleVatToBase(box,rowField){
 // Un nº de factura sin dígitos (ALB-FACT, FACTURA…) casi siempre es el tipo de documento y no el número.
 function invoiceNumberSuspicious(value){const text=String(value||"").trim();return!text||!/\d/.test(text)}
 function numericField(field){return INVOICE_MONEY_FIELDS.includes(field)||INVOICE_RATE_FIELDS.includes(field)}
-function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows [data-invoice-field]").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim(),record=records[Number(input.dataset.invoiceRow)];if(!field||!record)return;if(input.type==="checkbox"){record[field]=input.checked;return}if(numericField(field)||field==="retentionRate"){const number=invoiceParseNumber(value);record[field]=number===null?value:String(number)}else record[field]=input.classList.contains("account")?amAccount(value):value});return records}
+function readInvoiceDraft(){const records=invoiceDraftRecords.map(record=>({...record}));document.querySelectorAll("#invoiceDraftRows [data-invoice-field]").forEach(input=>{const field=input.dataset.invoiceField,value=input.value.trim(),record=records[Number(input.dataset.invoiceRow)];if(!field||!record)return;if(input.type==="checkbox"){record[field]=input.checked;return}if(numericField(field)||field==="retentionRate"){const number=invoiceParseNumber(value);record[field]=number===null?value:String(number)}else record[field]=input.classList.contains("account")?amAccount(value):field==="supplier"?amUpper(value):value});return records}
 /* Vista previa de la factura original con su concepto */
 const invoicePreviewUrls=new Map();
 // Zoom de las vistas previas: botones − / + centrados arriba.

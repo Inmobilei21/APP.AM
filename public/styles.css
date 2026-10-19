@@ -6128,3 +6128,5 @@ body.pq-open{overflow:hidden}
 .pv-sel-bar span{color:#a9b8ec;font-weight:700;padding:0 4px 0 8px}
 .pv-sel-bar button{border:0;border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font:700 12px inherit;font-family:inherit;padding:6px 9px;cursor:pointer;white-space:nowrap}
 .pv-sel-bar button:hover{background:rgba(255,255,255,.22)}.pv-sel-bar button.main{background:#fff;color:#0f2557}
+/* Nombres de proveedor/cliente del borrador siempre en mayúsculas */
+#invoiceDraftRows [data-invoice-field="supplier"]{text-transform:uppercase}
