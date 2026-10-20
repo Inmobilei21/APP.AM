@@ -722,8 +722,10 @@ function aeat303(draft){
     if(p4.length!==386)throw new Error(`Error interno en la página 4 del 303 (${p4.length}).`);
     p4+=" ".repeat(600)+"</T30304000>";}
   // Página DID: cuenta de domiciliación o devolución (también si la rectificativa tiene importe en la casilla 111).
-  let did="";const iban=String(x.iban||"").replace(/\s+/g,"").toUpperCase();
-  // Solo con domiciliación (U), devolución (D, X) o rectificativa con casilla 111: con «I» la AEAT rechaza la página DID.
+  // La página DID va siempre (sin ella la AEAT da E060010); la cuenta solo con domiciliación (U), devolución (D, X)
+  // o rectificativa con casilla 111. En el resto, IBAN en blanco y marca SEPA «0» (vacía).
+  let did="<T303DID00>"+" ".repeat(11+34+70+35+30+2)+"0"+" ".repeat(617)+"</T303DID00>";const iban=String(x.iban||"").replace(/\s+/g,"").toUpperCase();
+  if((code==="U"||m.rect&&c["111"]>0)&&!iban)throw new Error("Falta la cuenta bancaria (IBAN) en «Forma de pago».");
   if(iban&&(["U","D","X"].includes(code)||m.rect&&c["111"]>0)){
     // IBAN válido (dígitos de control) y marca SEPA según la cuenta (Nota 2): «0» es solo para la página sin cuenta.
     const ibanOk=/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)&&[...(iban.slice(4)+iban.slice(0,4))].reduce((r,ch)=>Number(String(r)+(/[A-Z]/.test(ch)?ch.charCodeAt(0)-55:ch))%97,0)===1;
