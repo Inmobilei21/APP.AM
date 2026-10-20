@@ -506,7 +506,7 @@ function renderManagement(){
   managementClientView="active";
   main.innerHTML=`
     <header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">GESTIÓN DEL DESPACHO</p><h1>Gestión</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
-    <nav class="management-tabs" role="tablist" aria-label="Apartados de gestión"><button type="button" role="tab" data-management-tab="clients" aria-selected="true">Clientes</button><button type="button" role="tab" data-management-tab="client-users" aria-selected="false">Usuarios clientes</button><button type="button" role="tab" data-management-tab="models" aria-selected="false">Modelos</button><button type="button" role="tab" data-management-tab="billing" aria-selected="false">Facturación<span class="management-tab-alert" data-billing-tab-alert hidden></span></button><button type="button" role="tab" data-management-tab="suggestions" aria-selected="false">Sugerencias<span class="management-tab-alert" data-suggestion-alert hidden></span></button></nav>
+    <nav class="management-tabs" role="tablist" aria-label="Apartados de gestión"><button type="button" role="tab" data-management-tab="clients" aria-selected="true">Clientes</button><button type="button" role="tab" data-management-tab="client-users" aria-selected="false">Usuarios clientes</button><button type="button" role="tab" data-management-tab="models" aria-selected="false">Modelos</button><button type="button" role="tab" data-management-tab="billing" aria-selected="false">Facturación<span class="management-tab-alert" data-billing-tab-alert hidden></span></button><button type="button" role="tab" data-management-tab="suggestions" aria-selected="false">Sugerencias<span class="management-tab-alert" data-suggestion-alert${suggestionUnread?"":" hidden"}>${suggestionUnread||""}</span></button></nav>
     <div data-management-panel="clients"><section class="management-search"><div><p class="eyebrow">CLIENTES</p><h2>Buscador de clientes</h2><p>Localiza rápidamente cualquier cliente del despacho.</p></div><button class="primary blue-button" id="openNewClient">＋ Nuevo cliente</button><label class="management-searchbox"><span>⌕</span><input id="managementSearch" type="search" placeholder="Buscar por nombre…"></label></section>
     <section class="management-clients"><div class="folder-toolbar management-client-toolbar"><div><strong id="managementClientHeading">Clientes activos</strong><span id="managementCount">0 clientes</span></div><div class="management-client-sections" role="tablist" aria-label="Estado de los clientes"><button type="button" role="tab" data-client-section="active" aria-selected="true">Activos</button><button type="button" role="tab" data-client-section="historical" aria-selected="false">Históricos</button></div></div><div class="folder-grid" id="managementGrid"><div class="empty folder-empty"><span>▤</span><h4>Cargando clientes</h4></div></div></section></div>
     <div data-management-panel="models" hidden></div>
@@ -4317,14 +4317,16 @@ function suggestionNotice(message){
  const close=document.createElement("button");close.type="button";close.textContent="×";close.setAttribute("aria-label","Cerrar aviso");close.onclick=()=>notice.remove();notice.append(close);document.body.append(notice);
  setTimeout(()=>notice.remove(),12000);
 }
-function updateSuggestionAlerts(count=0){
+var suggestionUnread=0;
+function updateSuggestionAlerts(count=suggestionUnread){
+ suggestionUnread=count||0;
  const nav=document.querySelector('nav button[data-title="Gestión"]');let badge=nav?.querySelector(".suggestion-nav-alert");
- if(!count){badge?.remove()}else if(nav){if(!badge){badge=document.createElement("span");badge.className="suggestion-nav-alert";nav.append(badge)}badge.textContent="S "+(count>99?"99+":count);badge.title=count+" sugerencias sin leer";badge.setAttribute("aria-label",badge.title)}
+ if(!count){badge?.remove()}else if(nav){if(!badge){badge=document.createElement("span");badge.className="suggestion-nav-alert";nav.append(badge)}badge.textContent=count>99?"99+":String(count);badge.title=count+" sugerencias sin leer";badge.setAttribute("aria-label",badge.title)}
  const tab=document.querySelector("[data-suggestion-alert]");if(tab){tab.hidden=!count;tab.textContent=String(count)}
 }
 async function refreshSuggestions(){
  if(suggestionBusy)return;
- if(signedInUser?.role!=="admin"){suggestionEntries=[];suggestionUserId="";suggestionSeen.clear();updateSuggestionAlerts();return}
+ if(signedInUser?.role!=="admin"){suggestionEntries=[];suggestionUserId="";suggestionSeen.clear();updateSuggestionAlerts(0);return}
  const userId=signedInUser.id;suggestionBusy=true;
  try{const data=await apiJson("/api/suggestions");if(signedInUser?.id!==userId)return;
  if(suggestionUserId!==userId){suggestionUserId=userId;suggestionSeen.clear()}
