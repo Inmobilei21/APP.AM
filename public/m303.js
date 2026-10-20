@@ -586,7 +586,10 @@ if(typeof taxDraftDetail==="function"){const previous=taxDraftDetail;taxDraftDet
   return html.replace('<button type="button" class="secondary-button" data-td-copy',`<button type="button" class="secondary-button" data-m303-file="${escapeHtml(draft.period)}">Fichero AEAT</button><button type="button" class="secondary-button" data-td-copy`)}}
 function syncControl(period){
   const year=taxDraftYear(),key=declarationKey(M,period,taxDrafts.client,year),data=declarationData(M,period,taxDrafts.client,year);if(data.notRequired)return;
-  const value=CONTROL_PAGO[calc(period).tipo]||"N.R.C.";if(data.payment!==value){data.payment=value;localStorage.setItem(key,JSON.stringify(data))}
+  const r=calc(period),value=CONTROL_PAGO[r.tipo]||"N.R.C.";let changed=false;if(data.payment!==value){data.payment=value;changed=true}
+  // El borrador confirmado guarda también la forma de pago: si se cambia después, se actualiza para que el fichero AEAT y «Ver borrador» usen la nueva.
+  const d=data.draft?.m303;if(d&&(d.tipo!==r.tipo||d.code!==r.code||d.iban!==r.iban||d.swift!==r.swift)){Object.assign(d,{tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift});changed=true}
+  if(changed)localStorage.setItem(key,JSON.stringify(data));
 }
 // Aviso al marcar «exonerado del 390»: supuestos a la izquierda y, a la derecha, el apartado de operaciones del ejercicio para confirmarlo.
 function exoDialog(period){
@@ -677,7 +680,7 @@ if(typeof confirmTaxDraft==="function"){const previous=confirmTaxDraft;confirmTa
     if(data.draft){const r=calc(period);data.draft.m303={c:r.c,m:r.m,tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift,exo:period==="4T"&&r.m.f.exonerado?exoCalc(period).v:null};localStorage.setItem(key,JSON.stringify(data))}}
   return res}}
 // La forma de pago (y su cuenta) es la que está elegida ahora en la pestaña, aunque el borrador se confirmara con otra.
-function currentDraft(period){const saved=taxDraftControl(M,period).draft;if(saved&&saved.model===M&&saved.m303){let pay={};try{const r=calc(period);pay={code:r.code,iban:r.iban,swift:r.swift}}catch{}return{...saved,m303:{...saved.m303,...pay},cif:saved.cif||taxDrafts.clientData?.cif||"",client:saved.client||taxDrafts.client}}return {...taxDraftBuild(M,period),m303:(()=>{const r=calc(period);return{c:r.c,m:r.m,tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift,exo:period==="4T"&&r.m.f.exonerado?exoCalc(period).v:null}})(),client:taxDrafts.client,cif:taxDrafts.clientData?.cif||""}}
+function currentDraft(period){const saved=taxDraftControl(M,period).draft;if(saved&&saved.model===M&&saved.m303){let pay={};try{const r=calc(period);pay={tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift}}catch{}return{...saved,m303:{...saved.m303,...pay},cif:saved.cif||taxDrafts.clientData?.cif||"",client:saved.client||taxDrafts.client}}return {...taxDraftBuild(M,period),m303:(()=>{const r=calc(period);return{c:r.c,m:r.m,tipo:r.tipo,code:r.code,iban:r.iban,swift:r.swift,exo:period==="4T"&&r.m.f.exonerado?exoCalc(period).v:null}})(),client:taxDrafts.client,cif:taxDrafts.clientData?.cif||""}}
 
 /* --- Fichero AEAT (DR303 ejercicio 2026) --- */
 const clean=v=>[...String(v||"").toUpperCase()].map(ch=>ch==="Ñ"||ch==="Ç"?ch:ch.normalize("NFD").replace(/[̀-ͯ]/g,"")).join("").replace(/[^A-Z0-9ÑÇ ]/g," ").replace(/\s+/g," ").trim();
