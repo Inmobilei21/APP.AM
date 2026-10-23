@@ -1039,7 +1039,8 @@ http.createServer((req, res) => {
       res.end(JSON.stringify([]));
     });
   }
-  const pathname = req.url === "/" ? "/index.html" : req.url.split("?")[0];
+  if (requestPath === "/marta") return res.writeHead(301, { Location: "/marta/" }).end();
+  const pathname = requestPath.endsWith("/") ? requestPath + "index.html" : requestPath;
   const file = path.join(root, pathname);
   if (!file.startsWith(root)) return res.writeHead(403).end("Forbidden");
   fs.readFile(file, (error, data) => {
