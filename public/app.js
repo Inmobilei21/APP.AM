@@ -61,7 +61,7 @@ function loginMolinero(users=[]){
     try{
       const result=await apiJson("/api/auth/login",{method:"POST",body:JSON.stringify({userId:user.id,password})});
       signedInUser=result.user;installMobileChrome();boton.classList.remove("cargando");boton.classList.add("ok");boton.querySelector(".l2-txt").textContent="✓ Acceso correcto";
-      updateProfileButtons();loadSharedTasks();refreshChatData();refreshBillingData();refreshSuggestions();
+      updateProfileButtons();loadSharedTasks();refreshChatData();refreshBillingData();refreshSuggestions();reloadCurrentView();
       setTimeout(()=>{gate.classList.add("saliendo");document.querySelector("main")?.classList.add("app-entrando");setTimeout(()=>gate.remove(),950)},450);
     }catch(reason){boton.disabled=false;boton.classList.remove("cargando");fallo(reason.message||"Usuario o contraseña incorrectos.")}
   });
@@ -74,7 +74,7 @@ function authCard({setup=false,users=[]}={}){
   document.body.appendChild(shell);document.documentElement.classList.remove("auth-pending");
   shell.querySelector("form").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector("button"),error=form.querySelector(".login-error");error.textContent="";button.disabled=true;button.textContent="Comprobando…";try{const payload={userId:form.querySelector("select").value,password:form.password.value};if(setup)payload.setupPassword=form.setupPassword.value;const result=await apiJson(setup?"/api/auth/setup":"/api/auth/login",{method:"POST",body:JSON.stringify(payload)});signedInUser=result.user;installMobileChrome();shell.remove();updateProfileButtons();loadSharedTasks();refreshChatData();refreshBillingData();refreshSuggestions()}catch(reason){error.textContent=reason.message}finally{button.disabled=false;button.textContent=setup?"Guardar y entrar":"Entrar"}});
 }
-async function checkAuthentication(){try{const status=await apiJson("/api/auth/status");if(status.user){signedInUser=status.user;installMobileChrome();document.documentElement.classList.remove("auth-pending");updateProfileButtons();loadSharedTasks();refreshChatData();refreshBillingData();refreshSuggestions()}else authCard({setup:status.needsSetup,users:status.users})}catch{authCard()}}
+async function checkAuthentication(){try{const status=await apiJson("/api/auth/status");if(status.user){signedInUser=status.user;installMobileChrome();document.documentElement.classList.remove("auth-pending");updateProfileButtons();loadSharedTasks();refreshChatData();refreshBillingData();refreshSuggestions();reloadCurrentView()}else authCard({setup:status.needsSetup,users:status.users})}catch{authCard()}}
 function openAccountPanel(){
   document.querySelector("#accountPanel")?.remove();const shell=document.createElement("div");shell.id="accountPanel";shell.className="account-shell";
   shell.innerHTML=`<div class="account-backdrop"></div><section class="account-card"><header class="account-hero"><button class="account-close" aria-label="Cerrar">×</button><p class="eyebrow">MI CUENTA</p><h2>${escapeHtml(signedInUser.name)}</h2><p>${signedInUser.role==="admin"?"Administración de usuarios y contraseñas":"Sesión de usuario"}</p></header><div class="account-content"><button class="view-mode-button" type="button"><span>${clientPreviewMode?"▣":"▱"}</span><span><strong>${clientPreviewMode?"Visión como despacho":"Visión como cliente"}</strong><small>${clientPreviewMode?"Volver a la aplicación de gestión":"Abrir la maqueta temporal del portal"}</small></span><b>›</b></button><div class="account-users">${signedInUser.role==="admin"?teamUsers.map(user=>`<form data-user-id="${user.id}"><div><strong>${user.name}</strong><small>${user.role==="admin"?"Administrador":"Usuario"}</small></div><input type="password" minlength="6" placeholder="Nueva contraseña" required><button type="submit">Guardar</button></form>`).join(""):""}</div><p class="account-message"></p><button class="logout-button" type="button">Cerrar sesión</button></div></section>`;document.body.appendChild(shell);
@@ -3909,6 +3909,19 @@ document.querySelectorAll(".sidebar nav button").forEach(button=>button.addEvent
     if(button.dataset.title==="Inicio")initHome();
   }
 }));
+// Al iniciar sesión (y al volver a la app tras un rato en segundo plano) se vuelve a cargar la pantalla abierta con los
+// datos del servidor: lo que se pintó antes de entrar salía de la copia antigua del navegador (p. ej. 14 clientes de 189).
+function reloadCurrentView(){
+  if(!signedInUser)return;
+  webdavStatusCache={checked:0,connected:false};
+  if(document.querySelector(".modal-backdrop:not([hidden]),.client-modal:not([hidden]),#invoiceProcessor:not([hidden])"))return;
+  const active=document.querySelector("#tdMain input:focus,#tdMain select:focus,#tdMain textarea:focus,main input:focus:not(#clientSearch),main textarea:focus,main select:focus");if(active)return;
+  const button=document.querySelector(".sidebar nav button.active")||document.querySelector('.sidebar nav button[data-title="Inicio"]');
+  if(button?.dataset.title==="Gestión"){const tab=document.querySelector("[data-management-tab][aria-selected=\"true\"]");if(tab)tab.click();else loadManagementClients?.();return}
+  button?.click();
+}
+{let hiddenAt=0;document.addEventListener("visibilitychange",()=>{if(document.hidden){hiddenAt=Date.now();return}if(hiddenAt&&Date.now()-hiddenAt>2*60*1000)reloadCurrentView();hiddenAt=0})}
+window.addEventListener("pageshow",event=>{if(event.persisted)reloadCurrentView()});
 
 
 const chatWorkers=["Manuel Molinero","Álvaro Molinero","Francisco Molinero","Araceli Frías","Jesús Carratalá"];
