@@ -223,7 +223,8 @@ function json(res, status, body, headers = {}) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers });
   res.end(JSON.stringify(body));
 }
-function validPassword(password) { return typeof password === "string" && password.length >= 6 && password.length <= 128; }
+const loginFailures = new Map();
+function validPassword(password) { return typeof password === "string" && password.length >= 4 && password.length <= 128; }
 function loadCollection(file) {
   try { const saved = JSON.parse(fs.readFileSync(file, "utf8"));return Array.isArray(saved) ? saved : []; }
   catch { return []; }
@@ -584,7 +585,7 @@ http.createServer((req, res) => {
       if (supplied.length !== target.length || !crypto.timingSafeEqual(supplied, target)) return json(res, 401, { error: "La clave de configuración no es correcta." });
       const user = users.find(item => item.id === userId && item.role === "admin");
       if (!user) return json(res, 400, { error: "Seleccione a Manuel o Álvaro." });
-      if (!validPassword(password)) return json(res, 400, { error: "La contraseña debe tener entre 6 y 128 caracteres." });
+      if (!validPassword(password)) return json(res, 400, { error: "La contraseña debe tener entre 4 y 128 caracteres." });
       Object.assign(user, hashPassword(password));saveUsers(users);
       const token = createSession(user.id);
       return json(res, 200, { user: publicUser(user) }, { "Set-Cookie": `app_am_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000` });
@@ -592,10 +593,15 @@ http.createServer((req, res) => {
   }
   if (requestPath === "/api/auth/login" && req.method === "POST") {
     return readJson(req).then(({ userId, password }) => {
+      // Freno a los intentos a ciegas (contraseñas cortas): 10 fallos seguidos del mismo usuario bloquean 15 minutos.
+      const key = String(userId || ""), now = Date.now(), tries = loginFailures.get(key);
+      if (tries && tries.until > now) return json(res, 429, { error: "Demasiados intentos fallidos. Espera 15 minutos o pide a un administrador que revise la contraseña." });
+      const fail = () => { const t = loginFailures.get(key) || { count: 0, until: 0 }; t.count++; if (t.count >= 10) { t.count = 0; t.until = now + 15 * 60 * 1000; } loginFailures.set(key, t); return json(res, 401, { error: "Usuario o contraseña incorrectos." }); };
       const user = loadUsers().find(item => item.id === userId);
-      if (!user?.passwordHash || !validPassword(password)) return json(res, 401, { error: "Usuario o contraseña incorrectos." });
+      if (!user?.passwordHash || !validPassword(password)) return fail();
       const candidate = crypto.scryptSync(password, user.salt, 64).toString("hex");
-      if (!secureEqual(candidate, user.passwordHash)) return json(res, 401, { error: "Usuario o contraseña incorrectos." });
+      if (!secureEqual(candidate, user.passwordHash)) return fail();
+      loginFailures.delete(key);
       const token = createSession(user.id);
       return json(res, 200, { user: publicUser(user) }, { "Set-Cookie": `app_am_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=2592000` });
     }).catch(() => json(res, 400, { error: "No se pudo iniciar sesión." }));
@@ -614,7 +620,7 @@ http.createServer((req, res) => {
     if (admin?.role !== "admin") return json(res, 403, { error: "Acceso reservado a administradores." });
     const userId = decodeURIComponent(requestPath.slice("/api/users/".length));
     return readJson(req).then(({ password }) => {
-      if (!validPassword(password)) return json(res, 400, { error: "La contraseña debe tener entre 6 y 128 caracteres." });
+      if (!validPassword(password)) return json(res, 400, { error: "La contraseña debe tener entre 4 y 128 caracteres." });
       const users = loadUsers(), user = users.find(item => item.id === userId);
       if (!user) return json(res, 404, { error: "Usuario no encontrado." });
       Object.assign(user, hashPassword(password));saveUsers(users);
