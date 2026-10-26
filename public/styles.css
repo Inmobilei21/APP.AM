@@ -6135,3 +6135,51 @@ body.pq-open{overflow:hidden}
   body:not(.client-preview-mode) #sidebar:not(:hover) nav button .suggestion-nav-alert.suggestion-nav-alert{position:absolute!important;top:1px!important;left:39px!important;right:auto!important;bottom:auto!important;transform:none!important;z-index:3;display:flex!important;align-items:center;justify-content:center;width:auto!important;min-width:17px!important;height:17px!important;padding:0 4px!important;border:1px solid #e53935!important;border-radius:5px!important;background:#e53935!important;color:#fff!important;font-size:9px!important;font-weight:800!important;line-height:1!important;box-shadow:none!important}
 }
 .management-tab-alert[hidden]{display:none!important}
+
+/* ===== Mi cuenta (rediseño): identidad compacta y equipo en filas ===== */
+#accountPanel .account-grip{display:none}
+#accountPanel .account-id{display:flex;align-items:center;gap:14px;min-width:0}
+#accountPanel .account-id>div{min-width:0}
+#accountPanel .account-avatar{flex:none;width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,#1535b4,#3158e8);color:#fff;font-weight:800;font-size:17px;letter-spacing:.02em;box-shadow:0 8px 20px -10px rgba(21,53,180,.7)}
+#accountPanel .account-hero h2{margin:2px 0 0;font-size:22px;line-height:1.15;overflow-wrap:normal;word-break:normal}
+#accountPanel .account-id p:last-child{margin:4px 0 0;font-size:13px}
+#accountPanel .account-section{margin:20px 2px 8px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#7b869c}
+#accountPanel .account-users{display:grid;gap:0;border:1px solid #e3e8f2;border-radius:16px;background:#fff;overflow:hidden}
+#accountPanel .account-user{display:block!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important}
+#accountPanel .account-user+.account-user{border-top:1px solid #edf0f6!important}
+#accountPanel .account-user-row{display:flex;align-items:center;gap:12px;padding:11px 12px}
+#accountPanel .account-user-avatar{flex:none;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#eef1fb;color:#1535b4;font-size:12px;font-weight:800}
+#accountPanel .account-user-name{flex:1;min-width:0;display:grid;gap:1px}
+#accountPanel .account-user-name strong{font-size:14px;line-height:1.25;color:#101a33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#accountPanel .account-user-name small{font-size:12px;color:#7b869c}
+#accountPanel .account-user-edit{flex:none;width:auto!important;height:32px!important;min-height:0!important;margin:0!important;padding:0 12px!important;border:1px solid #dfe4ef!important;border-radius:10px!important;background:#f6f8fc!important;color:#1535b4!important;font-size:12px!important;font-weight:700!important;box-shadow:none!important}
+#accountPanel .account-user.is-open .account-user-edit{background:#1535b4!important;border-color:#1535b4!important;color:#fff!important}
+#accountPanel .account-user.is-open{background:#f8faff!important}
+#accountPanel .account-user-pass{display:flex;gap:8px;padding:0 12px 12px 60px}
+#accountPanel .account-user-pass[hidden]{display:none}
+#accountPanel .account-user-pass input{flex:1;min-width:0;height:40px!important;margin:0!important;padding:0 12px!important;border:1px solid #d6dcea!important;border-radius:11px!important;font-size:15px!important;background:#fff!important}
+#accountPanel .account-user-pass button{flex:none;width:auto!important;height:40px!important;margin:0!important;padding:0 16px!important;border:0!important;border-radius:11px!important;background:#1535b4!important;color:#fff!important;font-size:13px!important;font-weight:700!important}
+#accountPanel .account-message:empty{display:none}
+#accountPanel .account-message{margin:12px 2px 0;font-size:13px;color:#1535b4}
+@media(max-width:760px){
+  #accountPanel.account-shell{place-items:end stretch!important;padding:calc(env(safe-area-inset-top) + 40px) 0 0!important;background:rgba(6,17,43,.55)!important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  #accountPanel .account-backdrop{position:absolute;inset:0}
+  #accountPanel .account-card{position:relative;width:100%!important;height:auto!important;max-height:100%!important;border-radius:26px 26px 0 0!important;padding:0!important;background:#f4f6fb!important;overflow-y:auto!important;animation:accountUp .32s cubic-bezier(.22,1,.36,1)}
+  #accountPanel .account-grip{display:block;position:absolute;top:8px;left:50%;z-index:3;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:rgba(255,255,255,.45)}
+  #accountPanel .account-hero{display:block!important;min-height:0!important;padding:26px 70px 22px 20px!important;border-radius:26px 26px 22px 22px!important;background:radial-gradient(120% 160% at 85% -30%,#1e3a8a 0%,#0e1f57 55%,#081436 100%)!important}
+  #accountPanel .account-hero::after{display:none!important}
+  #accountPanel .account-hero .eyebrow{margin:0 0 2px!important;font-size:10px!important;letter-spacing:.16em!important;color:rgba(255,255,255,.6)!important}
+  #accountPanel .account-hero h2{font-size:21px!important;color:#fff!important}
+  #accountPanel .account-id p:last-child{color:rgba(255,255,255,.72)!important;font-size:12.5px!important;margin:3px 0 0!important}
+  #accountPanel .account-avatar{width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);box-shadow:none}
+  #accountPanel .account-hero .account-close{top:22px!important;right:18px!important;width:38px!important;height:38px!important;font-size:22px!important;background:rgba(255,255,255,.12)!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important;box-shadow:none!important}
+  #accountPanel .account-content{padding:16px 14px calc(18px + env(safe-area-inset-bottom))!important}
+  #accountPanel .view-mode-button{margin:0!important;padding:11px 12px!important;border-radius:16px!important;background:#fff!important}
+  #accountPanel .view-mode-button>span:first-child{width:38px!important;height:38px!important;border-radius:11px!important}
+  #accountPanel .logout-button{width:100%;height:46px;margin-top:16px!important;border-radius:14px!important;background:#fff!important;color:#c62828!important;border:1px solid #f1d4d4!important;font-weight:700}
+}
+@keyframes accountUp{from{transform:translateY(40px);opacity:.6}to{transform:none;opacity:1}}
+#accountPanel .account-users{grid-template-columns:minmax(0,1fr)}
+#accountPanel .account-user{min-width:0}
+#accountPanel .account-user-pass input{width:0!important;flex:1 1 0}
+@media(max-width:760px){#accountPanel .account-hero{height:auto!important;max-height:none!important;overflow:visible!important}}
