@@ -6095,3 +6095,32 @@ function clientBankData(client){return client?.commercialRegistry?.bank?.ibans?.
   document.addEventListener("scroll",event=>{if(bar&&event.target?.id==="invoicePreviewDoc")hide()},true);
   document.addEventListener("keydown",event=>{if(event.key==="Escape")hide()});
 })();
+/* ===== Deslizar hacia abajo para actualizar (móvil), como en los foros y demás apps =====
+   El navegador no lo hace porque la página tiene overscroll-behavior:none; aquí se dibuja el indicador y se recargan los datos. */
+(function(){
+  if(!("ontouchstart" in window))return;
+  const LIMIT=72,MAX=110;
+  const ind=document.createElement("div");ind.className="ptr";ind.setAttribute("aria-hidden","true");
+  ind.innerHTML='<span class="ptr-bola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg></span>';
+  document.body.append(ind);
+  let startY=0,startX=0,pull=0,active=false,busy=false;
+  const blocked=target=>!window.matchMedia("(max-width:760px)").matches||!signedInUser||busy
+    ||document.querySelector(".account-shell,.modal-shell.open,#clientModal.open,.suggestion-modal-shell[aria-hidden=\"false\"],.chat-panel[aria-hidden=\"false\"],.pv-capa,#invoicePreview:not([hidden]),#sidebar.open")
+    ||document.body.classList.contains("m2-panel-open")||document.body.classList.contains("menu-open");
+  // Solo si la página y todo lo que hay bajo el dedo está arriba del todo.
+  const atTop=target=>{if((document.scrollingElement?.scrollTop||0)>0||(main?.scrollTop||0)>0)return false;for(let el=target;el&&el!==document.body;el=el.parentElement){if(el.scrollTop>0)return false}return true};
+  const paint=()=>{const y=Math.min(pull,MAX);ind.style.transform=`translate(-50%,${y-56}px)`;ind.style.opacity=String(Math.min(1,pull/LIMIT));ind.querySelector("svg").style.transform=`rotate(${pull*3}deg)`;ind.classList.toggle("listo",pull>=LIMIT)};
+  const reset=()=>{active=false;pull=0;ind.classList.remove("listo");ind.style.transition="transform .25s,opacity .25s";ind.style.transform="translate(-50%,-56px)";ind.style.opacity="0";setTimeout(()=>ind.style.transition="",260)};
+  document.addEventListener("touchstart",e=>{if(e.touches.length!==1||blocked(e.target)||!atTop(e.target)){active=false;return}active=true;pull=0;startY=e.touches[0].clientY;startX=e.touches[0].clientX},{passive:true});
+  document.addEventListener("touchmove",e=>{if(!active)return;const dy=e.touches[0].clientY-startY,dx=Math.abs(e.touches[0].clientX-startX);if(dy<=0||dx>dy){if(pull)reset();active=dy>=0&&dx<=dy;return}pull=dy*.55;paint()},{passive:true});
+  document.addEventListener("touchend",async()=>{if(!active)return;active=false;if(pull<LIMIT){reset();return}
+    busy=true;ind.classList.add("girando");ind.style.transition="transform .2s";ind.style.transform="translate(-50%,16px)";ind.style.opacity="1";if(navigator.vibrate)try{navigator.vibrate(10)}catch{}
+    const started=Date.now();
+    try{webdavStatusCache={checked:0,connected:false};loadSharedTasks();refreshChatData();refreshBillingData(true);refreshSuggestions();
+      const button=document.querySelector(".sidebar nav button.active")||document.querySelector('.sidebar nav button[data-title="Inicio"]');
+      if(button?.dataset.title==="Gestión"){const tab=document.querySelector('[data-management-tab][aria-selected="true"]');if(tab)tab.click();else loadManagementClients()}else button?.click();
+    }catch(error){console.error("Actualizar",error)}
+    setTimeout(()=>{ind.classList.remove("girando");busy=false;reset()},Math.max(0,900-(Date.now()-started)));
+  });
+  document.addEventListener("touchcancel",()=>{if(active)reset()});
+})();

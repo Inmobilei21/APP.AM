@@ -6183,3 +6183,12 @@ body.pq-open{overflow:hidden}
 #accountPanel .account-user{min-width:0}
 #accountPanel .account-user-pass input{width:0!important;flex:1 1 0}
 @media(max-width:760px){#accountPanel .account-hero{height:auto!important;max-height:none!important;overflow:visible!important}}
+/* Deslizar para actualizar (móvil) */
+.ptr{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:50%;z-index:9000;transform:translate(-50%,-56px);opacity:0;pointer-events:none}
+.ptr-bola{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#1535b4;box-shadow:0 6px 18px -6px rgba(10,26,63,.45),0 0 0 1px rgba(10,26,63,.06)}
+.ptr svg{width:20px;height:20px}
+.ptr.listo .ptr-bola{background:#1535b4;color:#fff}
+.ptr.girando .ptr-bola{background:#1535b4;color:#fff}
+.ptr.girando svg{animation:ptrGiro .7s linear infinite}
+@keyframes ptrGiro{to{transform:rotate(360deg)}}
+@media(min-width:761px){.ptr{display:none}}
