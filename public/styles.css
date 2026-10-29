@@ -6315,3 +6315,8 @@ body.pq-open{overflow:hidden}
 .oc-card header .eyebrow{display:block!important;margin:0!important;color:#1535b4!important;font-size:10.5px!important;letter-spacing:.16em!important}
 .oc-card header h3{display:block!important;margin:2px 0 0!important;font-size:21px!important;color:#0e1835!important}
 .oc-card header .oc-x{order:1!important;flex:none}
+/* Escritorio: con el chat abierto se ocultan «Sugerencias» y «Chat», y el chat baja hasta donde estaban esos botones */
+@media(min-width:761px){
+  body.chat-open .worker-chat #suggestionLauncher,body.chat-open .worker-chat #chatLauncher{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:opacity .15s,visibility 0s .15s}
+  body.chat-open .worker-chat #chatPanel.open{bottom:0!important;top:auto!important;max-height:calc(100dvh - 52px)!important}
+}
