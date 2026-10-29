@@ -463,7 +463,10 @@ reconcileUrgentSignatureTasks();
 setInterval(reconcileUrgentSignatureTasks, 60 * 60 * 1000).unref();
 
 const amcomta = require("./amcomta")({ dataDirectory });
-const presupuestos = require("./presupuestos")({ dataDirectory, davRequest, json, readJson, readBuffer, requireUser, cleanText, loadCollection, saveCollection, billingFile });
+const push = require("./push")({ dataDirectory, json, readJson, requireUser });
+const adminIds = (except) => loadUsers().filter(item => item.role === "admin" && item.id !== except).map(item => item.id);
+const preview = text => String(text || "").replace(/\s+/g, " ").trim().slice(0, 140);
+const presupuestos = require("./presupuestos")({ dataDirectory, davRequest, json, readJson, readBuffer, requireUser, cleanText, loadCollection, saveCollection, billingFile, notify: (type, payload) => push.notify(adminIds(), type, payload) });
 const portalDocs = require("./portal-docs")({ dataDirectory, davRequest, parseDavEntries, webdavProperties, loadMetadata });
 
 http.createServer((req, res) => {
@@ -474,6 +477,7 @@ http.createServer((req, res) => {
     const area = requestPath.startsWith("/api/presupuestos") || requestPath.startsWith("/api/p/") ? "presupuestos" : requestPath === "/api/libros" ? "libros" : requestPath.startsWith("/api/billing") && requestPath !== "/api/billing/read" ? "facturacion" : requestPath.startsWith("/api/metadata/") ? "clientes" : requestPath.startsWith("/api/contabilidad/") ? "contabilidad" : "";
     if (area) res.on("finish", () => { if (res.statusCode < 400) markChanged(area); });
   }
+  if (requestPath.startsWith("/api/push/") && push.handle(req, res, requestPath)) return;
   if ((requestPath.startsWith("/api/presupuestos") || requestPath.startsWith("/api/p/")) && presupuestos(req, res, requestPath)) return;
   if (requestPath === "/api/version" && req.method === "GET") {
     return json(res, 200, { version: applicationVersion });
@@ -649,6 +653,7 @@ http.createServer((req, res) => {
       const messages = loadCollection(messagesFile), createdAt = new Date().toISOString();
       const message = { id: crypto.randomUUID(), senderId: user.id, recipientId: recipient.id, text: body, createdAt };
       messages.push(message);saveCollection(messagesFile, messages.slice(-10000));
+      push.notify(recipient.id, "chat", { title: user.name, body: preview(body), url: "/#ir=chat", tag: `chat-${user.id}` });
       return json(res, 201, message);
     }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
   }
@@ -673,6 +678,7 @@ http.createServer((req, res) => {
       const messages = loadCollection(messagesFile), createdAt = new Date().toISOString();
       const message = { id: crypto.randomUUID(), senderId: user.id, recipientId: recipient.id, text: caption || (isPdf ? `📄 ${name}` : "📷 Foto"), autoText: !caption, attachment, createdAt };
       messages.push(message);saveCollection(messagesFile, messages.slice(-10000));
+      push.notify(recipient.id, "chat", { title: user.name, body: preview(message.text), url: "/#ir=chat", tag: `chat-${user.id}` });
       return json(res, 201, message);
     }).catch(() => json(res, 400, { error: "No se pudo enviar el archivo." }));
   }
@@ -715,7 +721,9 @@ http.createServer((req, res) => {
         : ["💬 Mensaje desde la demo de ProPymes", texto, nombre && nombre !== cliente && `Nombre: ${nombre}`, correo && `Correo: ${correo}`, telefono && `Teléfono: ${telefono}`];
       const quien = `${cliente} (ProPymes)`, recipient = teamMember("alvaro");
       const messages = loadCollection(messagesFile), message = { id: crypto.randomUUID(), senderId: `client:${quien}`, senderName: quien, clientName: quien, recipientId: recipient.id, text: lineas.filter(Boolean).join("\n").slice(0, 900), origen: "propymes-demo", createdAt: new Date().toISOString() };
-      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));return json(res, 201, { ok: true });
+      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));
+      push.notify(recipient.id, "clientes", { title: quien, body: preview(message.text), url: "/#ir=chat", tag: `cliente-${quien}` });
+      return json(res, 201, { ok: true });
     }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
   }
   if (requestPath === "/api/client-chat/messages" && req.method === "GET") {
@@ -734,7 +742,9 @@ http.createServer((req, res) => {
       if (!clientName || !recipient || recipient.id === "manuel") return json(res, 400, { error: "Destinatario no válido." });
       if (!body) return json(res, 400, { error: "Escriba un mensaje." });
       const messages = loadCollection(messagesFile), message = { id: crypto.randomUUID(), senderId: `client:${clientName}`, senderName: clientName, clientName, recipientId: recipient.id, text: body, createdAt: new Date().toISOString() };
-      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));return json(res, 201, message);
+      messages.push(message);saveCollection(messagesFile, messages.slice(-10000));
+      push.notify(recipient.id, "clientes", { title: `${clientName} · cliente`, body: preview(body), url: "/#ir=chat", tag: `cliente-${clientName}` });
+      return json(res, 201, message);
     }).catch(() => json(res, 400, { error: "No se pudo enviar el mensaje." }));
   }
   // Adjuntos que envía el cliente desde su área (fotos y PDF, en base64)
@@ -792,7 +802,9 @@ http.createServer((req, res) => {
         const entries=loadCollection(file),existing=entries.find(e=>e.id===input.id);
         if(existing)return existing.proposerId===user.id?json(res,200,existing):json(res,409,{error:"Identificador duplicado."});
         const entry={id:input.id,proposerId:user.id,proposer:user.name,area:input.area.trim(),idea:input.idea.trim(),createdAt:new Date().toISOString()};
-        entries.push(entry);saveCollection(file,entries);return json(res,201,entry);
+        entries.push(entry);saveCollection(file,entries);
+        push.notify(adminIds(user.id),"sugerencias",{title:`Sugerencia de ${user.name}`,body:preview(`${entry.area}: ${entry.idea}`),url:"/#ir=sugerencias",tag:"sugerencias"});
+        return json(res,201,entry);
       }).catch(()=>json(res,400,{error:"No se pudo guardar la sugerencia. Vuelve a intentarlo."}));
     }
     if(user.role!=="admin")return json(res,403,{error:"Acceso reservado a administración."});
@@ -831,6 +843,7 @@ http.createServer((req, res) => {
       const entries = loadCollection(billingFile);
       const entry = { id: crypto.randomUUID(), date: workDate, client: clientName, description: workDescription, hours: duration, employeeId: user.id, employee: user.name, createdAt: new Date().toISOString() };
       entries.push(entry);saveCollection(billingFile, entries.slice(-10000));
+      push.notify(adminIds(user.id), "facturacion", { title: "Nuevo trabajo para facturar", body: preview(`${user.name}${clientName ? ` · ${clientName}` : ""}: ${workDescription}`), url: "/#ir=facturacion", tag: "facturacion" });
       return json(res, 201, entry);
     }).catch(() => json(res, 400, { error: "No se pudo guardar el trabajo para facturación." }));
   }
@@ -930,6 +943,10 @@ http.createServer((req, res) => {
       if (user.role === "admin") saved = normalized;
       else saved = [...current.filter(task => task.assignedId !== user.id), ...normalized];
       saveCollection(tasksFile, saved);
+      // Aviso a quien recibe una tarea nueva o reasignada (no a quien se la asigna a sí mismo).
+      const before = new Map(current.map(task => [task.id, task.assignedId]));
+      for (const task of saved) if (task.assignedId !== user.id && before.get(task.id) !== task.assignedId && task.status !== "done")
+        push.notify(task.assignedId, "tareas", { title: `Nueva tarea de ${user.name}`, body: preview([task.client, task.description || task.title].filter(Boolean).join(": ") || "Tienes una tarea nueva"), url: "/#ir=tareas", tag: `tarea-${task.id}` });
       return json(res, 200, user.role === "admin" ? saved : saved.filter(task => task.assignedId === user.id));
     }).catch(() => json(res, 400, { error: "No se pudieron guardar las tareas." }));
   }

@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
-module.exports = function ({ dataDirectory, davRequest, json, readJson, readBuffer, requireUser, cleanText, loadCollection, saveCollection, billingFile }) {
+module.exports = function ({ dataDirectory, davRequest, json, readJson, readBuffer, requireUser, cleanText, loadCollection, saveCollection, billingFile, notify = () => {} }) {
   const file = path.join(dataDirectory, "presupuestos.json");
   const settingsFile = path.join(dataDirectory, "presupuestos-ajustes.json");
   const docsDirectory = path.join(dataDirectory, "presupuestos");
@@ -314,6 +314,7 @@ module.exports = function ({ dataDirectory, davRequest, json, readJson, readBuff
           p.estado = "aceptado";log(p, `Aceptado por ${nombre} (${dni}) desde el enlace`);
           try { await storeDoc(p, "acuerdo", `${p.numero} Aceptación del presupuesto.pdf`, await acuerdoPdf(p)); } catch (error) { console.error("Acuerdo de presupuesto:", error.message);log(p, `No se pudo generar el acuerdo en PDF: ${error.message}`); }
           const all = load(), i = all.findIndex(x => x.id === p.id);if (i >= 0) all[i] = p;save(all);
+          notify("presupuestos", { title: `Presupuesto ${p.numero} aceptado`, body: `${p.cliente?.nombre || nombre} ha aceptado el presupuesto.`, url: "/#ir=presupuestos", tag: `presupuesto-${p.id}` });
           json(res, 200, publicView(p));
         }).catch(() => json(res, 400, { error: "No se pudo registrar la aceptación." }));
         return true;

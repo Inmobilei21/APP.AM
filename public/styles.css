@@ -6192,3 +6192,22 @@ body.pq-open{overflow:hidden}
 .ptr.girando svg{animation:ptrGiro .7s linear infinite}
 @keyframes ptrGiro{to{transform:rotate(360deg)}}
 @media(min-width:761px){.ptr{display:none}}
+/* Notificaciones en «Mi cuenta» */
+#accountPanel .nt-card{border:1px solid #e3e8f2;border-radius:16px;background:#fff;overflow:hidden}
+#accountPanel .nt-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;margin:0;cursor:pointer}
+#accountPanel .nt-row>span{display:grid;gap:2px;min-width:0}
+#accountPanel .nt-row strong{font-size:14px;color:#101a33;font-weight:650}
+#accountPanel .nt-row small{font-size:12px;color:#7b869c}
+#accountPanel .nt-types{border-top:1px solid #edf0f6;background:#fafbfe}
+#accountPanel .nt-types .nt-row{padding:9px 14px}
+#accountPanel .nt-types .nt-row+.nt-row{border-top:1px solid #f0f2f7}
+#accountPanel .nt-types .nt-row strong{font-size:13.5px;font-weight:550}
+#accountPanel .nt-switch{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:44px!important;height:26px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:13px!important;background:#d5dae6!important;cursor:pointer;transition:background .2s;box-shadow:none!important}
+#accountPanel .nt-switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(10,26,63,.3);transition:transform .2s}
+#accountPanel .nt-switch:checked{background:#1535b4!important}
+#accountPanel .nt-switch:checked::after{transform:translateX(18px)}
+#accountPanel .nt-switch:disabled{opacity:.5}
+#accountPanel .nt-test{display:block;width:calc(100% - 28px)!important;height:38px!important;margin:10px 14px 12px!important;border:1px solid #dfe4ef!important;border-radius:11px!important;background:#f6f8fc!important;color:#1535b4!important;font-size:13px!important;font-weight:700!important;box-shadow:none!important}
+#accountPanel .nt-note{margin:0;padding:12px 14px;border:1px solid #e3e8f2;border-radius:16px;background:#fff;font-size:13px;line-height:1.5;color:#59647c}
+#accountPanel .nt-msg:empty{display:none}
+#accountPanel .nt-msg{margin:8px 2px 0;font-size:12.5px;color:#1535b4}
