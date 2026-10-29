@@ -4820,7 +4820,8 @@ setInterval(refreshSuggestions,15000);
   const initOriginal=initHome;
   initHome=function(){const r=initOriginal.apply(this,arguments);decorar();return r};
   const syncOriginal=syncMobileNavigation;
-  syncMobileNavigation=function(title="Inicio"){if(title!=="Inicio")document.body.classList.remove("e2-en-inicio");return syncOriginal.apply(this,arguments)};
+  // Abrir o cerrar el chat no es cambiar de pantalla: el inicio conserva su diseño.
+  syncMobileNavigation=function(title="Inicio"){if(title!=="Inicio"&&title!=="Chat")document.body.classList.remove("e2-en-inicio");return syncOriginal.apply(this,arguments)};
   const perfilOriginal=updateProfileButtons;
   updateProfileButtons=function(){const r=perfilOriginal.apply(this,arguments);usuario();return r};
   if(esEscritorio())decorar();
