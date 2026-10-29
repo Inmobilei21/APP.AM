@@ -1,0 +1,42 @@
+{
+  "novedades": [
+    {
+      "n": 1,
+      "fecha": "2026-10-16",
+      "puntos": [
+        "La app se actualiza sola cuando alguien guarda algo en el servidor: ya no hace falta recargar.",
+        "Facturas: puedes seleccionar texto del PDF y copiarlo o pasarlo directamente al borrador.",
+        "Facturas emitidas: se vinculan a la cuenta del cliente y se ordenan por número de factura.",
+        "Ficha del cliente: desplegable con todas las entidades bancarias; el IBAN llega solo a los modelos."
+      ]
+    },
+    {
+      "n": 2,
+      "fecha": "2026-10-20",
+      "puntos": [
+        "Importación a AMCOMTA: en la 410.9999 se usa el nombre y NIF de la factura, y los nombres van en mayúsculas.",
+        "Modelo 303: el fichero de la AEAT respeta la forma de pago que elijas y ya no da los errores de la página DID.",
+        "Sugerencias: aviso más discreto en la barra lateral y visible también en la pestaña de Gestión."
+      ]
+    },
+    {
+      "n": 3,
+      "fecha": "2026-10-26",
+      "puntos": [
+        "Al entrar en la app se cargan siempre los datos al día del servidor.",
+        "Móvil: desliza hacia abajo desde arriba para actualizar la pantalla.",
+        "Móvil: nueva ventana de «Mi cuenta», más clara y compacta."
+      ]
+    },
+    {
+      "n": 4,
+      "fecha": "2026-10-29",
+      "puntos": [
+        "Notificaciones en el móvil (como WhatsApp) de mensajes, tareas y avisos. Actívalas en «Mi cuenta» → Notificaciones.",
+        "Sugerencias: nuevo botón «Responder»; la respuesta le llega a quien la propuso en su chat.",
+        "Contactos: nueva pestaña «Otros contactos» para guardar notarías, bancos, proveedores… con varios teléfonos y correos.",
+        "Esta ventana: cada vez que haya mejoras te contaremos aquí lo nuevo."
+      ]
+    }
+  ]
+}

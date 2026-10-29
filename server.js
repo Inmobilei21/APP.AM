@@ -793,7 +793,7 @@ http.createServer((req, res) => {
     })).sort((a,b) => String(b.message.createdAt).localeCompare(String(a.message.createdAt))));
   }
 
-  if (requestPath === "/api/suggestions" || requestPath === "/api/suggestions/read") {
+  if (requestPath === "/api/suggestions" || requestPath === "/api/suggestions/read" || requestPath === "/api/suggestions/reply") {
     const user=requireUser(req,res);if(!user)return;
     const file=path.join(dataDirectory,"suggestions.json"),readsFile=path.join(dataDirectory,"suggestion-reads.json");
     if(requestPath==="/api/suggestions" && req.method==="POST"){
@@ -822,7 +822,46 @@ http.createServer((req, res) => {
         saveCollection(readsFile,reads);return json(res,200,{read:true});
       }).catch(()=>json(res,400,{error:"No se pudo actualizar el aviso."}));
     }
+    // Responder una sugerencia: la respuesta llega al chat de quien la propuso y queda anotada en la sugerencia.
+    if(requestPath==="/api/suggestions/reply" && req.method==="POST"){
+      return readJson(req,16*1024).then(input=>{
+        const text=cleanText(input.text,420),entries=loadCollection(file),entry=entries.find(e=>e.id===input.id);
+        if(!entry)return json(res,404,{error:"La sugerencia ya no existe."});
+        if(!text)return json(res,400,{error:"Escribe la respuesta."});
+        const recipient=chatParticipant(entry.proposerId);
+        if(!recipient||recipient.id===user.id)return json(res,400,{error:"No se puede responder a una sugerencia propia."});
+        const idea=entry.idea.replace(/\s+/g," ").trim(),cita=idea.length>70?idea.slice(0,67)+"…":idea,createdAt=new Date().toISOString();
+        const messages=loadCollection(messagesFile),message={id:crypto.randomUUID(),senderId:user.id,recipientId:recipient.id,text:`💡 Sobre tu sugerencia «${cita}»:\n${text}`.slice(0,500),createdAt};
+        messages.push(message);saveCollection(messagesFile,messages.slice(-10000));
+        entry.replies=[...(entry.replies||[]),{byId:user.id,by:user.name,text,createdAt}];saveCollection(file,entries);
+        const reads=loadCollection(readsFile);let record=reads.find(r=>r.userId===user.id);if(!record){record={userId:user.id,ids:[]};reads.push(record)}
+        if(!record.ids.includes(entry.id)){record.ids.push(entry.id);saveCollection(readsFile,reads)}
+        push.notify(recipient.id,"chat",{title:user.name,body:preview(`Sobre tu sugerencia: ${text}`),url:"/#ir=chat",tag:`chat-${user.id}`});
+        return json(res,200,{...entry,unread:false});
+      }).catch(()=>json(res,400,{error:"No se pudo enviar la respuesta."}));
+    }
     return json(res,405,{error:"Método no permitido."});
+  }
+  // Otros contactos: agenda propia del despacho (proveedores, notarías, organismos…), independiente de los clientes.
+  if (requestPath === "/api/otros-contactos") {
+    const user = requireUser(req, res);if (!user) return;
+    const file = path.join(dataDirectory, "otros-contactos.json"), KINDS = ["telefono", "movil", "email", "web", "direccion", "otro"];
+    if (req.method === "GET") return json(res, 200, { contacts: loadCollection(file) });
+    if (req.method === "POST") return readJson(req, 64 * 1024).then(input => {
+      const name = cleanText(input.name, 160), area = cleanText(input.area, 80), description = cleanText(input.description, 1000);
+      if (!name || !area || !description) return json(res, 400, { error: "Indica el nombre, el área y la descripción." });
+      const details = (Array.isArray(input.details) ? input.details : []).slice(0, 30).map(d => ({ kind: KINDS.includes(d?.kind) ? d.kind : "otro", label: cleanText(d?.label, 60), value: cleanText(d?.value, 300) })).filter(d => d.value);
+      const list = loadCollection(file), now = new Date().toISOString(), existing = input.id && list.find(c => c.id === input.id);
+      const contact = { ...(existing || { id: crypto.randomUUID(), createdAt: now, createdBy: user.name }), name, area, description, details, updatedAt: now, updatedBy: user.name };
+      if (existing) list[list.indexOf(existing)] = contact; else list.push(contact);
+      saveCollection(file, list);return json(res, existing ? 200 : 201, contact);
+    }).catch(() => json(res, 400, { error: "No se pudo guardar el contacto." }));
+    if (req.method === "DELETE") {
+      const id = new URL(req.url, "http://x").searchParams.get("id"), list = loadCollection(file), rest = list.filter(c => c.id !== id);
+      if (rest.length === list.length) return json(res, 404, { error: "El contacto ya no existe." });
+      saveCollection(file, rest);return json(res, 200, { deleted: true });
+    }
+    return json(res, 405, { error: "Método no permitido." });
   }
 
   if (requestPath === "/api/billing" && req.method === "GET") {

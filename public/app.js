@@ -1020,12 +1020,56 @@ async function renderContacts(){
         <div><p class="eyebrow">AGENDA DE CLIENTES</p><h2>Teléfonos de contacto</h2><p>Localiza rápidamente quién está llamando.</p></div>
         <label class="phone-search"><span>⌕</span><input id="phoneSearch" type="search" autocomplete="off" placeholder="Buscar teléfono, correo, cliente o persona…"></label>
       </div>
+      <nav class="contacts-tabs" role="tablist" aria-label="Tipo de contactos"><button type="button" role="tab" data-contacts-tab="clientes" aria-selected="${contactsTab==="clientes"}">Clientes</button><button type="button" role="tab" data-contacts-tab="otros" aria-selected="${contactsTab==="otros"}">Otros contactos</button><button type="button" class="contacts-new" id="newOtherContact"${contactsTab==="otros"?"":" hidden"}>+ Nuevo contacto</button></nav>
       <div class="contacts-summary"><strong id="contactsCount">0</strong><span>contactos encontrados</span></div>
-      <div class="contacts-table-wrap"><table class="contacts-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Contacto</th><th>Correo</th><th>Persona</th></tr></thead><tbody id="contactsRows"><tr><td colspan="5" class="table-empty">Cargando contactos…</td></tr></tbody></table></div>
+      <div class="contacts-table-wrap" data-contacts-view="clientes"${contactsTab==="clientes"?"":" hidden"}><table class="contacts-table"><thead><tr><th>Cliente</th><th>CIF</th><th>Contacto</th><th>Correo</th><th>Persona</th></tr></thead><tbody id="contactsRows"><tr><td colspan="5" class="table-empty">Cargando contactos…</td></tr></tbody></table></div>
+      <div class="other-contacts" id="otherContacts" data-contacts-view="otros"${contactsTab==="otros"?"":" hidden"}><p class="table-empty">Cargando contactos…</p></div>
     </section>`;
   bindHeader();
   document.querySelector("#phoneSearch").addEventListener("input",filterContacts);
-  await loadContacts();
+  document.querySelectorAll("[data-contacts-tab]").forEach(tab=>tab.addEventListener("click",()=>{contactsTab=tab.dataset.contactsTab;document.querySelectorAll("[data-contacts-tab]").forEach(t=>t.setAttribute("aria-selected",String(t===tab)));document.querySelectorAll("[data-contacts-view]").forEach(view=>view.hidden=view.dataset.contactsView!==contactsTab);document.querySelector("#newOtherContact").hidden=contactsTab!=="otros";filterContacts({target:document.querySelector("#phoneSearch")})}));
+  document.querySelector("#newOtherContact").addEventListener("click",()=>openOtherContactModal());
+  await Promise.all([loadContacts(),loadOtherContacts()]);
+  filterContacts({target:document.querySelector("#phoneSearch")});
+}
+/* ===== Otros contactos: agenda propia (proveedores, notarías, organismos…), independiente de la carpeta de clientes ===== */
+let contactsTab="clientes",otherContacts=[];
+const OTHER_KINDS={telefono:"Teléfono",movil:"Móvil",email:"Correo",web:"Web",direccion:"Dirección",otro:"Otro"};
+const otherDetailHref=d=>d.kind==="email"?`mailto:${d.value}`:d.kind==="telefono"||d.kind==="movil"?`tel:${d.value.replace(/[^+\d]/g,"")}`:d.kind==="web"?(/^https?:\/\//i.test(d.value)?d.value:`https://${d.value}`):"";
+async function loadOtherContacts(){
+  const box=document.querySelector("#otherContacts");if(!box)return;
+  try{otherContacts=(await apiJson("/api/otros-contactos")).contacts||[]}catch(error){box.innerHTML=`<p class="table-empty">${escapeHtml(error.message||"No se pudieron cargar los contactos.")}</p>`;return}
+  otherContacts.sort((a,b)=>a.area.localeCompare(b.area,"es",{sensitivity:"base"})||a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
+  box.innerHTML=otherContacts.length?otherContacts.map(c=>`<article class="other-contact" data-contact-search="${escapeHtml([c.name,c.area,c.description,...c.details.map(d=>d.label+" "+d.value)].join(" ").toLocaleLowerCase("es"))}" data-contact-phone="${escapeHtml(c.details.filter(d=>d.kind==="telefono"||d.kind==="movil").map(d=>normalizePhoneSearch(d.value)).join(" "))}">
+    <header><div><strong>${escapeHtml(c.name)}</strong><span class="other-contact-area">${escapeHtml(c.area)}</span></div><div class="other-contact-actions"><button type="button" data-edit-contact="${escapeHtml(c.id)}" title="Editar" aria-label="Editar">✎</button><button type="button" data-delete-contact="${escapeHtml(c.id)}" title="Eliminar" aria-label="Eliminar">🗑</button></div></header>
+    <p>${escapeHtml(c.description)}</p>
+    ${c.details.length?`<ul>${c.details.map(d=>{const href=otherDetailHref(d);return `<li><small>${escapeHtml(d.label||OTHER_KINDS[d.kind]||"Dato")}</small>${href?`<a href="${escapeHtml(href)}"${d.kind==="web"?' target="_blank" rel="noopener"':""}>${escapeHtml(d.value)}</a>`:`<span>${escapeHtml(d.value)}</span>`}</li>`}).join("")}</ul>`:""}
+  </article>`).join(""):'<div class="other-contacts-empty"><strong>Todavía no hay otros contactos</strong><span>Añade proveedores, notarías, organismos o cualquier persona que no sea cliente.</span></div>';
+  box.querySelectorAll("[data-edit-contact]").forEach(b=>b.onclick=()=>openOtherContactModal(otherContacts.find(c=>c.id===b.dataset.editContact)));
+  box.querySelectorAll("[data-delete-contact]").forEach(b=>b.onclick=async()=>{const c=otherContacts.find(x=>x.id===b.dataset.deleteContact);if(!c||!confirm(`¿Eliminar el contacto «${c.name}»?`))return;try{await apiJson(`/api/otros-contactos?id=${encodeURIComponent(c.id)}`,{method:"DELETE"});await loadOtherContacts();filterContacts({target:document.querySelector("#phoneSearch")})}catch(error){alert(error.message)}});
+}
+function openOtherContactModal(contact=null){
+  document.querySelector("#otherContactModal")?.remove();
+  const areas=[...new Set(otherContacts.map(c=>c.area))].sort((a,b)=>a.localeCompare(b,"es"));
+  const shell=document.createElement("div");shell.id="otherContactModal";shell.className="oc-shell";
+  const row=(d={kind:"telefono",label:"",value:""})=>`<div class="oc-detail"><select data-oc="kind">${Object.entries(OTHER_KINDS).map(([k,l])=>`<option value="${k}"${k===d.kind?" selected":""}>${l}</option>`).join("")}</select><input data-oc="label" maxlength="60" placeholder="Etiqueta (opcional)" value="${escapeHtml(d.label||"")}"><input data-oc="value" maxlength="300" placeholder="Número, correo, dirección…" value="${escapeHtml(d.value||"")}"><button type="button" data-oc-remove aria-label="Quitar">×</button></div>`;
+  shell.innerHTML=`<div class="oc-backdrop" data-oc-close></div><form class="oc-card" role="dialog" aria-modal="true" aria-labelledby="ocTitle"><header><div><p class="eyebrow">OTROS CONTACTOS</p><h3 id="ocTitle">${contact?"Editar contacto":"Nuevo contacto"}</h3></div><button type="button" class="oc-x" data-oc-close aria-label="Cerrar">×</button></header>
+    <div class="oc-body"><label><span>Nombre de la persona *</span><input name="name" maxlength="160" required value="${escapeHtml(contact?.name||"")}" placeholder="Ej.: María López"></label>
+    <label><span>Área *</span><input name="area" maxlength="80" required list="ocAreas" value="${escapeHtml(contact?.area||"")}" placeholder="Ej.: Notaría, Banco, Proveedor, Hacienda…"><datalist id="ocAreas">${areas.map(a=>`<option value="${escapeHtml(a)}">`).join("")}</datalist></label>
+    <label><span>Descripción *</span><textarea name="description" maxlength="1000" rows="3" required placeholder="Quién es y para qué se le llama">${escapeHtml(contact?.description||"")}</textarea></label>
+    <div class="oc-details-head"><span>Datos de contacto</span><button type="button" data-oc-add>+ Añadir dato</button></div>
+    <div class="oc-details">${(contact?.details?.length?contact.details:[{kind:"telefono"},{kind:"email"}]).map(row).join("")}</div>
+    <p class="oc-error" role="alert"></p></div>
+    <footer><button type="button" class="oc-cancel" data-oc-close>Cancelar</button><button type="submit" class="oc-save">${contact?"Guardar cambios":"Guardar contacto"}</button></footer></form>`;
+  document.body.append(shell);
+  const close=()=>shell.remove(),details=shell.querySelector(".oc-details");
+  shell.querySelectorAll("[data-oc-close]").forEach(b=>b.onclick=close);
+  shell.querySelector("[data-oc-add]").onclick=()=>{details.insertAdjacentHTML("beforeend",row({kind:"telefono"}));details.lastElementChild.querySelector('[data-oc="value"]').focus()};
+  details.addEventListener("click",event=>{if(event.target.closest("[data-oc-remove]"))event.target.closest(".oc-detail").remove()});
+  shell.querySelector("form").onsubmit=async event=>{event.preventDefault();const form=event.currentTarget,save=form.querySelector(".oc-save"),error=form.querySelector(".oc-error");error.textContent="";
+    const payload={id:contact?.id,name:form.querySelector('[name="name"]').value.trim(),area:form.querySelector('[name="area"]').value.trim(),description:form.querySelector('[name="description"]').value.trim(),details:[...details.querySelectorAll(".oc-detail")].map(r=>({kind:r.querySelector('[data-oc="kind"]').value,label:r.querySelector('[data-oc="label"]').value.trim(),value:r.querySelector('[data-oc="value"]').value.trim()})).filter(d=>d.value)};
+    save.disabled=true;try{await apiJson("/api/otros-contactos",{method:"POST",body:JSON.stringify(payload)});close();await loadOtherContacts();filterContacts({target:document.querySelector("#phoneSearch")})}catch(reason){error.textContent=reason.message;save.disabled=false}};
+  shell.querySelector('[name="name"]').focus();
 }
 async function loadContacts(){
   const body=document.querySelector("#contactsRows");
@@ -1039,7 +1083,7 @@ async function loadContacts(){
 function filterContacts(event){
   const query=event.target.value.trim().toLocaleLowerCase("es"),digits=normalizePhoneSearch(query);
   let visible=0;
-  document.querySelectorAll("#contactsRows tr[data-contact-search]").forEach(row=>{
+  document.querySelectorAll(contactsTab==="otros"?"#otherContacts [data-contact-search]":"#contactsRows tr[data-contact-search]").forEach(row=>{
     const matches=!query||row.dataset.contactSearch.includes(query)||(digits&&row.dataset.contactPhone.includes(digits));
     row.hidden=!matches;if(matches)visible++;
   });
@@ -4354,7 +4398,10 @@ async function refreshSuggestions(){
 }
 function drawSuggestions(){
  const list=document.querySelector("#suggestionList");if(!list)return;
- list.innerHTML=suggestionEntries.length?suggestionEntries.map(e=>`<article class="suggestion-entry"><header><div><strong>${escapeHtml(e.proposer)}</strong><small>${escapeHtml(new Date(e.createdAt).toLocaleString("es-ES"))}</small></div><span class="suggestion-area">${escapeHtml(e.area)}</span></header><p>${escapeHtml(e.idea)}</p>${e.unread?`<button class="secondary-button" type="button" data-read-suggestion="${escapeHtml(e.id)}">Marcar como leída</button>`:'<small class="suggestion-read">Leída</small>'}</article>`).join(""):'<p class="suggestion-empty">Todavía no hay sugerencias. Las ideas del equipo aparecerán aquí.</p>';
+ list.innerHTML=suggestionEntries.length?suggestionEntries.map(e=>`<article class="suggestion-entry"><header><div><strong>${escapeHtml(e.proposer)}</strong><small>${escapeHtml(new Date(e.createdAt).toLocaleString("es-ES"))}</small></div><span class="suggestion-area">${escapeHtml(e.area)}</span></header><p>${escapeHtml(e.idea)}</p>${(e.replies||[]).map(r=>`<div class="suggestion-reply-sent"><small>Respuesta de ${escapeHtml(r.by)} · ${escapeHtml(new Date(r.createdAt).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))}</small><p>${escapeHtml(r.text)}</p></div>`).join("")}<div class="suggestion-actions">${e.proposerId&&e.proposerId!==signedInUser?.id?`<button class="secondary-button suggestion-reply-button" type="button" data-reply-suggestion="${escapeHtml(e.id)}">Responder</button>`:""}${e.unread?`<button class="secondary-button" type="button" data-read-suggestion="${escapeHtml(e.id)}">Marcar como leída</button>`:'<small class="suggestion-read">Leída</small>'}</div><form class="suggestion-reply-form" data-reply-form="${escapeHtml(e.id)}" hidden><textarea maxlength="420" rows="3" placeholder="Escribe tu respuesta a ${escapeHtml(e.proposer)}…" required></textarea><div><small>Le llegará como mensaje a su chat.</small><button class="secondary-button" type="button" data-reply-cancel>Cancelar</button><button class="primary-button" type="submit">Enviar respuesta</button></div></form></article>`).join(""):'<p class="suggestion-empty">Todavía no hay sugerencias. Las ideas del equipo aparecerán aquí.</p>';
+ list.querySelectorAll("[data-reply-suggestion]").forEach(button=>button.onclick=()=>{const form=list.querySelector(`[data-reply-form="${CSS.escape(button.dataset.replySuggestion)}"]`);form.hidden=false;button.hidden=true;form.querySelector("textarea").focus()});
+ list.querySelectorAll("[data-reply-cancel]").forEach(button=>button.onclick=()=>{const form=button.closest("form");form.hidden=true;form.reset();list.querySelector(`[data-reply-suggestion="${CSS.escape(form.dataset.replyForm)}"]`).hidden=false});
+ list.querySelectorAll("[data-reply-form]").forEach(form=>form.onsubmit=async event=>{event.preventDefault();const send=form.querySelector('[type="submit"]'),text=form.querySelector("textarea").value.trim();if(!text)return;send.disabled=true;send.textContent="Enviando…";try{await apiJson("/api/suggestions/reply",{method:"POST",body:JSON.stringify({id:form.dataset.replyForm,text})});suggestionNotice("Respuesta enviada a su chat.");await refreshSuggestions();drawSuggestions()}catch(error){suggestionNotice(error.message);send.disabled=false;send.textContent="Enviar respuesta"}});
  list.querySelectorAll("[data-read-suggestion]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{await apiJson("/api/suggestions/read",{method:"POST",body:JSON.stringify({ids:[button.dataset.readSuggestion]})});await refreshSuggestions()}catch(error){suggestionNotice(error.message);button.disabled=false}});
 }
 function renderManagementSuggestions(){
