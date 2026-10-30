@@ -9,6 +9,7 @@ const TYPES = {
   chat: "Mensajes del chat",
   clientes: "Mensajes de clientes",
   tareas: "Tareas asignadas",
+  recordatorios: "Avisos de tareas y recordatorios a su hora",
   facturacion: "Trabajos para facturar",
   presupuestos: "Presupuestos aceptados",
   sugerencias: "Sugerencias del equipo"

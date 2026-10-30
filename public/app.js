@@ -294,7 +294,9 @@ async function openClientDocuments(){
     const root=await getSavedHandle("clients-folder"),clientFolder=await root?.getDirectoryHandle(clientPreviewName),allDocuments=clientFolder?await collectClientPortalDocuments(clientFolder):[];
     // El cliente solo ve los documentos marcados como visibles por el despacho.
     const portalRecord=(await getAllClientMetadata().catch(()=>[])).find(item=>clientIdentity(item)===clientPreviewName),visiblePaths=new Set((portalRecord?.portalDocuments||[]).filter(item=>item.visible).map(item=>item.path));
-    const documents=allDocuments.filter(item=>!item.handle?.path||visiblePaths.has(item.handle.path));
+    // …y nunca los que están dentro de una carpeta que el despacho ha ocultado.
+    const hiddenFolders=(portalRecord?.portalFolders||[]).filter(item=>item.visible===false).map(item=>item.path);
+    const documents=allDocuments.filter(item=>!item.handle?.path||(visiblePaths.has(item.handle.path)&&!hiddenFolders.some(folder=>item.handle.path.startsWith(folder+"/"))));
     documents.sort((a,b)=>a.path.localeCompare(b.path,"es")||a.name.localeCompare(b.name,"es"));
     list.innerHTML=documents.length?documents.map((document,index)=>`<button type="button" class="client-document-row" data-client-document="${index}" data-search="${escapeHtml(`${document.name} ${document.path}`.toLocaleLowerCase("es"))}">${documentTypeVisual(document.name)}<span><strong>${escapeHtml(document.name)}</strong><small>${escapeHtml(document.path)}</small></span><b>Ver</b></button>`).join(""):`<div class="client-documents-empty">${clientDesktopIcon("documents")}<strong>No hay documentos disponibles</strong><small>Cuando el despacho añada documentación aparecerá aquí.</small></div>`;
     list.querySelectorAll("[data-client-document]").forEach(button=>button.addEventListener("click",async()=>{const item=documents[Number(button.dataset.clientDocument)];if(item)openDocumentPreview(await item.handle.getFile())}));
@@ -1540,6 +1542,7 @@ async function renderTasks(){
             <input id="taskWorkId" type="hidden"><input id="taskCustomConcept" type="hidden">
             <label>Plazo de inicio<input id="taskStartDate" type="date" readonly></label>
             <label>Plazo final<input id="taskFinalDate" type="date" required></label>
+            <label class="task-remind-field">Avisarme<span class="task-remind-inputs"><input id="taskRemindDate" type="date" aria-label="Día del aviso"><input id="taskRemindTime" type="time" aria-label="Hora del aviso"></span><small>Opcional: a esa hora te sale el aviso en la esquina de la pantalla y en el móvil.</small></label>
             <label class="task-description-field">Descripción<textarea id="taskDescription" rows="4" maxlength="600" placeholder="Información útil para orientar la tarea"></textarea></label>
             <section class="task-form-checklist" id="taskFormChecklist" hidden><div><strong>Pasos del trabajo</strong><span id="taskFormStepCount"></span></div><div id="taskFormStepList"></div><button type="button" id="addTaskStep">＋ Añadir paso particular</button></section>
           </div>
@@ -1595,6 +1598,7 @@ async function renderTasks(){
     document.querySelector("#taskWorkId").value=task?.workId||"";
     taskFormSteps=Array.isArray(task?.checklist)?task.checklist.map(step=>({...step})):[];renderTaskFormSteps();
     document.querySelector("#taskFinalDate").value=task?.finalDate||"";
+    const remind=String(task?.remindAt||"");document.querySelector("#taskRemindDate").value=remind.slice(0,10);document.querySelector("#taskRemindTime").value=remind.slice(11,16);
     document.querySelector("#taskDescription").value=task?.description||"";
     const linked=task?.sourceType==="annualCorrection";
     clientInput.readOnly=linked;
@@ -1639,6 +1643,8 @@ async function renderTasks(){
       checklist:taskFormSteps.filter(step=>step.text.trim()).map(step=>({...step,text:step.text.trim()})),
       description:document.querySelector("#taskDescription").value.trim(),
       finalDate:document.querySelector("#taskFinalDate").value,
+      // Aviso: con solo la hora se avisa el día de hoy; con solo el día, a las 9:00.
+      remindAt:(()=>{const time=document.querySelector("#taskRemindTime").value,date=document.querySelector("#taskRemindDate").value||(time?localDateKey(new Date()):"");return date?`${date}T${time||"09:00"}`:""})(),
     };
     const tasks=getTasks(),existing=tasks.find(item=>item.id===form.dataset.editTaskId);
     if(existing){Object.assign(existing,taskData);const progress=taskChecklistProgress(existing);if(progress.total)existing.status=progress.done===0?"pending":progress.done===progress.total?"done":"progress";syncTaskToAnnualCorrection(existing)}
@@ -1654,7 +1660,18 @@ let calendarAnchor=new Date();
 function localDateKey(date){return`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}
 function calendarMonday(date){const value=new Date(date.getFullYear(),date.getMonth(),date.getDate()),offset=(value.getDay()+6)%7;value.setDate(value.getDate()-offset);return value}
 function getCalendarItems(){try{const value=JSON.parse(localStorage.getItem(CALENDAR_STORAGE_KEY)||"[]");return Array.isArray(value)?value:[]}catch{return[]}}
-function saveCalendarItems(items){localStorage.setItem(CALENDAR_STORAGE_KEY,JSON.stringify(items))}
+// La agenda se guarda en el servidor (compartida por el equipo y necesaria para los avisos a su hora); aquí queda una copia.
+function saveCalendarItems(items){localStorage.setItem(CALENDAR_STORAGE_KEY,JSON.stringify(items));if(signedInUser)apiJson("/api/calendario",{method:"PUT",body:JSON.stringify({items})}).catch(error=>console.warn("Agenda:",error.message))}
+async function syncCalendarFromServer(){
+  if(!signedInUser)return;
+  try{const{items=[]}=await apiJson("/api/calendario"),local=getCalendarItems();
+    // La primera vez, lo que este navegador tenía y el servidor aún no conoce se sube.
+    const missing=local.filter(item=>!items.some(server=>server.id===item.id));
+    if(missing.length&&!localStorage.getItem("app-am-calendar-migrated")){const merged=[...items,...missing];localStorage.setItem("app-am-calendar-migrated","1");saveCalendarItems(merged)}
+    else{localStorage.setItem("app-am-calendar-migrated","1");localStorage.setItem(CALENDAR_STORAGE_KEY,JSON.stringify(items))}
+    if(document.querySelector("#calendarBody"))refreshCalendar();
+  }catch(error){console.warn("Agenda:",error.message)}
+}
 function calendarItemsFor(date){const key=localDateKey(date);return getCalendarItems().filter(item=>item.date===key).sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||a.title.localeCompare(b.title,"es"))}
 function calendarEventMarkup(item,compact=false){return`<button type="button" class="calendar-event type-${escapeHtml(item.type||"reminder")}" data-calendar-event="${escapeHtml(item.id)}" title="${escapeHtml(item.title)}"><span>${item.time?escapeHtml(item.time):item.type==="notice"?"Aviso":"Todo el día"}</span><strong>${escapeHtml(item.title)}</strong>${!compact&&item.assigned?`<small>${escapeHtml(item.assigned)}</small>`:""}</button>`}
 function calendarTaskDate(value){const key=String(value||"").slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(key)?key:""}
@@ -1710,7 +1727,7 @@ function openCalendarItem(date="",id=""){
   form.reset();form.dataset.itemId=item?.id||"";document.querySelector("#calendarModalTitle").textContent=item?"Editar recordatorio":"Añadir recordatorio";document.querySelector("#calendarItemTitle").value=item?.title||"";document.querySelector("#calendarItemDate").value=item?.date||date||localDateKey(new Date());document.querySelector("#calendarItemTime").value=item?.time||"";document.querySelector("#calendarItemType").value=item?.type||"reminder";document.querySelector("#calendarItemAssigned").value=item?.assigned||"";document.querySelector("#calendarItemNotes").value=item?.notes||"";document.querySelector("#deleteCalendarItem").hidden=!item;modal.classList.add("open");modal.setAttribute("aria-hidden","false");setTimeout(()=>document.querySelector("#calendarItemTitle")?.focus(),150)
 }
 function closeCalendarItem(){const modal=document.querySelector("#calendarModal");if(modal){modal.classList.remove("open");modal.setAttribute("aria-hidden","true")}}
-function renderCalendar(){
+function renderCalendar(){setTimeout(syncCalendarFromServer,0);
   main.innerHTML=`<header><button class="menu" id="menu" aria-label="Abrir menú">☰</button><div><p class="eyebrow">ORGANIZACIÓN DEL DESPACHO</p><h1>Calendario</h1></div><button class="profile"><span>AM</span><span class="profile-copy"><strong>Mi cuenta</strong><small>Administrador</small></span></button></header>
     <section class="calendar-shell panel"><div class="calendar-top"><div><p class="eyebrow">AGENDA COMPARTIDA</p><h2>Tareas, recordatorios y avisos</h2><p>Las tareas se muestran automáticamente desde su inicio hasta la fecha límite.</p></div><button class="primary blue-button" id="newCalendarItem">＋ Añadir recordatorio</button></div>
     <div class="calendar-toolbar"><div class="calendar-navigation"><button type="button" id="calendarPrevious" aria-label="Periodo anterior">‹</button><button type="button" id="calendarToday">Hoy</button><button type="button" id="calendarNext" aria-label="Periodo siguiente">›</button><h3 id="calendarPeriodTitle"></h3></div><div class="calendar-view-switch"><button type="button" data-calendar-view="month">Mes</button><button type="button" data-calendar-view="week">Semana</button></div></div><div class="calendar-body" id="calendarBody"></div></section>    <div class="modal-shell" id="calendarModal" aria-hidden="true"><div class="modal-backdrop" data-close-calendar></div><section class="client-modal calendar-modal" role="dialog" aria-modal="true" aria-labelledby="calendarModalTitle"><div class="client-modal-head"><div><p class="eyebrow">AGENDA</p><h2 id="calendarModalTitle">Añadir recordatorio</h2></div><button class="modal-close" type="button" data-close-calendar aria-label="Cerrar">×</button></div><form id="calendarForm"><div class="calendar-form-grid"><label class="calendar-title-field">Título<input id="calendarItemTitle" maxlength="100" required placeholder="Ej. Presentar modelo 303"></label><label>Fecha<input id="calendarItemDate" type="date" required></label><label>Hora opcional<input id="calendarItemTime" type="time"></label><label>Tipo<select id="calendarItemType"><option value="reminder">Recordatorio</option><option value="notice">Aviso</option></select></label><label>Responsable<select id="calendarItemAssigned"><option value="">Todo el equipo</option>${workers.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label><label class="calendar-notes-field">Notas<textarea id="calendarItemNotes" rows="3" maxlength="400" placeholder="Información adicional"></textarea></label></div><div class="modal-actions calendar-modal-actions"><button type="button" class="calendar-delete" id="deleteCalendarItem" hidden>Eliminar</button><button type="button" class="secondary-button" data-close-calendar>Cancelar</button><button type="submit" class="primary blue-button">Guardar</button></div></form></section></div>`;

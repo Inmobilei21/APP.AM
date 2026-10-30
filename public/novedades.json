@@ -37,6 +37,16 @@
         "Contactos: nueva pestaña «Otros contactos» para guardar notarías, bancos, proveedores… con varios teléfonos y correos.",
         "Esta ventana: cada vez que haya mejoras te contaremos aquí lo nuevo."
       ]
+    },
+    {
+      "n": 5,
+      "fecha": "2026-10-30",
+      "puntos": [
+        "Clientes: botón «Nueva carpeta» dentro de cada cliente y en cualquier subcarpeta (por ejemplo, CONTABILIDAD/2023). Se crea al momento en el servidor.",
+        "Al crear una carpeta te pregunta si la verá el cliente en su aplicación. Lo puedes cambiar cuando quieras con el ojo de la carpeta.",
+        "Tareas: nuevo campo «Avisarme». A esa hora te sale un aviso abajo a la derecha de la pantalla, como los de Outlook, aunque estés con otra cosa.",
+        "Los recordatorios del calendario con hora también avisan, y la agenda se comparte con todo el equipo."
+      ]
     }
   ]
 }

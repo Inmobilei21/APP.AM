@@ -6320,3 +6320,54 @@ body.pq-open{overflow:hidden}
   body.chat-open .worker-chat #suggestionLauncher,body.chat-open .worker-chat #chatLauncher{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:opacity .15s,visibility 0s .15s}
   body.chat-open .worker-chat #chatPanel.open{bottom:0!important;top:auto!important;max-height:calc(100dvh - 52px)!important}
 }
+
+/* ===== Carpetas nuevas en los clientes ===== */
+.new-folder-button{display:inline-flex!important;align-items:center;gap:7px}
+.new-folder-button[hidden]{display:none!important}
+.folder-card:has(.cf-ojo){position:relative}
+.folder-card:has(.cf-ojo) .dp-chip{right:54px}
+.cf-ojo{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:10px;border:1px solid #e3e7f0;background:#fff;display:grid;place-items:center;color:#b0b8ca;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.cf-ojo:hover{border-color:#b9c2da;color:#34405a}
+.cf-ojo.cf-si{color:#1535b4;background:#f2f5ff;border-color:#d7def6}
+.cf-ojo.cf-heredado{cursor:default;opacity:.55}
+.cf-ojo.cf-guardando{opacity:.4;pointer-events:none}
+.nf-shell{position:fixed;inset:0;z-index:3300;display:grid;place-items:center;padding:16px}
+.nf-backdrop{position:absolute;inset:0;background:rgba(6,17,43,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.nf-card{position:relative;width:min(440px,100%);display:grid;gap:12px;padding:24px;border-radius:22px;background:#fff;box-shadow:0 30px 70px -30px rgba(6,17,43,.6);animation:nvIn .3s cubic-bezier(.22,1,.36,1)}
+.nf-card .eyebrow{margin:0;font-size:10.5px;letter-spacing:.16em;color:#1535b4}
+.nf-card h3{margin:-6px 0 0;font-size:21px;color:#0e1835}
+.nf-where{margin:-4px 0 4px;color:#6f7787;font-size:13.5px}
+.nf-card label{display:grid;gap:6px}
+.nf-card label span{font-size:12.5px;font-weight:650;color:#4a5570}
+.nf-card input{height:44px;padding:0 12px;border:1px solid #d6dcea;border-radius:12px;font:inherit;font-size:15px}
+.nf-card input:focus{outline:none;border-color:#1535b4;box-shadow:0 0 0 3px rgba(21,53,180,.12)}
+.nf-error:empty{display:none}
+.nf-error{margin:0;color:#c62828;font-size:13px}
+.nf-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
+.nf-actions button{height:42px;padding:0 18px;border-radius:11px;font-weight:700;cursor:pointer}
+.nf-cancel{border:1px solid #dfe4ef;background:#fff;color:#4a5570}
+.nf-ok{border:0;background:#0e1835;color:#fff}
+.nf-ok:disabled{opacity:.6}
+@media(max-width:760px){.nf-shell{place-items:end stretch;padding:0}.nf-card{border-radius:24px 24px 0 0;padding-bottom:calc(24px + env(safe-area-inset-bottom))}}
+
+/* ===== Avisos a su hora (abajo a la derecha, como Outlook) ===== */
+.av-stack{position:fixed;right:20px;bottom:96px;z-index:9700;display:flex;flex-direction:column;gap:10px;width:min(360px,calc(100vw - 32px));pointer-events:none}
+.av-card{pointer-events:auto;position:relative;display:flex;gap:12px;padding:14px 40px 14px 14px;border-radius:16px;background:#fff;border:1px solid #e3e8f2;border-left:4px solid #1535b4;box-shadow:0 18px 40px -16px rgba(6,17,43,.45);transform:translateX(24px);opacity:0;transition:transform .3s cubic-bezier(.22,1,.36,1),opacity .25s}
+.av-card.av-on{transform:none;opacity:1}
+.av-card.av-out{transform:translateX(24px);opacity:0}
+.av-ico{flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#eef1ff;color:#1535b4}
+.av-txt{min-width:0;display:grid;gap:3px}
+.av-txt small{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#1535b4}
+.av-txt strong{font-size:14.5px;color:#0e1835;overflow-wrap:anywhere}
+.av-txt p{margin:0;font-size:13px;line-height:1.45;color:#59647c;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.av-acts{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.av-acts button{height:30px;padding:0 12px;border-radius:9px;border:1px solid #dfe4ef;background:#f6f8fc;color:#1535b4;font-size:12.5px;font-weight:700;cursor:pointer}
+.av-acts [data-av="abrir"]{background:#0e1835;border-color:#0e1835;color:#fff}
+.av-x{position:absolute;top:8px;right:8px;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#8a94a8;font-size:18px;cursor:pointer}
+.av-x:hover{background:#f0f2f7;color:#172033}
+@media(max-width:760px){.av-stack{right:12px;left:12px;width:auto;bottom:calc(env(safe-area-inset-bottom) + 96px)}}
+.task-remind-field .task-remind-inputs{display:flex;gap:8px}
+.task-remind-field .task-remind-inputs input{flex:1;min-width:0}
+.task-remind-field small{display:block;margin-top:4px;color:#7b869c;font-size:11.5px;font-weight:400}
+.folder-actions .new-folder-button,.folder-actions .new-folder-button *{color:#fff!important}
+.folder-actions .new-folder-button{align-self:stretch}

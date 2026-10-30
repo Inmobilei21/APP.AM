@@ -466,6 +466,40 @@ const amcomta = require("./amcomta")({ dataDirectory });
 const push = require("./push")({ dataDirectory, json, readJson, requireUser });
 const adminIds = (except) => loadUsers().filter(item => item.role === "admin" && item.id !== except).map(item => item.id);
 const preview = text => String(text || "").replace(/\s+/g, " ").trim().slice(0, 140);
+// ---- Avisos a su hora (tareas con «Avisarme» y recordatorios del calendario con hora) ----
+const calendarFile = path.join(dataDirectory, "calendario.json"), remindersSentFile = path.join(dataDirectory, "avisos-enviados.json");
+// Fecha y hora de Madrid («2026-10-30», «12:00») → instante exacto, con horario de verano incluido.
+function madridTime(date, time) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || "")), t = /^(\d{2}):(\d{2})$/.exec(String(time || ""));
+  if (!m || !t) return NaN;
+  const wanted = Date.UTC(+m[1], +m[2] - 1, +m[3], +t[1], +t[2]);
+  const offset = instant => { const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(instant).map(x => [x.type, x.value])); return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - instant; };
+  let instant = wanted - offset(wanted); instant = wanted - offset(instant); return instant;
+}
+function checkReminders() {
+  try {
+    const now = Date.now(), sent = new Map(loadCollection(remindersSentFile).map(item => [item.key, item.at])), due = [];
+    for (const task of loadCollection(tasksFile)) {
+      if (!task?.remindAt || task.status === "done" || !task.assignedId) continue;
+      const [date, time] = String(task.remindAt).split("T"), at = madridTime(date, time);
+      due.push({ key: `tarea:${task.id}:${task.remindAt}`, at, users: [task.assignedId], title: `⏰ ${task.client || "Tarea"}`, body: task.description || task.workTitle || task.customConcept || "Tienes un aviso de esta tarea", url: "/#ir=tareas", tag: `aviso-${task.id}` });
+    }
+    const everyone = loadUsers().map(item => item.id);
+    for (const item of loadCollection(calendarFile)) {
+      if (!item?.time || !item.date) continue;
+      const at = madridTime(item.date, item.time), member = item.assigned ? teamMember(item.assigned) : null;
+      due.push({ key: `agenda:${item.id}:${item.date}T${item.time}`, at, users: member ? [member.id] : everyone, title: `⏰ ${item.title || "Recordatorio"}`, body: [item.time, item.notes].filter(Boolean).join(" · ") || "Recordatorio del calendario", url: "/#ir=calendario", tag: `agenda-${item.id}` });
+    }
+    let changed = false;
+    for (const item of due) {
+      if (!Number.isFinite(item.at) || item.at > now || now - item.at > 15 * 60 * 1000 || sent.has(item.key)) continue;
+      push.notify(item.users, "recordatorios", { title: item.title, body: preview(item.body), url: item.url, tag: item.tag });
+      sent.set(item.key, now); changed = true;
+    }
+    if (changed) saveCollection(remindersSentFile, [...sent].filter(([, at]) => now - at < 7 * 864e5).map(([key, at]) => ({ key, at })));
+  } catch (error) { console.error("Avisos:", error.message); }
+}
+setInterval(checkReminders, 30 * 1000).unref?.();
 const presupuestos = require("./presupuestos")({ dataDirectory, davRequest, json, readJson, readBuffer, requireUser, cleanText, loadCollection, saveCollection, billingFile, notify: (type, payload) => push.notify(adminIds(), type, payload) });
 const portalDocs = require("./portal-docs")({ dataDirectory, davRequest, parseDavEntries, webdavProperties, loadMetadata });
 
@@ -478,6 +512,16 @@ http.createServer((req, res) => {
     if (area) res.on("finish", () => { if (res.statusCode < 400) markChanged(area); });
   }
   if (requestPath.startsWith("/api/push/") && push.handle(req, res, requestPath)) return;
+  // Agenda compartida del calendario (antes solo vivía en cada navegador)
+  if (requestPath === "/api/calendario" && ["GET", "PUT"].includes(req.method)) {
+    if (!requireUser(req, res)) return;
+    if (req.method === "GET") return json(res, 200, { items: loadCollection(calendarFile) });
+    return readJson(req, 512 * 1024).then(({ items }) => {
+      if (!Array.isArray(items)) return json(res, 400, { error: "Agenda no válida." });
+      const clean = items.slice(0, 3000).filter(item => item && typeof item.id === "string").map(item => ({ id: cleanText(item.id, 80), title: cleanText(item.title, 100), date: cleanText(item.date, 10), time: cleanText(item.time, 5), type: cleanText(item.type, 30), assigned: cleanText(item.assigned, 80), notes: cleanText(item.notes, 400) }));
+      saveCollection(calendarFile, clean); return json(res, 200, { items: clean });
+    }).catch(() => json(res, 400, { error: "No se pudo guardar la agenda." }));
+  }
   if ((requestPath.startsWith("/api/presupuestos") || requestPath.startsWith("/api/p/")) && presupuestos(req, res, requestPath)) return;
   if (requestPath === "/api/version" && req.method === "GET") {
     return json(res, 200, { version: applicationVersion });

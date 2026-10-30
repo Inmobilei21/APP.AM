@@ -15,6 +15,7 @@
     try {
       if (target === "chat") { if (!document.querySelector("#chatPanel.open")) toggleWorkerChat(); }
       else if (target === "tareas") nav("Tareas");
+      else if (target === "calendario") nav("Calendario");
       else if (target === "facturacion") openBillingModal();
       else if (target === "sugerencias" || target === "presupuestos") { nav("Gestión"); setTimeout(() => document.querySelector(`[data-management-tab="${target === "sugerencias" ? "suggestions" : "presupuestos"}"]`)?.click(), 300); }
     } catch (error) { console.error("Abrir aviso", error); }
