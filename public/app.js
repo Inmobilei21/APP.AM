@@ -6199,3 +6199,15 @@ function clientBankData(client){return client?.commercialRegistry?.bank?.ibans?.
   });
   document.addEventListener("touchcancel",()=>{if(active)reset()});
 })();
+/* ===== Móvil: mientras el teclado está abierto (escribiendo en cualquier campo) no se ve la barra inferior ===== */
+(function(){
+  const movil=()=>window.matchMedia("(max-width:760px)").matches;
+  const esCampo=el=>el?.matches?.('input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]),textarea,[contenteditable="true"]')&&!el.readOnly&&!el.disabled;
+  const marcar=on=>document.body.classList.toggle("m2-teclado",on);
+  document.addEventListener("focusin",e=>{if(movil()&&esCampo(e.target))marcar(true)});
+  document.addEventListener("focusout",()=>setTimeout(()=>{if(!esCampo(document.activeElement))marcar(false)},120));
+  // Si el teclado se cierra sin que el campo pierda el foco (Android), la barra vuelve al recuperar la altura.
+  let alto=window.visualViewport?.height||window.innerHeight;
+  window.addEventListener("orientationchange",()=>setTimeout(()=>{alto=window.visualViewport?.height||window.innerHeight},400));
+  window.visualViewport?.addEventListener("resize",()=>{const h=window.visualViewport.height;if(h>alto)alto=h;if(document.body.classList.contains("m2-teclado")&&h>alto*0.9)marcar(false)});
+})();

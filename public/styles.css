@@ -6371,3 +6371,7 @@ body.pq-open{overflow:hidden}
 .task-remind-field small{display:block;margin-top:4px;color:#7b869c;font-size:11.5px;font-weight:400}
 .folder-actions .new-folder-button,.folder-actions .new-folder-button *{color:#fff!important}
 .folder-actions .new-folder-button{align-self:stretch}
+/* Teclado abierto en el móvil: fuera la barra inferior y los botones flotantes */
+@media(max-width:760px){
+  body.m2-teclado .m2-barra,body.m2-teclado .c2-nav,body.m2-teclado .mobile-bottom-nav,body.m2-teclado .contacts-tabs .contacts-new{opacity:0!important;pointer-events:none!important;transform:translateY(140%)!important;transition:opacity .15s,transform .2s!important}
+}
