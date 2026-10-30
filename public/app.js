@@ -5501,6 +5501,10 @@ setInterval(refreshSuggestions,15000);
     }
     if(h.classList.contains("pv-abierto")&&!document.querySelector(".pv-capa"))h.classList.remove("pv-abierto");
     if(b.classList.contains("menu-open")&&!document.querySelector("#sidebar.open"))b.classList.remove("menu-open");
+    // También los bloqueos que quedan en <html> o en el panel de Borradores aunque ya no haya nada abierto
+    if(h.classList.contains("menu-open")&&!document.querySelector("#sidebar.open")){h.classList.remove("menu-open");b.style.top=""}
+    if(b.classList.contains("td-side-open")&&!document.querySelector("#tdSide.on")){b.classList.remove("td-side-open");if(typeof tdLockScroll==="function")tdLockScroll(false)}
+    if(h.classList.contains("cc-bloqueo")&&!document.querySelector(".client-chat-overlay"))h.classList.remove("cc-bloqueo");
   };
   document.addEventListener("touchstart",revisar,{passive:true,capture:true});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)revisar()});

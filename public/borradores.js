@@ -550,7 +550,7 @@ async function fillTaxDraftInvoiceFiles(container,client,items){
 }
 // Con el panel lateral abierto la página de detrás no se desplaza (ni la ventana ni los contenedores con scroll propio).
 function tdLockScroll(on){
-  const wheel=tdLockScroll.wheel||(tdLockScroll.wheel=event=>{if(!event.target.closest?.("#tdSide"))event.preventDefault()});
+  const wheel=tdLockScroll.wheel||(tdLockScroll.wheel=event=>{if(!document.querySelector("#tdSide.on")){tdLockScroll(false);return}if(!event.target.closest?.("#tdSide"))event.preventDefault()});
   document.removeEventListener("wheel",wheel,{passive:false});document.removeEventListener("touchmove",wheel,{passive:false});
   if(on){document.addEventListener("wheel",wheel,{passive:false});document.addEventListener("touchmove",wheel,{passive:false})}
 }
