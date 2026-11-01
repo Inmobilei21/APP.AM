@@ -6375,3 +6375,10 @@ body.pq-open{overflow:hidden}
 @media(max-width:760px){
   body.m2-teclado .m2-barra,body.m2-teclado .c2-nav,body.m2-teclado .mobile-bottom-nav,body.m2-teclado .contacts-tabs .contacts-new{opacity:0!important;pointer-events:none!important;transform:translateY(140%)!important;transition:opacity .15s,transform .2s!important}
 }
+/* Móvil: las pestañas de Gestión (Clientes, Sugerencias…) solo se desplazan a los lados, nunca arriba y abajo */
+@media(max-width:760px){
+  .management-tabs,.contacts-tabs{overflow-x:auto!important;overflow-y:hidden!important;overscroll-behavior-x:contain;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap!important;align-items:center}
+  .management-tabs::-webkit-scrollbar,.contacts-tabs::-webkit-scrollbar{display:none}
+  .management-tabs button{flex:none}
+  .management-tabs .management-tab-alert{top:2px!important;right:4px!important}
+}

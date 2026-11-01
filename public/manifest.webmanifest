@@ -1,6 +1,9 @@
 {
   "name": "AM · Gestión del despacho",
   "short_name": "APP AM",
+  "id": "/",
+  "lang": "es-ES",
+  "dir": "ltr",
   "description": "Aplicación de gestión del despacho Molinero",
   "start_url": "/",
   "scope": "/",
@@ -26,5 +29,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "orientation": "any"
 }
