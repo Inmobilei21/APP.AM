@@ -9,6 +9,7 @@
   const get = (suffix, fallback = "") => { try { return localStorage.getItem(key(suffix)) ?? fallback; } catch { return fallback; } };
   const set = (suffix, value) => { try { localStorage.setItem(key(suffix), value); } catch {} };
   const enabled = () => allowed() && get("activo", "0") === "1";
+  const hour = () => /^\d{2}:\d{2}$/.test(get("hora")) ? get("hora") : "09:00";
   const dayKey = date => localDateKey(date);
   const monday = date => { const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; };
   const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
@@ -71,7 +72,8 @@
   function check() {
     if (!enabled()) return;
     const now = new Date(), weekday = now.getDay();
-    if (weekday === 0 || weekday === 6 || now.getHours() < 9 || get("visto") === dayKey(now)) return;
+    const [hh, mm] = hour().split(":").map(Number);
+    if (weekday === 0 || weekday === 6 || now.getHours() * 60 + now.getMinutes() < hh * 60 + mm || get("visto") === dayKey(now)) return;
     if (document.querySelector(".login2, .login-gate, #splash")) return;
     show();
   }
@@ -82,14 +84,17 @@
     const result = previous.apply(this, arguments);
     const slot = document.querySelector("#accountPanel .acc-slot-resumen");
     if (slot && allowed()) {
-      slot.innerHTML = `<h3 class="account-section">Resumen de la semana</h3><div class="nt-card"><label class="nt-row"><span><strong>Cada mañana a las 9:00</strong><small>De lunes a viernes sale en grande la hoja de la semana con lo que vence cada día. Se cierra con «Cerrar».</small></span><input type="checkbox" class="nt-switch" data-rs-activo${enabled() ? " checked" : ""}></label><button type="button" class="nt-test" data-rs-ver>Ver mi semana ahora</button></div>`;
+      slot.innerHTML = `<h3 class="account-section">Resumen de la semana</h3><div class="nt-card"><label class="nt-row"><span><strong>Aviso cada mañana</strong><small>De lunes a viernes, a la hora que elijas, sale en grande la hoja de la semana. Si abres la app más tarde, es lo primero que ves. Se cierra con «Cerrar».</small></span><input type="checkbox" class="nt-switch" data-rs-activo${enabled() ? " checked" : ""}></label><label class="nt-row rs-hora-row"><span><strong>Hora del aviso</strong></span><input type="time" class="rs-hora" data-rs-hora value="${hour()}" step="300"></label><button type="button" class="nt-test" data-rs-ver>Ver mi semana ahora</button></div>`;
       slot.querySelector("[data-rs-activo]").addEventListener("change", event => { set("activo", event.target.checked ? "1" : "0"); if (event.target.checked) set("visto", dayKey(new Date())); });
+      slot.querySelector("[data-rs-hora]").addEventListener("change", event => { if (/^\d{2}:\d{2}$/.test(event.target.value)) { set("hora", event.target.value); const [hh, mm] = event.target.value.split(":").map(Number), now = new Date(); if (now.getHours() * 60 + now.getMinutes() < hh * 60 + mm && get("visto") === dayKey(now)) set("visto", ""); } });
       slot.querySelector("[data-rs-ver]").addEventListener("click", () => { document.querySelector("#accountPanel")?.remove(); show({ manual: true }); });
     }
     return result;
   };
 
-  const start = () => { if (!signedInUser) { setTimeout(start, 2000); return; } setTimeout(check, 4000); };
+  // Al abrir la app pasada la hora, el resumen es lo primero que sale (las novedades esperan a que se cierre).
+  window.resumenPendiente = () => { if (!enabled()) return false; const now = new Date(), [hh, mm] = hour().split(":").map(Number); return now.getDay() % 6 !== 0 && now.getHours() * 60 + now.getMinutes() >= hh * 60 + mm && get("visto") !== dayKey(now); };
+  const start = () => { if (!signedInUser) { setTimeout(start, 1000); return; } [800, 2500, 5000].forEach(ms => setTimeout(check, ms)); };
   if (window.__authDecidida) start(); else document.addEventListener("auth-decidida", start, { once: true });
   setInterval(check, 30 * 1000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) check(); });

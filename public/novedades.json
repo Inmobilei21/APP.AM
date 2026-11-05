@@ -55,6 +55,14 @@
         "«Mi cuenta» ordenada en apartados: General, Notificaciones y Equipo y contraseñas (administradores).",
         "Resumen de la semana: si lo activas en Notificaciones, cada mañana a las 9:00 sale la hoja de la semana con lo que vence cada día (tareas, avisos, recordatorios, firmas que caducan y plazos de inspecciones)."
       ]
+    },
+    {
+      "n": 7,
+      "fecha": "2026-11-05",
+      "puntos": [
+        "Inicio → Tareas pendientes (Álvaro y Manuel): elige entre «Mis tareas» y «Del despacho» para ver por separado las del resto del equipo.",
+        "Resumen de la semana: ahora eliges la hora del aviso. Si abres la app más tarde, es lo primero que te sale."
+      ]
     }
   ]
 }

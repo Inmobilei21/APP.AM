@@ -6,7 +6,7 @@
   const niceDate = iso => new Date(`${iso}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "long" });
   async function show() {
     if (!signedInUser || document.querySelector("#novedades")) return;
-    if (document.getElementById("splash") || document.querySelector(".login2, .login-gate")) { setTimeout(show, 800); return; }
+    if (document.getElementById("splash") || document.querySelector(".login2, .login-gate") || document.querySelector("#resumenSemana") || window.resumenPendiente?.()) { setTimeout(show, 800); return; }
     let data; try { data = await (await fetch("/novedades.json", { cache: "no-store" })).json(); } catch { return; }
     const all = (data?.novedades || []).filter(x => Number.isFinite(x.n) && Array.isArray(x.puntos));
     if (!all.length) return;
