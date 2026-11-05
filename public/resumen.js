@@ -84,9 +84,20 @@
     const result = previous.apply(this, arguments);
     const slot = document.querySelector("#accountPanel .acc-slot-resumen");
     if (slot && allowed()) {
-      slot.innerHTML = `<h3 class="account-section">Resumen de la semana</h3><div class="nt-card"><label class="nt-row"><span><strong>Aviso cada mañana</strong><small>De lunes a viernes, a la hora que elijas, sale en grande la hoja de la semana. Si abres la app más tarde, es lo primero que ves. Se cierra con «Cerrar».</small></span><input type="checkbox" class="nt-switch" data-rs-activo${enabled() ? " checked" : ""}></label><label class="nt-row rs-hora-row"><span><strong>Hora del aviso</strong></span><input type="time" class="rs-hora" data-rs-hora value="${hour()}" step="300"></label><button type="button" class="nt-test" data-rs-ver>Ver mi semana ahora</button></div>`;
+      slot.innerHTML = `<h3 class="account-section">Resumen de la semana</h3><div class="nt-card"><label class="nt-row"><span><strong>Aviso cada mañana</strong><small>De lunes a viernes, a la hora que elijas, sale en grande la hoja de la semana. Si abres la app más tarde, es lo primero que ves. Se cierra con «Cerrar».</small></span><input type="checkbox" class="nt-switch" data-rs-activo${enabled() ? " checked" : ""}></label><label class="nt-row rs-hora-row"><span><strong>Hora del aviso</strong></span><input type="text" class="rs-hora" data-rs-hora value="${hour()}" inputmode="numeric" maxlength="5" placeholder="09:00" autocomplete="off" aria-label="Hora del aviso, formato 24 horas"></label><button type="button" class="nt-test" data-rs-ver>Ver mi semana ahora</button></div>`;
       slot.querySelector("[data-rs-activo]").addEventListener("change", event => { set("activo", event.target.checked ? "1" : "0"); if (event.target.checked) set("visto", dayKey(new Date())); });
-      slot.querySelector("[data-rs-hora]").addEventListener("change", event => { if (/^\d{2}:\d{2}$/.test(event.target.value)) { set("hora", event.target.value); const [hh, mm] = event.target.value.split(":").map(Number), now = new Date(); if (now.getHours() * 60 + now.getMinutes() < hh * 60 + mm && get("visto") === dayKey(now)) set("visto", ""); } });
+      // Hora escrita a mano, solo números y en formato 24 h: «830» → 08:30, «1415» → 14:15.
+      const field = slot.querySelector("[data-rs-hora]");
+      field.addEventListener("input", () => { const digits = field.value.replace(/\D/g, "").slice(0, 4); field.value = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits; field.classList.remove("rs-mal"); });
+      const commit = () => {
+        let digits = field.value.replace(/\D/g, ""); if (digits.length === 3) digits = "0" + digits; if (digits.length <= 2 && digits) digits = digits.padStart(2, "0") + "00";
+        const hh = Number(digits.slice(0, 2)), mm = Number(digits.slice(2, 4));
+        if (digits.length !== 4 || hh > 23 || mm > 59) { field.classList.add("rs-mal"); field.title = "Escribe una hora entre 00:00 y 23:59"; return; }
+        const value = `${digits.slice(0, 2)}:${digits.slice(2)}`; field.value = value; field.classList.remove("rs-mal"); set("hora", value);
+        const now = new Date(); if (now.getHours() * 60 + now.getMinutes() < hh * 60 + mm && get("visto") === dayKey(now)) set("visto", "");
+      };
+      field.addEventListener("change", commit); field.addEventListener("blur", commit);
+      field.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); commit(); field.blur(); } else if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey) event.preventDefault(); });
       slot.querySelector("[data-rs-ver]").addEventListener("click", () => { document.querySelector("#accountPanel")?.remove(); show({ manual: true }); });
     }
     return result;
