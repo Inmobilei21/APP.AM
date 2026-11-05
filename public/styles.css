@@ -6460,3 +6460,4 @@ html.rs-abierto,html.rs-abierto body{overflow:hidden!important}
 #accountPanel .rs-hora{width:auto!important;height:36px!important;padding:0 10px!important;border:1px solid #d6dcea!important;border-radius:10px!important;font:inherit!important;font-size:14px!important;font-weight:650!important;color:#0e1835!important;background:#fff!important;margin:0!important}
 #accountPanel .rs-hora{width:76px!important;text-align:center;letter-spacing:.04em;font-variant-numeric:tabular-nums}
 #accountPanel .rs-hora.rs-mal{border-color:#d92d20!important;box-shadow:0 0 0 3px rgba(217,45,32,.12)!important}
+#accountPanel .account-content>.logout-button{margin-top:16px!important}

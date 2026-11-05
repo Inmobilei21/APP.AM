@@ -63,6 +63,14 @@
         "Inicio → Tareas pendientes (Álvaro y Manuel): elige entre «Mis tareas» y «Del despacho» para ver por separado las del resto del equipo.",
         "Resumen de la semana: ahora eliges la hora del aviso. Si abres la app más tarde, es lo primero que te sale."
       ]
+    },
+    {
+      "n": 8,
+      "fecha": "2026-11-06",
+      "puntos": [
+        "Resumen de la semana para todo el equipo: en «Mi cuenta» → Notificaciones activa «Aviso cada mañana» y escribe la hora que quieras. Cada mañana te sale la hoja de la semana con lo que vence cada día.",
+        "«Mi cuenta» se abre directamente en Notificaciones, con «Cerrar sesión» siempre abajo."
+      ]
     }
   ]
 }

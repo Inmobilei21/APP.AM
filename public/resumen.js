@@ -1,10 +1,9 @@
 /* Resumen de la semana: si se activa en «Mi cuenta» → Notificaciones, cada mañana (de lunes a viernes) a las 9:00 sale
    en grande la hoja de la semana con una columna por día: tareas que vencen, avisos, recordatorios del calendario,
    firmas digitales que caducan y plazos de inspecciones. Solo se cierra con el botón «Cerrar» (no con clic fuera ni Esc).
-   De momento solo para Álvaro. Se carga después de app.js y notificaciones.js. */
+   Disponible para todo el equipo; cada uno elige su hora. Se carga después de app.js y notificaciones.js. */
 (() => {
-  const PILOTO = ["alvaro"];
-  const allowed = () => Boolean(signedInUser && PILOTO.includes(signedInUser.id));
+  const allowed = () => Boolean(signedInUser);
   const key = suffix => `am-resumen-${suffix}:${signedInUser?.id || ""}`;
   const get = (suffix, fallback = "") => { try { return localStorage.getItem(key(suffix)) ?? fallback; } catch { return fallback; } };
   const set = (suffix, value) => { try { localStorage.setItem(key(suffix), value); } catch {} };
