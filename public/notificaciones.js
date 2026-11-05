@@ -76,11 +76,11 @@
   const previous = openAccountPanel;
   window.openAccountPanel = openAccountPanel = function () {
     const result = previous.apply(this, arguments);
-    const content = document.querySelector("#accountPanel .account-content"), anchor = content?.querySelector(".account-section, .account-message");
-    if (content && anchor && !content.querySelector(".nt-box")) {
-      const title = document.createElement("h3"); title.className = "account-section"; title.textContent = "Notificaciones";
+    const slot = document.querySelector("#accountPanel .acc-slot-notif");
+    if (slot && !slot.querySelector(".nt-box")) {
+      const title = document.createElement("h3"); title.className = "account-section"; title.textContent = "Avisos en este dispositivo";
       const box = document.createElement("div"); box.className = "nt-box";
-      anchor.before(title, box); draw(box);
+      slot.append(title, box); draw(box);
     }
     return result;
   };

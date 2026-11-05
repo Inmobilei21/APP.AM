@@ -27,10 +27,10 @@
   const previous = openAccountPanel;
   window.openAccountPanel = openAccountPanel = function () {
     const result = previous.apply(this, arguments);
-    const content = document.querySelector("#accountPanel .account-content"), anchor = content?.querySelector(".account-section, .account-message");
-    if (content && anchor && !content.querySelector(".in-box") && (android || ios || prompt)) {
+    const slot = document.querySelector("#accountPanel .acc-slot-general");
+    if (slot && !slot.querySelector(".in-box") && (android || ios || prompt)) {
       const title = document.createElement("h3"); title.className = "account-section"; title.textContent = "Instalar la app";
-      const box = document.createElement("div"); box.className = "in-box"; anchor.before(title, box); draw(box);
+      const box = document.createElement("div"); box.className = "in-box"; slot.append(title, box); draw(box);
     }
     return result;
   };

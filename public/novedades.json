@@ -47,6 +47,14 @@
         "Tareas: nuevo campo «Avisarme». A esa hora te sale un aviso abajo a la derecha de la pantalla, como los de Outlook, aunque estés con otra cosa.",
         "Los recordatorios del calendario con hora también avisan, y la agenda se comparte con todo el equipo."
       ]
+    },
+    {
+      "n": 6,
+      "fecha": "2026-11-05",
+      "puntos": [
+        "«Mi cuenta» ordenada en apartados: General, Notificaciones y Equipo y contraseñas (administradores).",
+        "Resumen de la semana: si lo activas en Notificaciones, cada mañana a las 9:00 sale la hoja de la semana con lo que vence cada día (tareas, avisos, recordatorios, firmas que caducan y plazos de inspecciones)."
+      ]
     }
   ]
 }
