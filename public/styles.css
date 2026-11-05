@@ -6475,3 +6475,5 @@ html.rs-abierto,html.rs-abierto body{overflow:hidden!important}
 .ntv-ok:disabled{opacity:.7}
 .ntv-no{width:100%;height:44px;border:0;border-radius:13px;background:transparent;color:#5b6788;font-weight:650;font-size:15px}
 .ntv-card small{color:#8a94a8;font-size:12px}
+.ntv-card li{display:flex;align-items:center;gap:12px}
+.ntv-li-ico{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:#e8edff;color:#1535b4}
