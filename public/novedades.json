@@ -71,6 +71,14 @@
         "Resumen de la semana para todo el equipo: en «Mi cuenta» → Notificaciones activa «Aviso cada mañana» y escribe la hora que quieras. Cada mañana te sale la hoja de la semana con lo que vence cada día.",
         "«Mi cuenta» se abre directamente en Notificaciones, con «Cerrar sesión» siempre abajo."
       ]
+    },
+    {
+      "n": 9,
+      "fecha": "2026-11-06",
+      "puntos": [
+        "Móvil: al entrar te ofrecemos activar las notificaciones en un toque. Te llegan aunque tengas la app cerrada.",
+        "Nuevo aviso al móvil cada mañana a las 9:00 con tus tareas por cumplir: las que vencen hoy, mañana o están atrasadas."
+      ]
     }
   ]
 }

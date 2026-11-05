@@ -6461,3 +6461,17 @@ html.rs-abierto,html.rs-abierto body{overflow:hidden!important}
 #accountPanel .rs-hora{width:76px!important;text-align:center;letter-spacing:.04em;font-variant-numeric:tabular-nums}
 #accountPanel .rs-hora.rs-mal{border-color:#d92d20!important;box-shadow:0 0 0 3px rgba(217,45,32,.12)!important}
 #accountPanel .account-content>.logout-button{margin-top:16px!important}
+/* Invitación a activar las notificaciones (móvil) */
+.ntv-shell{position:fixed;inset:0;z-index:9850;display:flex;align-items:flex-end;background:rgba(6,17,43,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:nvFade .25s ease}
+.ntv-shell.ntv-out{opacity:0;transition:opacity .2s}
+.ntv-card{width:100%;display:grid;gap:10px;justify-items:center;padding:26px 22px calc(22px + env(safe-area-inset-bottom));border-radius:26px 26px 0 0;background:#fff;text-align:center;animation:accountUp .32s cubic-bezier(.22,1,.36,1)}
+.ntv-ico{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;color:#fff;background:radial-gradient(120% 140% at 80% 0%,#2b4fd8 0%,#0e1f57 60%,#081436 100%)}
+.ntv-card h3{margin:4px 0 0;font-size:21px;color:#0e1835}
+.ntv-card p{margin:0;color:#59647c;font-size:14.5px;line-height:1.45}
+.ntv-card ul{list-style:none;margin:2px 0 4px;padding:0;display:grid;gap:8px;width:100%;text-align:left}
+.ntv-card li{padding:11px 14px;border-radius:13px;background:#f4f6fb;font-size:14.5px;color:#172033}
+.ntv-msg:empty{display:none}.ntv-msg{color:#c62828!important;font-size:13px!important}
+.ntv-ok{width:100%;height:50px;border:0;border-radius:15px;background:#0e1835;color:#fff;font-weight:700;font-size:16px}
+.ntv-ok:disabled{opacity:.7}
+.ntv-no{width:100%;height:44px;border:0;border-radius:13px;background:transparent;color:#5b6788;font-weight:650;font-size:15px}
+.ntv-card small{color:#8a94a8;font-size:12px}

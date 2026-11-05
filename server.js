@@ -500,6 +500,31 @@ function checkReminders() {
   } catch (error) { console.error("Avisos:", error.message); }
 }
 setInterval(checkReminders, 30 * 1000).unref?.();
+// Cada mañana laborable a las 9:00 (hora de Madrid), aviso al móvil de cada persona con sus tareas que vencen hoy,
+// mañana o están atrasadas.
+function checkDueTasks() {
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hourCycle: "h23", weekday: "short", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date()).map(x => [x.type, x.value]));
+    if (["Sat", "Sun"].includes(parts.weekday) || Number(parts.hour) < 9 || Number(parts.hour) >= 12) return;
+    const today = `${parts.year}-${parts.month}-${parts.day}`, next = new Date(Date.UTC(+parts.year, +parts.month - 1, +parts.day + 1)).toISOString().slice(0, 10);
+    const sent = new Map(loadCollection(remindersSentFile).map(item => [item.key, item.at])), byUser = new Map(); let changed = false;
+    for (const task of loadCollection(tasksFile)) {
+      if (!task?.assignedId || task.status === "done" || !task.finalDate || task.finalDate > next) continue;
+      const list = byUser.get(task.assignedId) || { hoy: [], manana: [], tarde: [] };
+      (task.finalDate < today ? list.tarde : task.finalDate === today ? list.hoy : list.manana).push(task); byUser.set(task.assignedId, list);
+    }
+    for (const [userId, list] of byUser) {
+      const key = `vencimientos:${userId}:${today}`; if (sent.has(key)) continue;
+      const total = list.hoy.length + list.manana.length + list.tarde.length;
+      const body = [list.tarde.length && `${list.tarde.length} atrasada${list.tarde.length === 1 ? "" : "s"}`, list.hoy.length && `${list.hoy.length} vence${list.hoy.length === 1 ? "" : "n"} hoy`, list.manana.length && `${list.manana.length} mañana`].filter(Boolean).join(" · ");
+      const first = [...list.tarde, ...list.hoy, ...list.manana][0];
+      push.notify(userId, "vencimientos", { title: `📋 ${total} tarea${total === 1 ? "" : "s"} por cumplir`, body: `${body}${first ? ` — ${first.client || ""}${first.description ? `: ${first.description}` : ""}` : ""}`.slice(0, 280), url: "/#ir=tareas", tag: `vencimientos-${today}` });
+      sent.set(key, Date.now()); changed = true;
+    }
+    if (changed) { const now = Date.now(); saveCollection(remindersSentFile, [...sent].filter(([, at]) => now - at < 7 * 864e5).map(([key, at]) => ({ key, at }))); }
+  } catch (error) { console.error("Tareas por cumplir:", error.message); }
+}
+setInterval(checkDueTasks, 60 * 1000).unref?.();
 const presupuestos = require("./presupuestos")({ dataDirectory, davRequest, json, readJson, readBuffer, requireUser, cleanText, loadCollection, saveCollection, billingFile, notify: (type, payload) => push.notify(adminIds(), type, payload) });
 const portalDocs = require("./portal-docs")({ dataDirectory, davRequest, parseDavEntries, webdavProperties, loadMetadata });
 

@@ -10,6 +10,7 @@ const TYPES = {
   clientes: "Mensajes de clientes",
   tareas: "Tareas asignadas",
   recordatorios: "Avisos de tareas y recordatorios a su hora",
+  vencimientos: "Tareas por cumplir (cada mañana a las 9:00)",
   facturacion: "Trabajos para facturar",
   presupuestos: "Presupuestos aceptados",
   sugerencias: "Sugerencias del equipo"

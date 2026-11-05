@@ -84,6 +84,32 @@
     }
     return result;
   };
+  // En el móvil, si este dispositivo aún no tiene las notificaciones activadas, se ofrece activarlas al entrar
+  // (el permiso solo se puede pedir con un toque de la persona). «Ahora no» lo vuelve a ofrecer a la semana.
+  async function invite() {
+    if (!supported || !signedInUser || !window.matchMedia("(max-width:760px)").matches || (ios && !standalone)) return;
+    if (Notification.permission === "denied" || document.querySelector("#ntInvite")) return;
+    const key = `am-notif-invitacion:${signedInUser.id}`; let later = 0; try { later = Number(localStorage.getItem(key)) || 0; } catch {}
+    if (Date.now() < later) return;
+    if (document.querySelector(".login2, #splash, #resumenSemana, #novedades")) { setTimeout(invite, 1500); return; }
+    let data; try { data = await config(); } catch { return; }
+    if (data.subscribed && Notification.permission === "granted") return;
+    const sheet = document.createElement("div"); sheet.id = "ntInvite"; sheet.className = "ntv-shell";
+    sheet.innerHTML = `<div class="ntv-card" role="dialog" aria-modal="true" aria-labelledby="ntvTitle"><span class="ntv-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8"/><path d="M10 21h4"/></svg></span>
+      <h3 id="ntvTitle">Activa las notificaciones</h3><p>Te avisaremos en el móvil, aunque tengas la app cerrada, de:</p>
+      <ul><li>💬 Mensajes del chat</li><li>📋 Tareas por cumplir, cada mañana a las 9:00</li><li>⏰ Avisos y recordatorios a su hora</li></ul>
+      <p class="ntv-msg" role="status"></p><button type="button" class="ntv-ok">Activar notificaciones</button><button type="button" class="ntv-no">Ahora no</button><small>Puedes cambiarlo cuando quieras en «Mi cuenta» → Notificaciones.</small></div>`;
+    document.body.append(sheet);
+    const close = () => { sheet.classList.add("ntv-out"); setTimeout(() => sheet.remove(), 220); };
+    sheet.querySelector(".ntv-no").onclick = () => { try { localStorage.setItem(key, String(Date.now() + 7 * 864e5)); } catch {} close(); };
+    sheet.querySelector(".ntv-ok").onclick = async event => {
+      const button = event.currentTarget; button.disabled = true; button.textContent = "Activando…";
+      try { await enable(data.publicKey); button.textContent = "✓ Activadas"; setTimeout(close, 900); }
+      catch (error) { sheet.querySelector(".ntv-msg").textContent = /[áéíóúñ]/.test(error.message) ? error.message : "No se pudieron activar en este móvil. Prueba desde «Mi cuenta» → Notificaciones."; button.disabled = false; button.textContent = "Activar notificaciones"; }
+    };
+  }
+  const startInvite = () => setTimeout(invite, 3500);
+  if (window.__authDecidida) startInvite(); else document.addEventListener("auth-decidida", startInvite, { once: true });
   // Si este dispositivo ya estaba suscrito, se renueva en el servidor por si la suscripción ha cambiado.
   const refresh = async () => { try { const sub = await current(); if (sub && Notification.permission === "granted" && signedInUser) await apiJson("/api/push/subscribe", { method: "POST", body: JSON.stringify({ subscription: sub.toJSON() }) }); } catch {} };
   if (supported) { if (window.__authDecidida) refresh(); else document.addEventListener("auth-decidida", refresh, { once: true }); }
