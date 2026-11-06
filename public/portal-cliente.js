@@ -226,6 +226,16 @@
       nueva.addEventListener("click", analisis); vieja.replaceWith(nueva);
     });
   }
+  // Móvil: la misma tarjeta, como fila de la tarjeta flotante (debajo de «Mensajes»)
+  function filaAnalisisMovil() {
+    if (esPP()) return;
+    document.querySelectorAll(".c2-flota").forEach(flota => {
+      if (flota.querySelector("[data-pc-analisis]")) return;
+      const fila = document.createElement("button"); fila.type = "button"; fila.className = "c2-fila pc-analisis-fila"; fila.dataset.pcAnalisis = "";
+      fila.innerHTML = `<span class="c2-ic pc-ic-violeta">${SVG.grafico}</span><span class="c2-txt"><b>Análisis financiero</b><small>Evolución y ratios de tu empresa</small></span><em class="pc-pronto">Próximamente</em>`;
+      fila.addEventListener("click", analisis); flota.append(document.createElement("hr"), fila);
+    });
+  }
 
   // ------------------------------------------------------------------ Mensajes: lista de asesores
   const FICHAS = { alvaro: ["Álvaro Molinero", "Asesor fiscal", "#2F4BD6"], jesus: ["Jesús Carratalá", "Subvenciones y licitaciones", "#6D4AE0"],
@@ -247,6 +257,6 @@
   }
 
   let pendiente = false;
-  const aplicar = () => { pendiente = false; tarjetaAnalisis(); asesores(); };
+  const aplicar = () => { pendiente = false; tarjetaAnalisis(); filaAnalisisMovil(); asesores(); };
   new MutationObserver(() => { if (!pendiente) { pendiente = true; requestAnimationFrame(aplicar); } }).observe(document.body, { childList: true, subtree: true });
 })();

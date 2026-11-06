@@ -83,3 +83,8 @@
   .client-fiscal-overlay .pc-topbar .pc-info-btn.active{background:#0A1A3F!important;box-shadow:none}
   .client-fiscal-overlay .pc-topbar .pc-info-btn.active,.client-fiscal-overlay .pc-topbar .pc-info-btn.active *{color:#fff!important}
 }
+
+/* Móvil: fila «Análisis financiero» en la tarjeta de inicio */
+.client-mobile-portal.c2 .c2-fila>.pc-ic-violeta{background:#F1ECFF!important;color:#6D4AE0!important}
+.client-mobile-portal.c2 .c2-fila>.pc-ic-violeta svg{width:22px;height:22px}
+@media(max-width:760px){.client-mobile-portal.c2 .pc-analisis-fila .pc-pronto{display:inline-block;flex:none;padding:3px 8px;font-size:10.5px}}
