@@ -109,3 +109,10 @@
 }
 @media(max-width:600px){.client-fiscal-overlay .client-copy-models span,.client-fiscal-overlay .client-copy-models span b{font-size:11px!important;letter-spacing:-.01em}.client-fiscal-overlay .client-copy-models span{padding:8px 4px!important;text-align:center}.client-fiscal-overlay .client-copy-tax-head{margin-bottom:8px}}
 @media(max-width:600px){.client-fiscal-overlay .client-copy-models span{white-space:normal!important;overflow:visible!important;line-height:1.25}}
+
+/* Móvil: la barra inferior del área de cliente siempre visible, también en documentos y en el chat */
+@media(max-width:760px){
+  body.client-preview-mode.pc-barra-encima .c2-nav{z-index:2990!important}
+  body.client-preview-mode.pc-barra-encima .client-fiscal-overlay{padding-bottom:calc(96px + env(safe-area-inset-bottom))!important}
+  body.client-preview-mode.pc-barra-encima .client-chat-overlay{bottom:calc(92px + env(safe-area-inset-bottom))!important}
+}

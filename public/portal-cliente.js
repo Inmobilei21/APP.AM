@@ -39,6 +39,8 @@
     content.querySelector(".pc-anio select")?.addEventListener("change", e => { anio = e.target.value; content.dataset.declarationYear = anio; volver(); });
   }
   async function contabilidad(content, categoria = "", trimestre = "") {
+    // Mientras se leen los documentos del servidor, ya se ve «Contabilidad» (y no la vista antigua)
+    if (!categoria) content.innerHTML = titulo("Contabilidad", `Tus facturas, movimientos bancarios y documentación laboral del ejercicio ${anio}.`, cabecera()) + '<div class="pc-cargando">Cargando…</div>';
     const docs = await clientFiscalDocuments();
     if (!categoria) {
       content.innerHTML = titulo("Contabilidad", `Tus facturas, movimientos bancarios y documentación laboral del ejercicio ${anio}.`, cabecera()) +
@@ -256,7 +258,24 @@
     if (intro && !intro.querySelector(".pc-nota")) intro.insertAdjacentHTML("beforeend", '<em class="pc-nota">Tu asesor recibirá el mensaje al momento y te contestará por aquí.</em>');
   }
 
+  // ------------------------------------------------------------------ Móvil: barra inferior siempre visible
+  // Queda por encima del área de documentos y del chat; marca dónde se está y lleva a cada sitio desde cualquier pantalla.
+  const cerrarCapas = () => { if (typeof closeClientFiscalArea === "function") closeClientFiscalArea(); if (typeof closeClientChat === "function") closeClientChat(); document.querySelector(".pc-analisis-overlay")?.remove(); };
+  document.addEventListener("click", e => {
+    const b = e.target.closest?.("body > .c2-nav button"); if (!b) return;
+    const i = [...b.parentElement.children].indexOf(b);
+    if (i === 0) { cerrarCapas(); document.querySelector("#accountPanel")?.remove(); }
+    else if (i === 1) { if (typeof closeClientChat === "function") closeClientChat(); if (document.querySelector(".client-fiscal-overlay")) e.stopImmediatePropagation(); }
+    else if (i === 2) { if (typeof closeClientFiscalArea === "function") closeClientFiscalArea(); }
+  }, true);
+  function marcarBarra() {
+    const nav = document.querySelector("body > .c2-nav"); if (!nav) return;
+    const activo = document.querySelector(".client-chat-overlay") ? 2 : document.querySelector(".client-fiscal-overlay") ? 1 : document.querySelector("#accountPanel") ? 3 : 0;
+    [...nav.children].forEach((b, i) => { if (b.classList.contains("active") !== (i === activo)) b.classList.toggle("active", i === activo); });
+    document.body.classList.toggle("pc-barra-encima", Boolean(document.querySelector(".client-fiscal-overlay, .client-chat-overlay")));
+  }
+
   let pendiente = false;
-  const aplicar = () => { pendiente = false; tarjetaAnalisis(); filaAnalisisMovil(); asesores(); };
+  const aplicar = () => { pendiente = false; tarjetaAnalisis(); filaAnalisisMovil(); asesores(); marcarBarra(); };
   new MutationObserver(() => { if (!pendiente) { pendiente = true; requestAnimationFrame(aplicar); } }).observe(document.body, { childList: true, subtree: true });
 })();
