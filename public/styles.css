@@ -6495,3 +6495,38 @@ html body #sidebar nav button .billing-nav-alert.billing-nav-alert>b{display:non
   body:not(.client-preview-mode) #sidebar:not(:hover):not(.open) nav button .billing-nav-alert.billing-nav-alert{left:39px!important;top:1px!important;bottom:auto!important;min-width:17px!important;height:17px!important;padding:0 4px!important;border:1px solid #e53935!important;background:#e53935!important;box-shadow:none!important}
   body:not(.client-preview-mode) #sidebar:not(:hover):not(.open) nav button:has(.billing-nav-alert) .suggestion-nav-alert.suggestion-nav-alert{left:auto!important;right:auto!important;left:2px!important}
 }
+
+/* ===== Sistema propio: compras de vehículos ===== */
+.veh-banner{display:flex;gap:12px;align-items:flex-start;margin:0 0 14px;padding:12px 14px;border-radius:14px;background:#fff7e6;border:1px solid #f5d79b;color:#5c4200}
+.veh-banner-ico{flex:none;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#f59e0b;color:#fff}
+.veh-banner strong{display:block;font-size:14px;color:#3d2c00}
+.veh-banner span{display:block;font-size:13px;line-height:1.45;margin-top:2px}
+.veh-tabs{display:flex;gap:4px;width:max-content;max-width:100%;margin:6px 0 12px;padding:4px;border-radius:13px;background:#eef1f7;border:1px solid #e1e6f0}
+.veh-tabs button{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 16px;border:0;border-radius:10px;background:transparent;color:#5b6788;font-weight:650;font-size:13.5px;cursor:pointer}
+.veh-tabs button b{min-width:22px;height:20px;padding:0 6px;border-radius:10px;background:#dfe4ef;color:#4a5570;font-size:11.5px;display:inline-grid;place-items:center}
+.veh-tabs button[aria-selected="true"]{background:#fff;color:#0e1835;box-shadow:0 1px 3px rgba(10,26,63,.14)}
+.veh-tabs button[aria-selected="true"] b{background:#0e1835;color:#fff}
+#invoiceDraft.veh-mode:not(.veh-show-vehicles) #invoiceDraftRows tr.veh-row{display:none}
+#invoiceDraft.veh-mode:not(.veh-show-vehicles) .veh-section{display:none}
+#invoiceDraft.veh-mode.veh-show-vehicles .invoice-draft-table-wrap{display:none}
+.veh-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;font-size:13px;color:#4a5570;font-weight:600}
+.veh-excel{height:34px;padding:0 14px;border:1px solid #cfe7d6;border-radius:10px;background:#effaf3;color:#067647;font-weight:700;font-size:12.5px;cursor:pointer}
+.veh-table-wrap{overflow-x:auto;border:1px solid #e3e8f2;border-radius:14px;background:#fff}
+.veh-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.veh-table th{padding:9px 8px;text-align:left;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#7b869c;background:#f7f9fd;border-bottom:1px solid #e3e8f2;white-space:nowrap}
+.veh-table td{padding:6px 6px;border-bottom:1px solid #f0f2f7;vertical-align:middle}
+.veh-table tr:last-child td{border-bottom:0}
+.veh-table input,.veh-table select{width:100%;min-width:0;height:32px;padding:0 8px;border:1px solid #e1e6f0;border-radius:8px;font:inherit;font-size:12.5px;background:#fff;color:#172033}
+.veh-table input:focus,.veh-table select:focus{outline:none;border-color:#1535b4;box-shadow:0 0 0 2px rgba(21,53,180,.12)}
+.veh-w-date{width:96px!important}.veh-w-mat{width:86px!important;text-transform:uppercase}.veh-w-model{min-width:150px!important}.veh-w-vin{width:170px!important;font-family:ui-monospace,Menlo,monospace;text-transform:uppercase}.veh-w-name{min-width:150px!important}.veh-w-cif{width:100px!important;text-transform:uppercase}.veh-w-price{width:96px!important;text-align:right}
+.veh-warn{border-color:#f59e0b!important;background:#fffbeb!important}
+.veh-regimen{width:140px!important;font-weight:700}
+.veh-regimen.veh-rebu{color:#6a32d6;background:#f5f0ff!important;border-color:#dccdfc!important}
+.veh-regimen.veh-general{color:#1535b4;background:#f2f5ff!important;border-color:#d7def6!important}
+.veh-eye{width:30px;height:30px;border:1px solid #e1e6f0;border-radius:8px;background:#fff;color:#1535b4;display:inline-grid;place-items:center;cursor:pointer;vertical-align:middle}
+.veh-doc{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:6px;font-size:10.5px;font-weight:700;vertical-align:middle}
+.veh-doc-factura{background:#eef1ff;color:#1535b4}.veh-doc-contrato{background:#fff3e0;color:#b26b00}
+.veh-move{height:30px;padding:0 10px;border:1px solid #e1e6f0;border-radius:8px;background:#f6f8fc;color:#5b6788;font-size:11.5px;font-weight:650;white-space:nowrap;cursor:pointer}
+.veh-empty{margin:0;padding:22px;border:1px dashed #d6dcea;border-radius:14px;color:#7b869c;text-align:center;font-size:13.5px}
+.veh-table{min-width:1320px}
+.veh-table td{white-space:nowrap}

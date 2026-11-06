@@ -614,6 +614,23 @@ http.createServer((req, res) => {
       .then(result => json(res, 200, { clients: result }))
       .catch(error => json(res, error.status || 502, { error: error.message }));
   }
+  // Compras de vehículos de los clientes con sistema propio (p. ej. compraventa de vehículos siniestrados)
+  if (requestPath === "/api/vehiculos" && ["GET", "POST"].includes(req.method)) {
+    const user = requireUser(req, res);if (!user) return;
+    const file = path.join(dataDirectory, "compras-vehiculos.json"), client = cleanText(new URL(req.url, "http://x").searchParams.get("client"), 200);
+    if (req.method === "GET") return json(res, 200, { items: loadCollection(file).filter(item => !client || item.client === client) });
+    return readJson(req, 512 * 1024).then(({ client: target, items }) => {
+      const owner = cleanText(target, 200);
+      if (!owner || !Array.isArray(items)) return json(res, 400, { error: "Datos no válidos." });
+      const list = loadCollection(file), now = new Date().toISOString(); let added = 0, updated = 0;
+      for (const raw of items.slice(0, 500)) {
+        const item = { client: owner, fecha: cleanText(raw.fecha, 10), contrato: cleanText(raw.contrato, 60), matricula: cleanText(raw.matricula, 20).toUpperCase(), modelo: cleanText(raw.modelo, 120), bastidor: cleanText(raw.bastidor, 30).toUpperCase(), nombre: cleanText(raw.nombre, 160), cif: cleanText(raw.cif, 20).toUpperCase(), precio: Number(raw.precio) || 0, regimen: raw.regimen === "rebu" ? "rebu" : "general", tipoDocumento: raw.tipoDocumento === "contrato" ? "contrato" : "factura", archivo: cleanText(raw.archivo, 300) };
+        const same = list.find(x => x.client === owner && ((item.bastidor && x.bastidor === item.bastidor) || (item.contrato && x.contrato === item.contrato && x.fecha === item.fecha)));
+        if (same) { Object.assign(same, item, { updatedAt: now, updatedBy: user.name }); updated++; } else { list.push({ id: crypto.randomUUID(), ...item, createdAt: now, createdBy: user.name }); added++; }
+      }
+      saveCollection(file, list); return json(res, 200, { added, updated });
+    }).catch(() => json(res, 400, { error: "No se pudieron guardar las compras de vehículos." }));
+  }
   // Cambiar el nombre de un cliente (por si se escribió mal): se renombra su carpeta del servidor y se actualizan
   // su ficha y todo lo que lo nombra (firmas, tareas, facturación, inspecciones, chat de cliente y declaraciones).
   if (requestPath === "/api/clientes/renombrar" && req.method === "POST") {
@@ -1190,7 +1207,7 @@ http.createServer((req, res) => {
     try { client = cleanText(decodeURIComponent(String(req.headers["x-client"] || "")), 160); } catch {}
     const contentType = String(req.headers["content-type"] || "").split(";")[0].trim();
     return readBuffer(req, invoiceReader.MAX_FILE_BYTES + 1024)
-      .then(buffer => { let clientNif = "", tipo = ""; try { clientNif = cleanText(decodeURIComponent(String(req.headers["x-client-nif"] || "")), 20); tipo = String(req.headers["x-invoice-type"] || "").toLowerCase(); } catch {} return invoiceReader.readInvoice(buffer, name, contentType, client, { nif: clientNif, tipo }); })
+      .then(buffer => { let clientNif = "", tipo = ""; try { clientNif = cleanText(decodeURIComponent(String(req.headers["x-client-nif"] || "")), 20); tipo = String(req.headers["x-invoice-type"] || "").toLowerCase(); } catch {} return invoiceReader.readInvoice(buffer, name, contentType, client, { nif: clientNif, tipo, vehiculos: req.headers["x-vehiculos"] === "1" }); })
       .then(result => json(res, 200, result))
       .catch(error => { console.error("Lector de facturas:", error.message); json(res, error.status && error.status < 600 ? (error.status >= 500 ? 502 : error.status) : 502, { error: error.message || "No se pudo leer la factura." }); });
   }

@@ -3144,9 +3144,11 @@ async function saveInvoiceDocuments(groups,client,kind){
   if(!root||await root.requestPermission?.({mode:"readwrite"})!=="granted")throw new Error("no hay acceso a la carpeta CLIENTES del servidor");
   let clientFolder;try{clientFolder=await root.getDirectoryHandle(client)}catch{throw new Error(`no existe la carpeta del cliente «${client}» en CLIENTES`)}
   const accounting=await clientFolder.getDirectoryHandle("CONTABILIDAD",{create:true}),folders=new Map(),cache=new Map(),saved=[],errors=[];
-  for(const group of groups){
+  for(let group of groups){
     if(invoiceConfirmProgress.saved.has(group.key)){saved.push(invoiceConfirmProgress.saved.get(group.key));continue}
     try{
+      // Las compras de vehículos (clientes con sistema propio de vehículos) van en su propia subcarpeta.
+      if(!group.subfolder&&group.record.vehicle)group={...group,subfolder:"COMPRAS DE VEHÍCULOS"};
       const date=invoiceDateParts(group.record.date),key=`${date.year}/${date.quarter}`,place=`${key}/${kind}${group.subfolder?`/${group.subfolder}`:""}`;
       if(!folders.has(place)){const year=await accounting.getDirectoryHandle(date.year,{create:true}),quarter=await year.getDirectoryHandle(date.quarter,{create:true});let folder=await quarter.getDirectoryHandle(kind,{create:true});if(group.subfolder)folder=await folder.getDirectoryHandle(group.subfolder,{create:true});const names=new Set();for await(const entry of folder.values())names.add(entry.name.toLocaleLowerCase("es"));folders.set(place,{folder,names})}
       const {folder,names}=folders.get(place),{blob,extension}=await invoiceDocumentBlob(group,cache),prefix=`${date.year}.${date.month}.${date.day}`;
@@ -4975,6 +4977,8 @@ setInterval(refreshSuggestions,15000);
     if(f.observaciones)comun.push(String(f.observaciones).trim());
     const concepto=String(f.concepto||"").trim();
     const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String((emitida?f.receptor_nombre:f.emisor_nombre)||"").trim(),supplierNif:nif(emitida?f.receptor_nif:f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim(),group:`${file.name}#${orden}`,supplierCountry:String((emitida?f.receptor_pais:f.emisor_pais)||"").trim().toUpperCase().slice(0,2)};
+    // Compra de vehículo (cliente con sistema propio de vehículos): datos para la pestaña «Compras de vehículos».
+    if(f.vehiculo?.es_vehiculo&&window.vehiculosCliente?.(client)){const v=f.vehiculo,clean=x=>String(x||"").trim();cab.vehicle={tipoDocumento:v.tipo_documento==="contrato"?"contrato":"factura",contrato:clean(v.numero_contrato)||clean(f.numero),matricula:clean(v.matricula).toUpperCase().replace(/[\s-]/g,""),modelo:clean(v.marca_modelo),tipoVehiculo:clean(v.tipo_vehiculo),bastidor:clean(v.bastidor).toUpperCase().replace(/\s/g,""),nombre:clean(v.vendedor_nombre)||clean(f.emisor_nombre),cif:clean(v.vendedor_nif||f.emisor_nif).toUpperCase().replace(/[^A-Z0-9]/g,""),precio:num(v.precio)||num(f.total),regimen:v.regimen==="rebu"||v.tipo_documento==="contrato"?"rebu":"general"};if(!cab.number&&cab.vehicle.contrato)cab.number=cab.vehicle.contrato}
     const retencion=ret?{retentionRate:String(Math.abs(num(f.retencion_tipo))||""),retention:dinero(ret)}:{};
     const extras=[];
     if(recargo)extras.push(`Recargo de equivalencia ${dinero(recargo)}`);
@@ -4997,7 +5001,7 @@ setInterval(refreshSuggestions,15000);
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     for(let intento=1;;intento++){
       try{
-        const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||""),"X-Client-Nif":encodeURIComponent(invoiceAccounting.client===client?invoiceAccounting.cif||"":""),"X-Invoice-Type":invoiceProcessorType()},body:file});
+        const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||""),"X-Client-Nif":encodeURIComponent(invoiceAccounting.client===client?invoiceAccounting.cif||"":""),"X-Invoice-Type":invoiceProcessorType(),"X-Vehiculos":invoiceProcessorType()!=="emitidas"&&window.vehiculosCliente?.(client)?"1":""},body:file});
         if([429,502,503,504].includes(r.status)&&intento<4){await wait(intento*4000);continue}
         return r;
       }catch(error){if(intento>=4)throw error;await wait(intento*4000)}

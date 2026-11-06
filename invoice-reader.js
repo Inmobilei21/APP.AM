@@ -55,6 +55,23 @@ const SCHEMA = {
             properties: { importe_original: { type: "number" }, importe_eur: { type: "number" } }
           },
           rectificativa: { type: "boolean", description: "true si es una factura rectificativa o abono." },
+          vehiculo: {
+            type: "object",
+            description: "Solo si el documento es la compra de un vehículo (aparecen tipo de vehículo, matrícula, bastidor/VIN, marca/modelo…). Omítelo en el resto de facturas.",
+            properties: {
+              es_vehiculo: { type: "boolean", description: "true si es la compra de un vehículo." },
+              tipo_documento: { type: "string", enum: ["factura", "contrato"], description: "«contrato» si es un contrato de compraventa (normalmente con un particular, sin IVA); «factura» si es una factura." },
+              numero_contrato: { type: "string", description: "Número del contrato o de la factura de compra, tal como aparece." },
+              matricula: { type: "string", description: "Matrícula del vehículo, sin espacios ni guiones (p. ej. 1234ABC). Vacío si no aparece." },
+              marca_modelo: { type: "string", description: "Marca y modelo del vehículo (p. ej. «SEAT León 1.6 TDI»)." },
+              tipo_vehiculo: { type: "string", description: "Tipo de vehículo si aparece (turismo, furgoneta, motocicleta…)." },
+              bastidor: { type: "string", description: "Número de bastidor/VIN (normalmente 17 caracteres), sin espacios." },
+              vendedor_nombre: { type: "string", description: "Nombre o razón social de quien vende el vehículo." },
+              vendedor_nif: { type: "string", description: "NIF/CIF/DNI de quien vende el vehículo, sin espacios ni guiones." },
+              precio: { type: "number", description: "Precio total de compra del vehículo, en euros." },
+              regimen: { type: "string", enum: ["general", "rebu"], description: "«general» si la factura repercute IVA desglosado; «rebu» si es un contrato con un particular, si la factura indica «régimen especial de bienes usados» o no repercute IVA por ser bien usado." }
+            }
+          },
           observaciones: { type: "string", description: "Avisos breves en español solo si hay algo que revisar (datos ilegibles, importes que no cuadran, no es una factura…). Vacío si todo está bien." }
         },
         required: ["numero", "fecha", "emisor_nombre", "emisor_nif", "concepto", "tipos_iva", "total"]
@@ -126,6 +143,13 @@ async function readInvoice(buffer, name, contentType, client, extra = {}) {
     client && extra.tipo === "recibidas" ? `Son facturas RECIBIDAS por el cliente del despacho "${client}"${extra.nif ? ` (NIF ${extra.nif})` : ""}: el cliente es SIEMPRE el receptor. El emisor es el proveedor que vende o presta el servicio (búscalo en el logotipo, la cabecera, el pie, el registro mercantil o «el firmante»), aunque los datos del cliente aparezcan en un recuadro como «Datos fiscales». Nunca pongas al cliente como emisor.` :
     client && extra.tipo === "emitidas" ? `Son facturas EMITIDAS por el cliente del despacho "${client}"${extra.nif ? ` (NIF ${extra.nif})` : ""}: el cliente es SIEMPRE el emisor y el receptor es su cliente. Nunca pongas al cliente del despacho como receptor.` :
     client ? `La documentación pertenece al cliente del despacho "${client}". Normalmente es el receptor (factura recibida); si es el emisor, indícalo en observaciones.` : "",
+    extra.vehiculos ? [
+      "Este cliente compra vehículos. Además de sus facturas de gastos normales, recibirá facturas y CONTRATOS de compra de vehículos:",
+      "- Si el documento es la compra de un vehículo (factura o contrato de compraventa), devuélvelo como una entrada en facturas, rellena el objeto vehiculo y pon es_vehiculo: true. Se reconoce porque trae datos del vehículo: tipo, marca/modelo, matrícula, número de bastidor/VIN…",
+      "- Un CONTRATO de compraventa con un particular cuenta aquí como documento de compra (no lo pongas en otros_documentos): numero = número del contrato (o vacío si no tiene), emisor = el vendedor particular con su DNI, tipos_iva un único elemento con tipo 0 y base = precio, total = precio, regimen = rebu.",
+      "- Si es una factura con IVA desglosado, regimen = general. Si indica «régimen especial de bienes usados» (REBU) o no lleva IVA por ser un bien usado, regimen = rebu.",
+      "- En las facturas que no son de vehículos (gestoría, recambios, grúa, alquileres…), no pongas el objeto vehiculo."
+    ].join("\n") : "",
     `Nombre del archivo: ${name}`,
     "Reglas:",
     "- Copia el número de factura, nombres y NIF exactamente como aparecen.",

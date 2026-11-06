@@ -79,6 +79,14 @@
         "Móvil: al entrar te ofrecemos activar las notificaciones en un toque. Te llegan aunque tengas la app cerrada.",
         "Nuevo aviso al móvil cada mañana a las 9:00 con tus tareas por cumplir: las que vencen hoy, mañana o están atrasadas."
       ]
+    },
+    {
+      "n": 10,
+      "fecha": "2026-11-06",
+      "puntos": [
+        "Ficha del cliente: al editar ya se puede corregir el nombre (se renombra también su carpeta). Antes de cambiar el nombre o el CIF pide confirmación.",
+        "Gestiones Vehículos Siniestrados tiene un sistema propio: al procesar sus facturas recibidas, las compras de vehículos (facturas y contratos) se separan en la pestaña «Compras de vehículos», con matrícula, bastidor, precio y régimen General o REBU."
+      ]
     }
   ]
 }
