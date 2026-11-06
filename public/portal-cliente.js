@@ -1,8 +1,8 @@
 /* Área de cliente: ajustes de la versión de clientes (se carga después de app.js).
    - Asesoría Fiscal y Contable: la pestaña «Documentación» pasa a «Contabilidad» y hay una pestaña nueva
      «Documentación» (escrituras, actas, contratos…) con subcarpetas, que el despacho puede crear y donde
-     puede subir documentos. Filtro de ejercicio (2020…año actual, por defecto el actual) dentro de Contabilidad
-     y de cada subapartado (no en Documentación ni en Información general).
+     puede subir documentos. Filtro de ejercicio (2020…año actual, por defecto el actual) en Contabilidad (y sus
+     subapartados), Declaraciones y Reclamaciones; no en Documentación ni en Información general.
    - Inicio (escritorio): la tarjeta «Nuevo mensaje» (iba al mismo sitio que «Mensajes») pasa a ser
      «Análisis financiero», de momento con aviso de «Próximamente».
    - Mensajes: lista de asesores con foto de color, nombre completo y especialidad.
@@ -133,6 +133,24 @@
     });
   }
 
+  // ------------------------------------------------------------------ Reclamaciones (con filtro de ejercicio)
+  function reclamaciones(content) {
+    content.innerHTML = titulo("Reclamaciones", "Consulta o inicia una comunicación relacionada con una gestión fiscal.", cabecera()) +
+      `<div class="client-fiscal-empty">${ic("messages")}<strong>No tienes reclamaciones abiertas en ${anio}</strong><small>Cuando exista una comunicación aparecerá en este apartado.</small></div>`;
+    enlazarAnio(content, () => reclamaciones(content));
+  }
+  // Declaraciones: mismo filtro que Contabilidad en lugar del desplegable propio
+  if (typeof renderClientFiscalDeclarations === "function") {
+    const declaraciones = renderClientFiscalDeclarations;
+    window.renderClientFiscalDeclarations = renderClientFiscalDeclarations = async function (content) {
+      content.dataset.declarationYear = anio;
+      const r = await declaraciones.apply(this, arguments);
+      const propio = content.querySelector(".client-fiscal-year-filter");
+      if (propio) { propio.outerHTML = cabecera(); enlazarAnio(content, () => renderClientFiscalDeclarations(content)); }
+      return r;
+    };
+  }
+
   // ------------------------------------------------------------------ pestañas y filtro de ejercicio
   const original = openClientFiscalArea;
   window.openClientFiscalArea = openClientFiscalArea = function () {
@@ -151,6 +169,7 @@
       const b = e.target.closest("[data-fiscal-tab]"); if (!b) return;
       if (b.dataset.fiscalTab === "documents") { e.stopImmediatePropagation(); marcar("documents"); contabilidad(content); }
       else if (b.dataset.fiscalTab === "pc-documentacion") { e.stopImmediatePropagation(); marcar("pc-documentacion"); documentacion(content); }
+      else if (b.dataset.fiscalTab === "claims") { e.stopImmediatePropagation(); marcar("claims"); reclamaciones(content); }
       else { content.dataset.declarationYear = anio; marcar(b.dataset.fiscalTab); }
     }, true);
     content.dataset.declarationYear = anio; marcar("documents"); contabilidad(content);
