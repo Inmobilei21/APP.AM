@@ -615,6 +615,27 @@ http.createServer((req, res) => {
       .catch(error => json(res, error.status || 502, { error: error.message }));
   }
   // Compras de vehículos de los clientes con sistema propio (p. ej. compraventa de vehículos siniestrados)
+  // Ventas de vehículos: cada venta se une a su compra (por bastidor o matrícula) para el margen del REBU.
+  if (requestPath === "/api/vehiculos/ventas" && ["POST", "DELETE"].includes(req.method)) {
+    const user = requireUser(req, res);if (!user) return;
+    const file = path.join(dataDirectory, "compras-vehiculos.json");
+    return readJson(req, 512 * 1024).then(({ client: target, ventas, id }) => {
+      const owner = cleanText(target, 200), list = loadCollection(file), now = new Date().toISOString();
+      if (!owner) return json(res, 400, { error: "Datos no válidos." });
+      if (req.method === "DELETE") { const item = list.find(x => x.client === owner && x.id === id); if (item) { delete item.venta; item.updatedAt = now; saveCollection(file, list); } return json(res, 200, { removed: Boolean(item) }); }
+      if (!Array.isArray(ventas)) return json(res, 400, { error: "Datos no válidos." });
+      let linked = 0; const missing = [];
+      for (const raw of ventas.slice(0, 500)) {
+        const bastidor = cleanText(raw.bastidor, 30).toUpperCase(), matricula = cleanText(raw.matricula, 20).toUpperCase();
+        const item = list.find(x => x.client === owner && raw.id && x.id === raw.id) || list.find(x => x.client === owner && bastidor && x.bastidor === bastidor) || list.find(x => x.client === owner && matricula && x.matricula === matricula);
+        if (!item) { missing.push(cleanText(raw.numero, 60) || matricula || bastidor); continue; }
+        item.venta = { fecha: cleanText(raw.fecha, 10), numero: cleanText(raw.numero, 60), importe: Number(raw.importe) || 0, comprador: cleanText(raw.comprador, 160), nif: cleanText(raw.nif, 20).toUpperCase(), archivo: cleanText(raw.archivo, 300), ruta: cleanText(raw.ruta, 400), carpeta: cleanText(raw.carpeta, 400), registradaPor: user.name, registradaEn: now };
+        if (!item.matricula && matricula) item.matricula = matricula; if (!item.bastidor && bastidor) item.bastidor = bastidor;
+        item.updatedAt = now; linked++;
+      }
+      saveCollection(file, list); return json(res, 200, { linked, missing });
+    }).catch(() => json(res, 400, { error: "No se pudieron guardar las ventas de vehículos." }));
+  }
   if (requestPath === "/api/vehiculos" && ["GET", "POST"].includes(req.method)) {
     const user = requireUser(req, res);if (!user) return;
     const file = path.join(dataDirectory, "compras-vehiculos.json"), client = cleanText(new URL(req.url, "http://x").searchParams.get("client"), 200);
@@ -624,7 +645,7 @@ http.createServer((req, res) => {
       if (!owner || !Array.isArray(items)) return json(res, 400, { error: "Datos no válidos." });
       const list = loadCollection(file), now = new Date().toISOString(); let added = 0, updated = 0;
       for (const raw of items.slice(0, 500)) {
-        const item = { client: owner, fecha: cleanText(raw.fecha, 10), contrato: cleanText(raw.contrato, 60), matricula: cleanText(raw.matricula, 20).toUpperCase(), modelo: cleanText(raw.modelo, 120), bastidor: cleanText(raw.bastidor, 30).toUpperCase(), nombre: cleanText(raw.nombre, 160), cif: cleanText(raw.cif, 20).toUpperCase(), precio: Number(raw.precio) || 0, regimen: raw.regimen === "rebu" ? "rebu" : "general", tipoDocumento: raw.tipoDocumento === "contrato" ? "contrato" : "factura", archivo: cleanText(raw.archivo, 300) };
+        const item = { client: owner, fecha: cleanText(raw.fecha, 10), contrato: cleanText(raw.contrato, 60), matricula: cleanText(raw.matricula, 20).toUpperCase(), modelo: cleanText(raw.modelo, 120), bastidor: cleanText(raw.bastidor, 30).toUpperCase(), nombre: cleanText(raw.nombre, 160), cif: cleanText(raw.cif, 20).toUpperCase(), precio: Number(raw.precio) || 0, regimen: raw.regimen === "rebu" ? "rebu" : "general", tipoDocumento: raw.tipoDocumento === "contrato" ? "contrato" : "factura", archivo: cleanText(raw.archivo, 300), ruta: cleanText(raw.ruta, 400), carpeta: cleanText(raw.carpeta, 400) };
         const same = list.find(x => x.client === owner && ((item.bastidor && x.bastidor === item.bastidor) || (item.contrato && x.contrato === item.contrato && x.fecha === item.fecha)));
         if (same) { for (const [k, v] of Object.entries(item)) if (v !== "" && v !== 0) same[k] = v; Object.assign(same, { updatedAt: now, updatedBy: user.name }); updated++; } else { list.push({ id: crypto.randomUUID(), ...item, createdAt: now, createdBy: user.name }); added++; }
       }

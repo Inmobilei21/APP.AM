@@ -87,6 +87,16 @@
         "Ficha del cliente: al editar ya se puede corregir el nombre (se renombra también su carpeta). Antes de cambiar el nombre o el CIF pide confirmación.",
         "Gestiones Vehículos Siniestrados tiene un sistema propio: al procesar sus facturas recibidas, las compras de vehículos (facturas y contratos) se separan en la pestaña «Compras de vehículos», con matrícula, bastidor, precio y régimen General o REBU."
       ]
+    },
+    {
+      "n": 11,
+      "fecha": "2026-11-06",
+      "puntos": [
+        "Vehículos (Gestiones Vehículos Siniestrados): en las facturas emitidas, las ventas de vehículos van a la pestaña «Ventas de vehículos» y se unen solas a su compra por bastidor o matrícula.",
+        "REBU: el IVA se calcula sobre el margen (venta − compra), venta a venta, y la factura se reparte sola para la contabilidad. Desde cada venta se puede ver el contrato o la factura de compra.",
+        "En CONTABILIDAD/año/VEHÍCULOS se guardan las compras y ventas en REBU y REG. GENERAL, junto con el libro registro de bienes usados para Hacienda.",
+        "Nuevo botón «Ver vehículos»: stock, vendidos, IVA del REBU por trimestres y descarga de los libros."
+      ]
     }
   ]
 }

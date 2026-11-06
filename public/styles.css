@@ -6542,3 +6542,51 @@ html:has(#invoicePreview:not([hidden])),html:has(#invoicePreview:not([hidden])) 
 .veh-table th,.veh-table td{overflow:hidden}
 .veh-table td>input,.veh-table td>select{width:100%!important;min-width:0!important;max-width:100%!important}
 .veh-table td:first-child{white-space:nowrap}
+/* Vehículos: ventas (REBU), vista «Vehículos» y documento de compra */
+.veh-banner .veh-ver{flex:none;margin-left:auto;height:36px;padding:0 14px;border:1px solid #f0c770;border-radius:10px;background:#fff;color:#8a5a00;font-weight:700;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.veh-banner .veh-ver:hover{background:#fffaf0}
+.veh-hint{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#f5f0ff;border:1px solid #e4d9fd;color:#4b2a99;font-size:12.5px;line-height:1.5}
+.veh-table.veh-sales{width:100%!important;min-width:1314px!important}
+.veh-table.veh-list{width:100%!important;min-width:1164px!important}
+.veh-table th.veh-num{text-align:right}
+.veh-sub .veh-chip{padding:1px 7px;font-size:10px;margin-right:2px}
+.veh-table td.veh-num{text-align:right;font-variant-numeric:tabular-nums}
+.veh-table .veh-neg{color:#b42318}
+.veh-ell{overflow:hidden;text-overflow:ellipsis}
+.veh-mono{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.veh-vin{display:block;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#7b869c}
+.veh-link{display:flex;gap:6px;align-items:center}
+.veh-link select{flex:1}
+.veh-sub{display:block;margin-top:3px;font-size:11px;color:#7b869c;overflow:hidden;text-overflow:ellipsis}
+.veh-sub.veh-bad{color:#b45309;font-weight:650}
+tr.veh-unlinked td{background:#fffbeb}
+.veh-chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:750}
+.veh-chip.veh-rebu{background:#f5f0ff;color:#6a32d6}.veh-chip.veh-general{background:#eef2ff;color:#1535b4}
+.veh-view,.veh-doc-view{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:24px;background:rgba(9,17,40,.5);backdrop-filter:blur(3px)}
+.veh-doc-view{z-index:1250}
+.veh-view-box{width:min(1240px,100%);max-height:calc(100vh - 48px);overflow:auto;overscroll-behavior:contain;padding:22px 24px;border-radius:20px;background:#fff;box-shadow:0 30px 80px -30px rgba(9,17,40,.55)}
+.veh-view-head{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.veh-view-head>div{flex:1;min-width:0}.veh-view-head h3{margin:2px 0 0;font-size:20px;color:#0e1835}
+.veh-view-head label{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:650;color:#5b6788}
+.veh-view-head select{height:34px;padding:0 10px;border:1px solid #e1e6f0;border-radius:9px;font:inherit;font-weight:700}
+.veh-view .invoice-preview-close,.veh-doc-view .invoice-preview-close{width:36px;height:36px;border:0;border-radius:10px;background:#f1f4f9;font-size:22px;cursor:pointer;color:#4a5570}
+.veh-quarters{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.veh-quarters div{padding:12px 14px;border-radius:14px;background:linear-gradient(145deg,#f8f5ff,#f1ebff);border:1px solid #e4d9fd}
+.veh-quarters span{display:block;font-size:11px;font-weight:750;letter-spacing:.05em;color:#6a32d6}
+.veh-quarters strong{display:block;margin-top:4px;font-size:19px;color:#2a1466;font-variant-numeric:tabular-nums}
+.veh-quarters small{display:block;margin-top:2px;font-size:11.5px;color:#6b5aa6}
+.veh-view-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.veh-view-bar .veh-tabs{margin:0}
+.veh-view-actions{display:flex;flex-wrap:wrap;gap:8px}
+.veh-excel.veh-alt{background:#eef2ff;border-color:#d7def6;color:#1535b4}
+.veh-excel.veh-save{background:#0e1835;border-color:#0e1835;color:#fff}
+.veh-msg{min-height:18px;margin:4px 0 8px;font-size:12.5px;color:#067647;font-weight:600}
+.veh-doc-box{width:min(980px,100%);height:calc(100vh - 48px);display:flex;flex-direction:column;border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 30px 80px -30px rgba(9,17,40,.55)}
+.veh-doc-box header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #e9edf5}
+.veh-doc-box header>div{flex:1;min-width:0}.veh-doc-box h4{margin:2px 0;font-size:15px;color:#0e1835;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.veh-doc-box header small{font-size:11px;color:#7b869c}
+.veh-doc-box a.veh-excel{display:inline-grid;place-items:center;text-decoration:none}
+.veh-doc-box iframe{flex:1;width:100%;border:0;background:#f4f6fa}
+.veh-doc-img{flex:1;overflow:auto;display:grid;place-items:center;background:#f4f6fa}.veh-doc-img img{max-width:100%}
+html:has(.veh-view),html:has(.veh-doc-view){overflow:hidden}
+@media (max-width:760px){.veh-quarters{grid-template-columns:repeat(2,1fr)}.veh-view,.veh-doc-view{padding:10px}.veh-view-box{padding:16px;max-height:calc(100vh - 20px)}.veh-banner{flex-wrap:wrap}.veh-banner .veh-ver{margin-left:0}}

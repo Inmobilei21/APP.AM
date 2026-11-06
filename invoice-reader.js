@@ -57,7 +57,7 @@ const SCHEMA = {
           rectificativa: { type: "boolean", description: "true si es una factura rectificativa o abono." },
           vehiculo: {
             type: "object",
-            description: "Solo si el documento es la compra de un vehículo (aparecen tipo de vehículo, matrícula, bastidor/VIN, marca/modelo…). Omítelo en el resto de facturas.",
+            description: "Solo si el documento es la compra o la venta de un vehículo (aparecen tipo de vehículo, matrícula, bastidor/VIN, marca/modelo…). Omítelo en el resto de facturas.",
             properties: {
               es_vehiculo: { type: "boolean", description: "true si es la compra de un vehículo." },
               tipo_documento: { type: "string", enum: ["factura", "contrato"], description: "«contrato» si es un contrato de compraventa (normalmente con un particular, sin IVA); «factura» si es una factura." },
@@ -143,7 +143,12 @@ async function readInvoice(buffer, name, contentType, client, extra = {}) {
     client && extra.tipo === "recibidas" ? `Son facturas RECIBIDAS por el cliente del despacho "${client}"${extra.nif ? ` (NIF ${extra.nif})` : ""}: el cliente es SIEMPRE el receptor. El emisor es el proveedor que vende o presta el servicio (búscalo en el logotipo, la cabecera, el pie, el registro mercantil o «el firmante»), aunque los datos del cliente aparezcan en un recuadro como «Datos fiscales». Nunca pongas al cliente como emisor.` :
     client && extra.tipo === "emitidas" ? `Son facturas EMITIDAS por el cliente del despacho "${client}"${extra.nif ? ` (NIF ${extra.nif})` : ""}: el cliente es SIEMPRE el emisor y el receptor es su cliente. Nunca pongas al cliente del despacho como receptor.` :
     client ? `La documentación pertenece al cliente del despacho "${client}". Normalmente es el receptor (factura recibida); si es el emisor, indícalo en observaciones.` : "",
-    extra.vehiculos ? [
+    extra.vehiculos && extra.tipo === "emitidas" ? [
+      "Este cliente compra y VENDE vehículos. En sus facturas emitidas:",
+      "- Si la factura es la VENTA de un vehículo, rellena el objeto vehiculo con es_vehiculo: true, matricula, bastidor (número de chasis/VIN), marca_modelo y precio = importe total de la venta.",
+      "- regimen = rebu si la factura indica «Régimen especial de los bienes usados» (REBU) o no desglosa IVA; regimen = general si repercute IVA desglosado.",
+      "- En las facturas que no son ventas de vehículos, no pongas el objeto vehiculo."
+    ].join("\n") : extra.vehiculos ? [
       "Este cliente compra vehículos. Además de sus facturas de gastos normales, recibirá facturas y CONTRATOS de compra de vehículos:",
       "- Si el documento es la compra de un vehículo (factura o contrato de compraventa), devuélvelo como una entrada en facturas, rellena el objeto vehiculo y pon es_vehiculo: true. Se reconoce porque trae datos del vehículo: tipo, marca/modelo, matrícula, número de bastidor/VIN…",
       "- Un CONTRATO de compraventa con un particular cuenta aquí como documento de compra (no lo pongas en otros_documentos): numero = número del contrato (o vacío si no tiene), emisor = el vendedor particular con su DNI, tipos_iva un único elemento con tipo 0 y base = precio, total = precio, regimen = rebu.",

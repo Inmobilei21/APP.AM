@@ -3156,6 +3156,9 @@ async function saveInvoiceDocuments(groups,client,kind){
       for(let copy=2;names.has(name.toLocaleLowerCase("es"));copy++)name=`${base} (${copy})${extension}`;
       const handle=await folder.getFileHandle(name,{create:true}),writable=await handle.createWritable();await writable.write(blob);await writable.close();
       names.add(name.toLocaleLowerCase("es"));saved.push(`CONTABILIDAD/${place}/${name}`);invoiceConfirmProgress.saved.set(group.key,`CONTABILIDAD/${place}/${name}`);
+      // Vehículos (sistema propio): copia también en CONTABILIDAD/<año>/VEHÍCULOS/<REBU|REG. GENERAL>/<COMPRAS|VENTAS>.
+      const vehPlace=window.vehiculoCarpeta?.(group,kind);
+      if(vehPlace){try{let target=await accounting.getDirectoryHandle(date.year,{create:true});for(const part of vehPlace.split("/"))target=await target.getDirectoryHandle(part,{create:true});const copyName=name,copy=await target.getFileHandle(copyName,{create:true}),w=await copy.createWritable();await w.write(blob);await w.close();(invoiceConfirmProgress.vehiculos||(invoiceConfirmProgress.vehiculos=new Map())).set(group.key,`CONTABILIDAD/${date.year}/${vehPlace}/${copyName}`)}catch(error){console.error("Copia en VEHÍCULOS",error)}}
     }catch(error){console.error("Guardar factura",group.record,error);errors.push(`${group.fileName||group.record.number||group.record.file}: ${error?.name==="NotFoundError"?"el archivo original ya no está disponible en el equipo (vuelve a añadirlo)":error.message}`)}
   }
   return{saved,errors};
@@ -4978,7 +4981,9 @@ setInterval(refreshSuggestions,15000);
     const concepto=String(f.concepto||"").trim();
     const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String((emitida?f.receptor_nombre:f.emisor_nombre)||"").trim(),supplierNif:nif(emitida?f.receptor_nif:f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim(),group:`${file.name}#${orden}`,supplierCountry:String((emitida?f.receptor_pais:f.emisor_pais)||"").trim().toUpperCase().slice(0,2)};
     // Compra de vehículo (cliente con sistema propio de vehículos): datos para la pestaña «Compras de vehículos».
-    if(f.vehiculo?.es_vehiculo&&window.vehiculosCliente?.(client)){const v=f.vehiculo,clean=x=>String(x||"").trim();cab.vehicle={tipoDocumento:v.tipo_documento==="contrato"?"contrato":"factura",contrato:clean(v.numero_contrato)||clean(f.numero),matricula:clean(v.matricula).toUpperCase().replace(/[\s-]/g,""),modelo:clean(v.marca_modelo),tipoVehiculo:clean(v.tipo_vehiculo),bastidor:clean(v.bastidor).toUpperCase().replace(/\s/g,""),nombre:clean(v.vendedor_nombre)||clean(f.emisor_nombre),cif:clean(v.vendedor_nif||f.emisor_nif).toUpperCase().replace(/[^A-Z0-9]/g,""),precio:num(v.precio)||num(f.total),regimen:v.regimen==="rebu"||v.tipo_documento==="contrato"?"rebu":"general"};window.vehiculoReferencia?.(cab.vehicle);if((!cab.number||cab.vehicle.tipoDocumento==="contrato"&&!clean(v.numero_contrato))&&cab.vehicle.contrato)cab.number=cab.vehicle.contrato}
+    // Venta de vehículo (emitidas del mismo cliente): se une luego a su compra para el margen del REBU.
+    if(emitida&&f.vehiculo?.es_vehiculo&&window.vehiculosCliente?.(client)){const v=f.vehiculo,clean=x=>String(x||"").trim();cab.vehicleSale={matricula:clean(v.matricula).toUpperCase().replace(/[\s-]/g,""),bastidor:clean(v.bastidor).toUpperCase().replace(/\s/g,""),modelo:clean(v.marca_modelo),precio:num(v.precio)||num(f.total),regimen:v.regimen==="rebu"?"rebu":"general"}}
+    else if(f.vehiculo?.es_vehiculo&&window.vehiculosCliente?.(client)){const v=f.vehiculo,clean=x=>String(x||"").trim();cab.vehicle={tipoDocumento:v.tipo_documento==="contrato"?"contrato":"factura",contrato:clean(v.numero_contrato)||clean(f.numero),matricula:clean(v.matricula).toUpperCase().replace(/[\s-]/g,""),modelo:clean(v.marca_modelo),tipoVehiculo:clean(v.tipo_vehiculo),bastidor:clean(v.bastidor).toUpperCase().replace(/\s/g,""),nombre:clean(v.vendedor_nombre)||clean(f.emisor_nombre),cif:clean(v.vendedor_nif||f.emisor_nif).toUpperCase().replace(/[^A-Z0-9]/g,""),precio:num(v.precio)||num(f.total),regimen:v.regimen==="rebu"||v.tipo_documento==="contrato"?"rebu":"general"};window.vehiculoReferencia?.(cab.vehicle);if((!cab.number||cab.vehicle.tipoDocumento==="contrato"&&!clean(v.numero_contrato))&&cab.vehicle.contrato)cab.number=cab.vehicle.contrato}
     const retencion=ret?{retentionRate:String(Math.abs(num(f.retencion_tipo))||""),retention:dinero(ret)}:{};
     const extras=[];
     if(recargo)extras.push(`Recargo de equivalencia ${dinero(recargo)}`);
@@ -5001,7 +5006,7 @@ setInterval(refreshSuggestions,15000);
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     for(let intento=1;;intento++){
       try{
-        const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||""),"X-Client-Nif":encodeURIComponent(invoiceAccounting.client===client?invoiceAccounting.cif||"":""),"X-Invoice-Type":invoiceProcessorType(),"X-Vehiculos":invoiceProcessorType()!=="emitidas"&&window.vehiculosCliente?.(client)?"1":""},body:file});
+        const r=await fetch("/api/facturas/leer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name),"X-Client":encodeURIComponent(client||""),"X-Client-Nif":encodeURIComponent(invoiceAccounting.client===client?invoiceAccounting.cif||"":""),"X-Invoice-Type":invoiceProcessorType(),"X-Vehiculos":window.vehiculosCliente?.(client)?"1":""},body:file});
         if([429,502,503,504].includes(r.status)&&intento<4){await wait(intento*4000);continue}
         return r;
       }catch(error){if(intento>=4)throw error;await wait(intento*4000)}
@@ -5026,7 +5031,8 @@ setInterval(refreshSuggestions,15000);
   async function leerAntiguo(file,client,aviso){
     try{const t=await invoiceFileText(file,()=>{});const r=invoiceRecordChecked(file,t,client);r.observation=[aviso,r.observation].filter(Boolean).join(". ");
       // Cliente con sistema propio de vehículos: también sin IA se reconocen los contratos y facturas de compra de vehículos.
-      if(window.vehiculosCliente?.(client)&&window.vehiculoDesdeTexto){const v=window.vehiculoDesdeTexto(t);if(v){r.vehicle=v.vehicle;const contrato=v.vehicle.tipoDocumento==="contrato";for(const [k,val] of Object.entries(v.record))if(val&&(contrato||!r[k]||k==="number"&&invoiceNumberSuspicious(r[k])))r[k]=val;if(contrato)r.observation=[r.observation,"Contrato de compra de vehículo leído sin IA: revisa los datos"].filter(Boolean).join(". ")}}
+      if(window.vehiculosCliente?.(client)&&window.vehiculoDesdeTexto&&invoiceProcessorType()==="emitidas"){const v=window.vehiculoDesdeTexto(t);if(v&&(v.vehicle.matricula||v.vehicle.bastidor))r.vehicleSale={matricula:v.vehicle.matricula,bastidor:v.vehicle.bastidor,modelo:v.vehicle.modelo,precio:invoiceParseNumber(r.total)||v.vehicle.precio,regimen:/bienes usados/i.test(t)?"rebu":"general"}}
+      else if(window.vehiculosCliente?.(client)&&window.vehiculoDesdeTexto){const v=window.vehiculoDesdeTexto(t);if(v){r.vehicle=v.vehicle;const contrato=v.vehicle.tipoDocumento==="contrato";for(const [k,val] of Object.entries(v.record))if(val&&(contrato||!r[k]||k==="number"&&invoiceNumberSuspicious(r[k])))r[k]=val;if(contrato)r.observation=[r.observation,"Contrato de compra de vehículo leído sin IA: revisa los datos"].filter(Boolean).join(". ")}}
       return r}
     catch(_){return{...invoiceRecordChecked(file,"",client),number:"",observation:[aviso,"No se pudo leer automáticamente"].filter(Boolean).join(". ")}}
   }
