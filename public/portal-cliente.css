@@ -88,3 +88,24 @@
 .client-mobile-portal.c2 .c2-fila>.pc-ic-violeta{background:#F1ECFF!important;color:#6D4AE0!important}
 .client-mobile-portal.c2 .c2-fila>.pc-ic-violeta svg{width:22px;height:22px}
 @media(max-width:760px){.client-mobile-portal.c2 .pc-analisis-fila .pc-pronto{display:inline-block;flex:none;padding:3px 8px;font-size:10.5px}}
+
+/* Información general en el móvil: dos datos por línea (el nombre y los campos largos, a lo ancho) */
+@media(max-width:600px){
+  .client-fiscal-overlay .client-fiscal-section-title:has(.client-fiscal-readonly){display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px}
+  .client-fiscal-overlay .client-fiscal-section-title .client-fiscal-readonly{margin:4px 0 0!important;white-space:nowrap}
+  .client-fiscal-overlay .client-copy-identity,.client-fiscal-overlay .client-copy-admin,.client-fiscal-overlay .client-copy-tax-head,.client-fiscal-overlay .client-copy-fields,.client-fiscal-overlay .client-copy-signature{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .client-fiscal-overlay .client-copy-identity>.client-copy-field:first-child,.client-fiscal-overlay .client-copy-fields>.wide,.client-fiscal-overlay .client-copy-signature>.wide{grid-column:1/-1!important;grid-row:auto!important;min-height:0!important}
+  .client-fiscal-overlay .client-copy-identity>.wide:not(:first-child){grid-column:auto!important}
+  .client-fiscal-overlay .client-copy-field{min-height:0!important;padding:9px 12px!important}
+  .client-fiscal-overlay .client-copy-field strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .client-fiscal-overlay .client-copy-identity>.client-copy-field:first-child strong{white-space:normal}
+}
+@media(max-width:600px){
+  .client-fiscal-overlay .client-copy-models{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
+  .client-fiscal-overlay .client-copy-models span{min-height:0!important;padding:8px 6px!important;font-size:11.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .client-fiscal-overlay .client-copy-registry-tabs{display:flex!important;overflow-x:auto;scrollbar-width:none;gap:2px}
+  .client-fiscal-overlay .client-copy-registry-tabs button{flex:0 0 auto!important;min-width:0!important;padding:8px 12px!important;font-size:13.5px!important}
+  .client-fiscal-overlay .client-copy-registry-panels{min-height:0!important}
+}
+@media(max-width:600px){.client-fiscal-overlay .client-copy-models span,.client-fiscal-overlay .client-copy-models span b{font-size:11px!important;letter-spacing:-.01em}.client-fiscal-overlay .client-copy-models span{padding:8px 4px!important;text-align:center}.client-fiscal-overlay .client-copy-tax-head{margin-bottom:8px}}
+@media(max-width:600px){.client-fiscal-overlay .client-copy-models span{white-space:normal!important;overflow:visible!important;line-height:1.25}}
