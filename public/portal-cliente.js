@@ -1,7 +1,8 @@
 /* Área de cliente: ajustes de la versión de clientes (se carga después de app.js).
    - Asesoría Fiscal y Contable: la pestaña «Documentación» pasa a «Contabilidad» y hay una pestaña nueva
      «Documentación» (escrituras, actas, contratos…) con subcarpetas, que el despacho puede crear y donde
-     puede subir documentos. Filtro de ejercicio (2020…año actual, por defecto el actual) junto a las pestañas.
+     puede subir documentos. Filtro de ejercicio (2020…año actual, por defecto el actual) dentro de Contabilidad
+     y de cada subapartado (no en Documentación ni en Información general).
    - Inicio (escritorio): la tarjeta «Nuevo mensaje» (iba al mismo sitio que «Mensajes») pasa a ser
      «Análisis financiero», de momento con aviso de «Próximamente».
    - Mensajes: lista de asesores con foto de color, nombre completo y especialidad.
@@ -29,34 +30,42 @@
   const titulo = (h, p, extra = "") => `<div class="client-fiscal-section-title"><div><h2>${h}</h2><p>${p}</p></div>${extra}</div>`;
   const filas = docs => (typeof clientFiscalFileRows === "function" ? clientFiscalFileRows(docs, "No hay documentos en esta carpeta") : "");
 
+  const filtroAnio = () => `<label class="pc-anio"><span>Ejercicio</span><select aria-label="Ejercicio">${ANIOS.map(a => `<option${a === anio ? " selected" : ""}>${a}</option>`).join("")}</select></label>`;
+  const cabecera = (...botones) => `<div class="pc-cabecera">${filtroAnio()}${botones.join("")}</div>`;
+  function enlazarAnio(content, volver) {
+    content.querySelector(".pc-anio select")?.addEventListener("change", e => { anio = e.target.value; content.dataset.declarationYear = anio; volver(); });
+  }
   async function contabilidad(content, categoria = "", trimestre = "") {
     const docs = await clientFiscalDocuments();
     if (!categoria) {
-      content.innerHTML = titulo("Contabilidad", `Tus facturas y movimientos bancarios del ejercicio ${anio}.`) +
+      content.innerHTML = titulo("Contabilidad", `Tus facturas y movimientos bancarios del ejercicio ${anio}.`, cabecera()) +
         `<div class="client-fiscal-folders">${CATEGORIAS.map(([key, t, copy, palabras]) => {
           const n = docs.filter(d => deCategoria(d, palabras)).length;
           return `<button type="button" data-pc-cat="${key}"><span>${ic("documents")}</span><div><strong>${t}<em class="pc-cuenta">${n || ""}</em></strong><small>${copy}</small></div><b>›</b></button>`;
         }).join("")}</div>`;
       content.querySelectorAll("[data-pc-cat]").forEach(b => b.addEventListener("click", () => contabilidad(content, b.dataset.pcCat)));
+      enlazarAnio(content, () => contabilidad(content));
       return;
     }
     const [, t, , palabras] = CATEGORIAS.find(c => c[0] === categoria);
     const delAnio = docs.filter(d => deCategoria(d, palabras));
     if (categoria !== "banks" && !trimestre) {
-      content.innerHTML = titulo(`${t} · ${anio}`, "Selecciona el trimestre.", '<button type="button" data-pc-volver>← Contabilidad</button>') +
+      content.innerHTML = titulo(`${t} · ${anio}`, "Selecciona el trimestre.", cabecera('<button type="button" class="pc-btn" data-pc-volver>← Contabilidad</button>')) +
         `<div class="client-fiscal-quarter-folders">${["1T", "2T", "3T", "4T"].map(q => {
           const n = delAnio.filter(d => (d.path + " " + d.name).toUpperCase().includes(q)).length;
           return `<button type="button" data-pc-trim="${q}"><span>${ic("documents")}</span><strong>${q}<em class="pc-cuenta">${n || ""}</em></strong><b>›</b></button>`;
         }).join("")}</div>`;
       content.querySelector("[data-pc-volver]").addEventListener("click", () => contabilidad(content));
       content.querySelectorAll("[data-pc-trim]").forEach(b => b.addEventListener("click", () => contabilidad(content, categoria, b.dataset.pcTrim)));
+      enlazarAnio(content, () => contabilidad(content, categoria));
       return;
     }
     const lista = delAnio.filter(d => !trimestre || (d.path + " " + d.name).toUpperCase().includes(trimestre)).sort((a, b) => a.name.localeCompare(b.name, "es"));
-    content.innerHTML = titulo(`${t} · ${anio}${trimestre ? " · " + trimestre : ""}`, "Documentos disponibles en esta carpeta.", '<button type="button" data-pc-volver>← Volver</button>') +
+    content.innerHTML = titulo(`${t} · ${anio}${trimestre ? " · " + trimestre : ""}`, "Documentos disponibles en esta carpeta.", cabecera('<button type="button" class="pc-btn" data-pc-volver>← Volver</button>')) +
       `<div class="client-fiscal-file-list">${filas(lista)}</div>`;
     content.querySelector("[data-pc-volver]").addEventListener("click", () => contabilidad(content, categoria === "banks" ? "" : categoria));
     bindClientFiscalFiles(content, lista);
+    enlazarAnio(content, () => contabilidad(content, categoria, trimestre));
   }
 
   // ------------------------------------------------------------------ Documentación (escrituras, contratos…)
@@ -135,11 +144,8 @@
     conta.textContent = "Contabilidad";
     const docsTab = document.createElement("button"); docsTab.type = "button"; docsTab.dataset.fiscalTab = "pc-documentacion"; docsTab.textContent = "Documentación";
     conta.after(docsTab);
-    const filtro = document.createElement("label"); filtro.className = "pc-anio";
-    filtro.innerHTML = `<span>Ejercicio</span><select aria-label="Ejercicio">${ANIOS.map(a => `<option${a === anio ? " selected" : ""}>${a}</option>`).join("")}</select>`;
-    nav.after(filtro);
     const activa = () => nav.querySelector("[data-fiscal-tab].active")?.dataset.fiscalTab;
-    const marcar = tab => { nav.querySelectorAll("[data-fiscal-tab]").forEach(b => b.classList.toggle("active", b.dataset.fiscalTab === tab)); overlay.classList.toggle("pc-sin-anio", !["documents", "declarations"].includes(tab)); };
+    const marcar = tab => nav.querySelectorAll("[data-fiscal-tab]").forEach(b => b.classList.toggle("active", b.dataset.fiscalTab === tab));
     // Contabilidad y Documentación los pinta este archivo; el resto, app.js (que no conoce la pestaña nueva)
     nav.addEventListener("click", e => {
       const b = e.target.closest("[data-fiscal-tab]"); if (!b) return;
@@ -147,18 +153,12 @@
       else if (b.dataset.fiscalTab === "pc-documentacion") { e.stopImmediatePropagation(); marcar("pc-documentacion"); documentacion(content); }
       else { content.dataset.declarationYear = anio; marcar(b.dataset.fiscalTab); }
     }, true);
-    filtro.querySelector("select").addEventListener("change", e => {
-      anio = e.target.value; content.dataset.declarationYear = anio;
-      if (activa() === "documents") contabilidad(content);
-      else if (activa() === "declarations") renderClientFiscalDeclarations(content);
-    });
     content.dataset.declarationYear = anio; marcar("documents"); contabilidad(content);
     return result;
   };
-  // Si se elige otro ejercicio dentro de «Declaraciones», el filtro de arriba lo sigue
+  // El ejercicio elegido en «Declaraciones» (que tiene su propio filtro) se recuerda también en Contabilidad
   document.addEventListener("change", e => {
-    const sel = e.target.closest?.(".client-fiscal-overlay .client-fiscal-year-filter select"); if (!sel) return;
-    anio = sel.value; const arriba = document.querySelector(".client-fiscal-overlay .pc-anio select"); if (arriba && [...arriba.options].some(o => o.value === anio)) arriba.value = anio;
+    const sel = e.target.closest?.(".client-fiscal-overlay .client-fiscal-year-filter select"); if (sel) anio = sel.value;
   });
 
   // ------------------------------------------------------------------ Inicio: «Análisis financiero»
