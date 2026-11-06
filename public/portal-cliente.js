@@ -25,8 +25,11 @@
   // ------------------------------------------------------------------ Contabilidad (antes «Documentación»)
   const CATEGORIAS = [["issued", "Facturas emitidas", "Facturas expedidas a tus clientes", ["EMITID", "EXPEDID"]],
     ["received", "Facturas recibidas", "Facturas de proveedores y acreedores", ["RECIBID", "PROVEEDOR"]],
-    ["banks", "Bancos", "Extractos y documentación bancaria", ["BANCO"]]];
-  const deCategoria = (doc, palabras) => { const t = (doc.path + " " + doc.name).toUpperCase(); return t.includes(anio) && palabras.some(p => t.includes(p)); };
+    ["banks", "Bancos", "Extractos y documentación bancaria", ["BANCO"]],
+    ["labor", "Laboral", "Nóminas, seguros sociales y documentación laboral", ["LABORAL", "NOMINA", "SEGUROS SOCIALES", "SEGURIDAD SOCIAL", "TC1", "TC2", "RNT", "RLC", "CONTRATO DE TRABAJO", "FINIQUITO"]]];
+  const SIN_TRIMESTRES = new Set(["banks", "labor"]);
+  const sinTildes = s => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  const deCategoria = (doc, palabras) => { const t = sinTildes(doc.path + " " + doc.name); return t.includes(anio) && palabras.some(p => t.includes(p)); };
   const titulo = (h, p, extra = "") => `<div class="client-fiscal-section-title"><div><h2>${h}</h2><p>${p}</p></div>${extra}</div>`;
   const filas = docs => (typeof clientFiscalFileRows === "function" ? clientFiscalFileRows(docs, "No hay documentos en esta carpeta") : "");
 
@@ -38,8 +41,8 @@
   async function contabilidad(content, categoria = "", trimestre = "") {
     const docs = await clientFiscalDocuments();
     if (!categoria) {
-      content.innerHTML = titulo("Contabilidad", `Tus facturas y movimientos bancarios del ejercicio ${anio}.`, cabecera()) +
-        `<div class="client-fiscal-folders">${CATEGORIAS.map(([key, t, copy, palabras]) => {
+      content.innerHTML = titulo("Contabilidad", `Tus facturas, movimientos bancarios y documentación laboral del ejercicio ${anio}.`, cabecera()) +
+        `<div class="client-fiscal-folders pc-conta-carpetas">${CATEGORIAS.map(([key, t, copy, palabras]) => {
           const n = docs.filter(d => deCategoria(d, palabras)).length;
           return `<button type="button" data-pc-cat="${key}"><span>${ic("documents")}</span><div><strong>${t}<em class="pc-cuenta">${n || ""}</em></strong><small>${copy}</small></div><b>›</b></button>`;
         }).join("")}</div>`;
@@ -49,7 +52,7 @@
     }
     const [, t, , palabras] = CATEGORIAS.find(c => c[0] === categoria);
     const delAnio = docs.filter(d => deCategoria(d, palabras));
-    if (categoria !== "banks" && !trimestre) {
+    if (!SIN_TRIMESTRES.has(categoria) && !trimestre) {
       content.innerHTML = titulo(`${t} · ${anio}`, "Selecciona el trimestre.", cabecera('<button type="button" class="pc-btn" data-pc-volver>← Contabilidad</button>')) +
         `<div class="client-fiscal-quarter-folders">${["1T", "2T", "3T", "4T"].map(q => {
           const n = delAnio.filter(d => (d.path + " " + d.name).toUpperCase().includes(q)).length;
@@ -63,7 +66,7 @@
     const lista = delAnio.filter(d => !trimestre || (d.path + " " + d.name).toUpperCase().includes(trimestre)).sort((a, b) => a.name.localeCompare(b.name, "es"));
     content.innerHTML = titulo(`${t} · ${anio}${trimestre ? " · " + trimestre : ""}`, "Documentos disponibles en esta carpeta.", cabecera('<button type="button" class="pc-btn" data-pc-volver>← Volver</button>')) +
       `<div class="client-fiscal-file-list">${filas(lista)}</div>`;
-    content.querySelector("[data-pc-volver]").addEventListener("click", () => contabilidad(content, categoria === "banks" ? "" : categoria));
+    content.querySelector("[data-pc-volver]").addEventListener("click", () => contabilidad(content, SIN_TRIMESTRES.has(categoria) ? "" : categoria));
     bindClientFiscalFiles(content, lista);
     enlazarAnio(content, () => contabilidad(content, categoria, trimestre));
   }
