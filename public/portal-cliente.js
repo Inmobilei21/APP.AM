@@ -1,7 +1,7 @@
 /* Área de cliente: ajustes de la versión de clientes (se carga después de app.js).
-   - Asesoría Fiscal y Contable: la pestaña «Documentación» pasa a «Contabilidad» y hay una pestaña nueva
-     «Documentación» (escrituras, actas, contratos…) con subcarpetas, que el despacho puede crear y donde
-     puede subir documentos. Filtro de ejercicio (2020…año actual, por defecto el actual) en Contabilidad (y sus
+   - Asesoría Fiscal y Contable: pestañas Actas, Cierres anuales, Contabilidad, Declaraciones, Escrituras y Otros
+     archivos (cada una abre su carpeta del cliente, con subcarpetas que el despacho puede crear y donde puede subir
+     documentos). «Información general» es un botón fijo en la franja azul, junto a «Volver al inicio». Filtro de ejercicio (2020…año actual, por defecto el actual) en Contabilidad (y sus
      subapartados), Declaraciones y Reclamaciones; no en Documentación ni en Información general.
    - Inicio (escritorio): la tarjeta «Nuevo mensaje» (iba al mismo sitio que «Mensajes») pasa a ser
      «Análisis financiero», de momento con aviso de «Próximamente».
@@ -71,8 +71,16 @@
     enlazarAnio(content, () => contabilidad(content, categoria, trimestre));
   }
 
-  // ------------------------------------------------------------------ Documentación (escrituras, contratos…)
-  const DE_CONTABILIDAD = new Set(["CONTABILIDAD", "DECLARACIONES", "LIBROS OFICIALES", "CIERRES ANUALES"]);
+  // ------------------------------------------------------------------ Actas, Cierres anuales, Escrituras y Otros archivos
+  // Cada pestaña abre la carpeta del mismo nombre del cliente; «Otros archivos» reúne el resto de carpetas
+  // (OTRA DOCUMENTACIÓN y las que cree el despacho), sin las de las otras pestañas.
+  const SECCIONES = {
+    "pc-actas": { carpeta: "ACTAS", titulo: "Actas", texto: "Actas de juntas, consejos y decisiones de la sociedad." },
+    "pc-cierres": { carpeta: "CIERRES ANUALES", titulo: "Cierres anuales", texto: "Cuentas anuales, impuesto de sociedades y documentación del cierre de cada ejercicio." },
+    "pc-escrituras": { carpeta: "ESCRITURAS", titulo: "Escrituras", texto: "Escrituras de constitución, poderes, ampliaciones y el resto de escrituras." },
+    "pc-otros": { carpeta: "", titulo: "Otros archivos", texto: "Contratos y el resto de documentación de tu empresa." }
+  };
+  const DE_CONTABILIDAD = new Set(["CONTABILIDAD", "DECLARACIONES", "LIBROS OFICIALES", "CIERRES ANUALES", "ACTAS", "ESCRITURAS"]);
   const norma = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
   async function carpetaCliente() {
     try { const root = await getSavedHandle("clients-folder"); return root ? await root.getDirectoryHandle(clientPreviewName) : null; } catch { return null; }
@@ -81,30 +89,38 @@
     try { const ficha = (await getAllClientMetadata()).find(c => clientIdentity(c) === clientPreviewName || c?.name === clientPreviewName); return (ficha?.portalFolders || []).filter(f => f.visible === false).map(f => f.path); } catch { return []; }
   }
   const nombreBonito = n => n.charAt(0) + n.slice(1).toLocaleLowerCase("es");
-  async function documentacion(content, ruta = []) {
-    content.innerHTML = titulo("Documentación", "Escrituras, actas, contratos y el resto de documentación de tu empresa.") + '<div class="pc-cargando">Cargando…</div>';
+  async function documentacion(content, ruta = [], seccion = "pc-otros") {
+    const S = SECCIONES[seccion] || SECCIONES["pc-otros"], raiz = !S.carpeta;
+    content.innerHTML = titulo(S.titulo, S.texto) + '<div class="pc-cargando">Cargando…</div>';
     const cliente = await carpetaCliente();
-    if (!cliente) { content.querySelector(".pc-cargando").outerHTML = `<div class="client-fiscal-empty">${ic("documents")}<strong>Todavía no hay documentación</strong><small>Cuando el despacho incorpore escrituras, contratos u otros documentos, aparecerán aquí.</small></div>`; return; }
-    let dir = cliente;
-    try { for (const parte of ruta) dir = await dir.getDirectoryHandle(parte); } catch { return documentacion(content, []); }
+    if (!cliente) { content.querySelector(".pc-cargando").outerHTML = `<div class="client-fiscal-empty">${ic("documents")}<strong>Todavía no hay documentos</strong><small>Cuando el despacho los incorpore, aparecerán aquí.</small></div>`; return; }
+    // La carpeta de la sección puede no existir todavía: se crea al añadir la primera carpeta o documento.
+    let base = cliente, existe = true;
+    if (!raiz) { try { base = await cliente.getDirectoryHandle(S.carpeta); } catch { existe = false; } }
+    const asegurar = async () => { if (!existe) { base = await cliente.getDirectoryHandle(S.carpeta, { create: true }); existe = true; } return base; };
+    let dir = base;
+    if (existe) { try { for (const parte of ruta) dir = await dir.getDirectoryHandle(parte); } catch { return documentacion(content, [], seccion); } }
     const esconder = await ocultas(), relativa = nombre => [...ruta, nombre].join("/");
     const carpetas = [], archivos = [];
-    for await (const e of dir.values()) {
+    const oculta = nombre => { const r = raiz ? relativa(nombre) : [S.carpeta, ...ruta, nombre].join("/"); return esconder.some(h => r === h || r.startsWith(h + "/")); };
+    if (existe) for await (const e of dir.values()) {
       if (e.kind === "directory") {
-        if (!ruta.length && DE_CONTABILIDAD.has(norma(e.name))) continue;
-        if (esconder.some(h => relativa(e.name) === h || relativa(e.name).startsWith(h + "/"))) continue;
+        if (raiz && !ruta.length && DE_CONTABILIDAD.has(norma(e.name))) continue;
+        if (oculta(e.name)) continue;
         carpetas.push(e);
-      } else if (ruta.length) archivos.push({ name: e.name, path: ruta.join(" / "), handle: e });
+      } else if (ruta.length || !raiz) archivos.push({ name: e.name, path: [S.titulo, ...ruta].join(" / "), handle: e });
     }
+    const dentro = ruta.length || !raiz;   // se pueden ver y subir documentos
     carpetas.sort((a, b) => a.name.localeCompare(b.name, "es")); archivos.sort((a, b) => a.name.localeCompare(b.name, "es"));
-    const migas = !ruta.length ? '<nav class="pc-migas" hidden></nav>' : `<nav class="pc-migas"><button type="button" data-pc-ir="0">Documentación</button>${ruta.map((p, i) => `<span>›</span><button type="button" data-pc-ir="${i + 1}">${escapeHtml(nombreBonito(p))}</button>`).join("")}</nav>`;
-    const acciones = esDemo() ? "" : `<div class="pc-acciones"><button type="button" class="pc-btn" data-pc-nueva>${SVG.nueva}Nueva carpeta</button>${ruta.length ? `<button type="button" class="pc-btn pc-btn-oscuro" data-pc-subir>${SVG.subir}Subir documento</button><input type="file" multiple hidden data-pc-archivos>` : ""}</div>`;
-    content.innerHTML = titulo(ruta.length ? escapeHtml(nombreBonito(ruta[ruta.length - 1])) : "Documentación", ruta.length ? "Carpetas y documentos de esta sección." : "Escrituras, actas, contratos y el resto de documentación de tu empresa.", acciones) + migas +
+    const migas = !ruta.length ? '<nav class="pc-migas" hidden></nav>' : `<nav class="pc-migas"><button type="button" data-pc-ir="0">${escapeHtml(S.titulo)}</button>${ruta.map((p, i) => `<span>›</span><button type="button" data-pc-ir="${i + 1}">${escapeHtml(nombreBonito(p))}</button>`).join("")}</nav>`;
+    const acciones = esDemo() ? "" : `<div class="pc-acciones"><button type="button" class="pc-btn" data-pc-nueva>${SVG.nueva}Nueva carpeta</button>${dentro ? `<button type="button" class="pc-btn pc-btn-oscuro" data-pc-subir>${SVG.subir}Subir documento</button><input type="file" multiple hidden data-pc-archivos>` : ""}</div>`;
+    content.innerHTML = titulo(ruta.length ? escapeHtml(nombreBonito(ruta[ruta.length - 1])) : S.titulo, ruta.length ? "Carpetas y documentos de esta sección." : S.texto, acciones) + migas +
       `<p class="pc-msg" role="status" hidden></p>` +
       (carpetas.length ? `<div class="client-fiscal-folders pc-carpetas">${carpetas.map((c, i) => `<button type="button" data-pc-carpeta="${i}"><span>${SVG.carpeta}</span><div><strong>${escapeHtml(nombreBonito(c.name))}</strong><small>Carpeta</small></div><b>›</b></button>`).join("")}</div>` : "") +
-      (ruta.length ? `<div class="client-fiscal-file-list">${archivos.length || !carpetas.length ? filas(archivos) : ""}</div>` : (!carpetas.length ? `<div class="client-fiscal-empty">${ic("documents")}<strong>Todavía no hay documentación</strong><small>Crea una carpeta para empezar (por ejemplo «Escrituras» o «Contratos»).</small></div>` : ""));
-    content.querySelectorAll("[data-pc-ir]").forEach(b => b.addEventListener("click", () => documentacion(content, ruta.slice(0, Number(b.dataset.pcIr)))));
-    content.querySelectorAll("[data-pc-carpeta]").forEach(b => b.addEventListener("click", () => documentacion(content, [...ruta, carpetas[Number(b.dataset.pcCarpeta)].name])));
+      (dentro && (archivos.length || carpetas.length) ? `<div class="client-fiscal-file-list">${archivos.length ? filas(archivos) : ""}</div>` : "") +
+      (!carpetas.length && !archivos.length ? `<div class="client-fiscal-empty">${ic("documents")}<strong>Todavía no hay documentos en ${escapeHtml(ruta.length ? nombreBonito(ruta[ruta.length - 1]) : S.titulo)}</strong><small>${raiz && !ruta.length ? "Crea una carpeta para empezar (por ejemplo «Contratos»)." : "Cuando se incorporen documentos, aparecerán aquí."}</small></div>` : "");
+    content.querySelectorAll("[data-pc-ir]").forEach(b => b.addEventListener("click", () => documentacion(content, ruta.slice(0, Number(b.dataset.pcIr)), seccion)));
+    content.querySelectorAll("[data-pc-carpeta]").forEach(b => b.addEventListener("click", () => documentacion(content, [...ruta, carpetas[Number(b.dataset.pcCarpeta)].name], seccion)));
     bindClientFiscalFiles(content, archivos);
     const msg = content.querySelector(".pc-msg"), aviso = (t, error = false) => { msg.textContent = t; msg.hidden = !t; msg.classList.toggle("error", error); };
     content.querySelector("[data-pc-nueva]")?.addEventListener("click", () => {
@@ -117,10 +133,10 @@
         e.preventDefault();
         const nombre = form.elements.nombre.value.trim().replace(/\s+/g, " ");
         if (!nombre || /[\\/:*?"<>|]/.test(nombre) || nombre.startsWith(".")) return aviso("Escribe un nombre sin los caracteres \\ / : * ? \" < > |", true);
-        const final = ruta.length ? nombre : nombre.toLocaleUpperCase("es");   // las carpetas principales del cliente van en mayúsculas
-        if (!ruta.length && DE_CONTABILIDAD.has(norma(final))) return aviso("Ese nombre está reservado para la contabilidad.", true);
+        const final = ruta.length || !raiz ? nombre : nombre.toLocaleUpperCase("es");   // las carpetas principales del cliente van en mayúsculas
+        if (raiz && !ruta.length && DE_CONTABILIDAD.has(norma(final))) return aviso("Ese nombre ya es una pestaña del área de cliente.", true);
         form.querySelectorAll("button,input").forEach(x => { x.disabled = true; });
-        try { await dir.getDirectoryHandle(final, { create: true }); await documentacion(content, ruta); content.querySelector(".pc-msg").textContent = ""; }
+        try { if (!existe) dir = await asegurar(); await dir.getDirectoryHandle(final, { create: true }); await documentacion(content, ruta, seccion); content.querySelector(".pc-msg").textContent = ""; }
         catch (error) { form.querySelectorAll("button,input").forEach(x => { x.disabled = false; }); aviso(`No se pudo crear la carpeta: ${error.message}`, true); }
       });
     });
@@ -130,18 +146,13 @@
       const files = [...entrada.files]; entrada.value = ""; if (!files.length) return;
       aviso(`Subiendo ${files.length} documento${files.length > 1 ? "s" : ""}…`);
       try {
+        if (!existe) dir = await asegurar();
         for (const file of files) { const h = await dir.getFileHandle(file.name, { create: true }), w = await h.createWritable(); await w.write(file); await w.close(); }
-        await documentacion(content, ruta);
+        await documentacion(content, ruta, seccion);
       } catch (error) { aviso(`No se pudo subir: ${error.message}`, true); }
     });
   }
 
-  // ------------------------------------------------------------------ Reclamaciones (con filtro de ejercicio)
-  function reclamaciones(content) {
-    content.innerHTML = titulo("Reclamaciones", "Consulta o inicia una comunicación relacionada con una gestión fiscal.", cabecera()) +
-      `<div class="client-fiscal-empty">${ic("messages")}<strong>No tienes reclamaciones abiertas en ${anio}</strong><small>Cuando exista una comunicación aparecerá en este apartado.</small></div>`;
-    enlazarAnio(content, () => reclamaciones(content));
-  }
   // Declaraciones: mismo filtro que Contabilidad en lugar del desplegable propio
   if (typeof renderClientFiscalDeclarations === "function") {
     const declaraciones = renderClientFiscalDeclarations;
@@ -161,18 +172,26 @@
     const overlay = document.querySelector(".client-fiscal-overlay"), nav = overlay?.querySelector(".client-fiscal-tabs"), content = overlay?.querySelector(".client-fiscal-content");
     if (!nav || !content || nav.dataset.pc) return result;
     nav.dataset.pc = "1";
-    const conta = nav.querySelector('[data-fiscal-tab="documents"]');
+    // Pestañas: Actas · Cierres anuales · Contabilidad · Declaraciones · Escrituras · Otros archivos
+    const conta = nav.querySelector('[data-fiscal-tab="documents"]'), decla = nav.querySelector('[data-fiscal-tab="declarations"]');
+    const info = nav.querySelector('[data-fiscal-tab="information"]');
     conta.textContent = "Contabilidad";
-    const docsTab = document.createElement("button"); docsTab.type = "button"; docsTab.dataset.fiscalTab = "pc-documentacion"; docsTab.textContent = "Documentación";
-    conta.after(docsTab);
-    const activa = () => nav.querySelector("[data-fiscal-tab].active")?.dataset.fiscalTab;
-    const marcar = tab => nav.querySelectorAll("[data-fiscal-tab]").forEach(b => b.classList.toggle("active", b.dataset.fiscalTab === tab));
-    // Contabilidad y Documentación los pinta este archivo; el resto, app.js (que no conoce la pestaña nueva)
+    const pestana = (id, texto) => { const b = document.createElement("button"); b.type = "button"; b.dataset.fiscalTab = id; b.textContent = texto; return b; };
+    nav.querySelector('[data-fiscal-tab="claims"]')?.remove();
+    nav.replaceChildren(pestana("pc-actas", "Actas"), pestana("pc-cierres", "Cierres anuales"), conta, decla, pestana("pc-escrituras", "Escrituras"), pestana("pc-otros", "Otros archivos"));
+    // «Información general» pasa a la franja azul, junto a «Volver al inicio», para tenerla siempre a mano
+    const back = overlay.querySelector(".client-fiscal-back");
+    if (info && back) {
+      const barra = document.createElement("div"); barra.className = "pc-topbar"; back.before(barra); barra.append(back, info);
+      info.className = "client-fiscal-back pc-info-btn"; info.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Información general</span>`;
+      info.addEventListener("click", () => nav.querySelectorAll("[data-fiscal-tab]").forEach(b => b.classList.remove("active")));
+    }
+    const marcar = tab => { nav.querySelectorAll("[data-fiscal-tab]").forEach(b => b.classList.toggle("active", b.dataset.fiscalTab === tab)); info?.classList.toggle("active", tab === "information"); };
+    // Contabilidad y las carpetas las pinta este archivo; Declaraciones e Información general, app.js
     nav.addEventListener("click", e => {
       const b = e.target.closest("[data-fiscal-tab]"); if (!b) return;
       if (b.dataset.fiscalTab === "documents") { e.stopImmediatePropagation(); marcar("documents"); contabilidad(content); }
-      else if (b.dataset.fiscalTab === "pc-documentacion") { e.stopImmediatePropagation(); marcar("pc-documentacion"); documentacion(content); }
-      else if (b.dataset.fiscalTab === "claims") { e.stopImmediatePropagation(); marcar("claims"); reclamaciones(content); }
+      else if (SECCIONES[b.dataset.fiscalTab]) { e.stopImmediatePropagation(); marcar(b.dataset.fiscalTab); documentacion(content, [], b.dataset.fiscalTab); }
       else { content.dataset.declarationYear = anio; marcar(b.dataset.fiscalTab); }
     }, true);
     content.dataset.declarationYear = anio; marcar("documents"); contabilidad(content);

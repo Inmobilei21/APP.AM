@@ -68,3 +68,18 @@
   .pc-acciones .pc-btn{flex:1;justify-content:center}
   .pc-pronto{display:none}
 }
+
+/* «Información general»: botón fijo en la franja azul, junto a «Volver al inicio» */
+.client-fiscal-overlay .pc-topbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.client-fiscal-overlay .pc-topbar .client-fiscal-back{cursor:pointer}
+.client-fiscal-overlay .pc-topbar .pc-info-btn{margin-left:0!important}
+.client-fiscal-overlay .pc-topbar .pc-info-btn svg{width:16px;height:16px;flex:none}
+.client-fiscal-overlay .pc-topbar .pc-info-btn.active{background:rgba(255,255,255,.24)!important;border-color:rgba(255,255,255,.45)!important;box-shadow:0 0 0 2px rgba(255,255,255,.12)}
+.client-fiscal-overlay .pc-topbar{margin:0 0 14px 4px}
+.client-fiscal-overlay .pc-topbar .client-fiscal-back{margin:0!important}
+@media(max-width:760px){
+  .client-fiscal-overlay .pc-topbar{flex-wrap:nowrap;gap:8px;margin:0 0 8px}
+  .client-fiscal-overlay .pc-topbar .client-fiscal-back{flex:0 1 auto;min-width:0;white-space:nowrap}
+  .client-fiscal-overlay .pc-topbar .pc-info-btn.active{background:#0A1A3F!important;box-shadow:none}
+  .client-fiscal-overlay .pc-topbar .pc-info-btn.active,.client-fiscal-overlay .pc-topbar .pc-info-btn.active *{color:#fff!important}
+}
