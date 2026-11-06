@@ -2820,7 +2820,7 @@ async function invoiceFileText(file,onOcr){
   if(/\.(jpe?g|png|webp|bmp|tiff?)$/i.test(file.name)||file.type.startsWith("image/")){
     onOcr?.();const worker=await getInvoiceOcrWorker(),canvas=await invoiceImageForOcr(file);
     const result=await worker.recognize(canvas);
-    return (result.data.text||"").replace(/^(N[uú]mero\s*[:#-]?\s*[A-Z0-9][A-Z0-9\-/.]{1,})\b.*$/gim,"$1").replace(/^(Fecha\s*[:.-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b.*$/gim,"$1");
+    return (result.data.text||"").replace(/^(N[uú]mero(?!\s+de\s+(?:chasis|bastidor|matr[ií]cula|motor|contrato))\s*[:#-]?\s*[A-Z0-9][A-Z0-9\-/.]{1,})\b.*$/gim,"$1").replace(/^(Fecha\s*[:.-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b.*$/gim,"$1");
   }
   const pdfjs=await import("/vendor/pdfjs/pdf.min.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc="/vendor/pdfjs/pdf.worker.min.mjs";
@@ -2834,7 +2834,7 @@ async function invoiceFileText(file,onOcr){
     onOcr?.();const worker=await getInvoiceOcrWorker();text="";
     for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){const page=await pdf.getPage(pageNumber),viewport=page.getViewport({scale:2.25}),canvas=document.createElement("canvas"),context=canvas.getContext("2d",{willReadFrequently:true});canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);await page.render({canvasContext:context,viewport}).promise;const result=await worker.recognize(canvas);text+=`\n--- PÁGINA ${pageNumber} OCR ---\n${result.data.text||""}`}
   }
-  return text.replace(/^(N[uú]mero\s*[:#-]?\s*[A-Z0-9][A-Z0-9\-/.]{1,})\b.*$/gim,"$1").replace(/^(Fecha\s*[:.-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b.*$/gim,"$1");
+  return text.replace(/^(N[uú]mero(?!\s+de\s+(?:chasis|bastidor|matr[ií]cula|motor|contrato))\s*[:#-]?\s*[A-Z0-9][A-Z0-9\-/.]{1,})\b.*$/gim,"$1").replace(/^(Fecha\s*[:.-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b.*$/gim,"$1");
 }
 function invoiceMatch(text,patterns){for(const pattern of patterns){const match=text.match(pattern);if(match?.[1])return match[1].trim()}return""}
 function invoiceAmount(value){if(!value)return"";const clean=value.replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",",".").replace(/[^\d.-]/g,"");const number=Number(clean);return Number.isFinite(number)?number.toFixed(2):""}
@@ -5010,7 +5010,7 @@ setInterval(refreshSuggestions,15000);
   async function leerConIA(file,client){
     const r=await enviarConReintentos(file,client);
     const data=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(data.error||`Error ${r.status}`);
+    if(!r.ok){if(/x-api-key|api key|authentication/i.test(data.error||""))window.lectorSinClave=true;throw new Error(data.error||`Error ${r.status}`)}
     const lista=Array.isArray(data.facturas)?data.facturas:[];
     const otros=(Array.isArray(data.otros_documentos)?data.otros_documentos:[]).map(doc=>({...doc,file:file.name}));
     if(!lista.length){if(otros.length)return{filas:[],otros};throw new Error("No se ha encontrado ninguna factura en el archivo")}
@@ -5024,7 +5024,10 @@ setInterval(refreshSuggestions,15000);
     return{filas,otros};
   }
   async function leerAntiguo(file,client,aviso){
-    try{const t=await invoiceFileText(file,()=>{});const r=invoiceRecordChecked(file,t,client);r.observation=[aviso,r.observation].filter(Boolean).join(". ");return r}
+    try{const t=await invoiceFileText(file,()=>{});const r=invoiceRecordChecked(file,t,client);r.observation=[aviso,r.observation].filter(Boolean).join(". ");
+      // Cliente con sistema propio de vehículos: también sin IA se reconocen los contratos y facturas de compra de vehículos.
+      if(window.vehiculosCliente?.(client)&&window.vehiculoDesdeTexto){const v=window.vehiculoDesdeTexto(t);if(v){r.vehicle=v.vehicle;const contrato=v.vehicle.tipoDocumento==="contrato";for(const [k,val] of Object.entries(v.record))if(val&&(contrato||!r[k]||k==="number"&&invoiceNumberSuspicious(r[k])))r[k]=val;if(contrato)r.observation=[r.observation,"Contrato de compra de vehículo leído sin IA: revisa los datos"].filter(Boolean).join(". ")}}
+      return r}
     catch(_){return{...invoiceRecordChecked(file,"",client),number:"",observation:[aviso,"No se pudo leer automáticamente"].filter(Boolean).join(". ")}}
   }
   // Los recibos y justificantes de pago se asocian a su factura (por número o, en el mismo archivo, por importe).
@@ -5064,6 +5067,7 @@ setInterval(refreshSuggestions,15000);
     sortInvoiceRecords(records);invoiceDraftRecords=records;renderInvoiceDraft(records);
     status.textContent=fallos?`${fallos} ${fallos===1?"archivo no se ha podido":"archivos no se han podido"} leer con IA. Revisa las filas marcadas.`:(()=>{const n=new Set(records.map(r=>r.file+"|"+r.number)).size;return `Borrador preparado con ${n} ${n===1?"factura":"facturas"}${records.length>n?` (${records.length} líneas, una por tipo de IVA)`:""}${otrosDocs.length?` y ${otrosDocs.length} ${otrosDocs.length===1?"documento ignorado":"documentos ignorados"} que no ${otrosDocs.length===1?"es factura":"son facturas"}`:""}. Revisa las observaciones antes de confirmar.`})();
     button.disabled=false;invoiceProgress.finish("Volver a leer facturas");
+    if(window.lectorSinClave){window.lectorSinClave=false;status.textContent="La IA no ha leído ningún documento: la clave del lector (ANTHROPIC_API_KEY en Railway) no es válida o ha caducado. Se han leído con el lector anterior; cambia la clave y vuelve a leerlas.";appConfirm({eyebrow:"LECTOR CON IA",title:"La clave del lector con IA no es válida",message:"El servidor de la IA ha rechazado la clave (invalid x-api-key), así que las facturas se han leído con el lector anterior, menos preciso. Hay que poner una clave válida en Railway → APP.AM → Variables → ANTHROPIC_API_KEY.",ok:"Entendido",alertOnly:true})}
   };
 })();
 /* ===== Tareas en escritorio: tarjetas superpuestas y desplazamiento dentro de cada etapa ===== */

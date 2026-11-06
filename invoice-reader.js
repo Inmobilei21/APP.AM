@@ -148,6 +148,9 @@ async function readInvoice(buffer, name, contentType, client, extra = {}) {
       "- Si el documento es la compra de un vehículo (factura o contrato de compraventa), devuélvelo como una entrada en facturas, rellena el objeto vehiculo y pon es_vehiculo: true. Se reconoce porque trae datos del vehículo: tipo, marca/modelo, matrícula, número de bastidor/VIN…",
       "- Un CONTRATO de compraventa con un particular cuenta aquí como documento de compra (no lo pongas en otros_documentos): numero = número del contrato (o vacío si no tiene), emisor = el vendedor particular con su DNI, tipos_iva un único elemento con tipo 0 y base = precio, total = precio, regimen = rebu.",
       "- Si es una factura con IVA desglosado, regimen = general. Si indica «régimen especial de bienes usados» (REBU) o no lleva IVA por ser un bien usado, regimen = rebu.",
+      "- En los contratos, el comprador es el cliente del despacho (su administrador también firma): NO es el vendedor. El vendedor es la otra parte (normalmente «Y D./Dª. …» con su DNI/NIF); ponlo como emisor y en vendedor_nombre/vendedor_nif.",
+      "- «Número de chasis» es el bastidor/VIN. La fecha del contrato suele estar en el encabezado («En Madrid, a 26 de octubre de 2026»): ponla como DD/MM/AAAA.",
+      "- Las fotos (JPG/PNG) de contratos también son documentos de compra de vehículos.",
       "- En las facturas que no son de vehículos (gestoría, recambios, grúa, alquileres…), no pongas el objeto vehiculo."
     ].join("\n") : "",
     `Nombre del archivo: ${name}`,

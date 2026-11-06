@@ -6530,3 +6530,10 @@ html body #sidebar nav button .billing-nav-alert.billing-nav-alert>b{display:non
 .veh-empty{margin:0;padding:22px;border:1px dashed #d6dcea;border-radius:14px;color:#7b869c;text-align:center;font-size:13.5px}
 .veh-table{min-width:1320px}
 .veh-table td{white-space:nowrap}
+.veh-banner{align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#fff9ec 0%,#fff3dc 100%);border:1px solid #f3d9a4;box-shadow:0 6px 18px -14px rgba(180,110,0,.45)}
+.veh-banner-ico{width:44px;height:44px;border-radius:14px;background:linear-gradient(145deg,#fbbf24 0%,#f59e0b 55%,#d97706 100%);box-shadow:0 6px 14px -6px rgba(217,119,6,.7),inset 0 1px 0 rgba(255,255,255,.35)}
+/* Vista previa de facturas: el fondo no se mueve */
+html:has(#invoicePreview:not([hidden])),html:has(#invoicePreview:not([hidden])) body{overflow:hidden!important;overscroll-behavior:none}
+#invoicePreview,#invoicePreview .invoice-preview-doc,#invoicePreview .invoice-preview-data{overscroll-behavior:contain}
+.veh-table{min-width:1560px}
+.veh-table td>input,.veh-table td>select{box-sizing:border-box}

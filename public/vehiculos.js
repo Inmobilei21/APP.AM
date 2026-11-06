@@ -12,6 +12,32 @@
   const norm = value => (typeof normalizeFiscalText === "function" ? normalizeFiscalText(String(value || "")) : String(value || "").toUpperCase());
   const isVehicleClient = client => Boolean(client) && (flagged.has(client) || NOMBRES.some(re => re.test(norm(client))));
   window.vehiculosCliente = isVehicleClient;
+
+  // Lectura sin IA (texto del PDF o de la foto): contratos y facturas de compra de vehículos.
+  const MESES = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
+  window.vehiculoDesdeTexto = function (text) {
+    const t = String(text || "").replace(/\r/g, ""), flat = t.replace(/\s+/g, " ");
+    const plain = flat.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const contrato = /CONTRATO\s+DE\s+COMPRA\s*-?\s*VENTA/i.test(plain) || /compraventa de vehiculo/i.test(plain);
+    const field = re => (flat.match(re)?.[1] || "").trim();
+    const vin = (plain.match(/(?:bastidor|chasis|vin)\s*(?:n\.?[ºo°]?|numero)?\s*[:.]?\s*([A-HJ-NPR-Z0-9]{17})\b/i) || plain.match(/\b([A-HJ-NPR-Z0-9]{3}Z{2,3}[A-HJ-NPR-Z0-9]{11,12})\b/))?.[1] || "";
+    const matricula = (plain.match(/matr[ií]cula\s*[:.]?\s*(\d{4}\s?-?[B-DF-HJ-NP-TV-Z]{3})\b/i) || plain.match(/\b(\d{4}\s?[B-DF-HJ-NP-TV-Z]{3})\b/))?.[1]?.replace(/[\s-]/g, "").toUpperCase() || "";
+    if (!contrato && !vin && !/(bastidor|chasis)/i.test(plain)) return null;
+    const marca = field(/Marca\s*:\s*([^•\n]+?)(?=\s+(?:Modelo|A[ñn]o|N[uú]mero|Kilometraje|•)|$)/i), modelo = field(/Modelo\s*:\s*([^•\n]+?)(?=\s+(?:A[ñn]o|N[uú]mero|Kilometraje|Matr|•)|$)/i);
+    // Vendedor: en los contratos, la segunda parte («… Y D. NOMBRE DNI/NIF: …»); si no, el primer DNI que no sea del comprador.
+    let nombre = "", cif = "";
+    const second = plain.match(/\bY\s+(?:D\.?|Dna\.?|Dª\.?|Don|Dona)?\s*([A-Z][A-Za-z.' -]{3,60}?)\s+DNI\s*\/?\s*(?:NIF|NIE)?\s*[:.]?\s*([0-9XYZ]\d{7}[A-Z])/i) || plain.match(/(?:D\.|Dª\.?|Dna\.?|Don|Dona)\s+([A-Z][A-Za-z.' -]{3,60}?)\s+DNI\s*\/\s*NIF\s*[:.]?\s*([0-9XYZ]\d{7}[A-Z])/i);
+    if (second) { nombre = second[1].trim().toLocaleUpperCase("es"); cif = second[2].toUpperCase(); }
+    else { const dnis = [...plain.matchAll(/\b([0-9XYZ]\d{7}[A-Z])\b/g)].map(m => m[1]); const admin = plain.match(/con\s+DNI\s*([0-9XYZ]\d{7}[A-Z])\s+como\s+administrador/i)?.[1]; cif = dnis.find(d => d !== admin) || ""; }
+    const price = plain.match(/precio[^.]{0,120}?(?:es de|de|:)\s*([\d.]+(?:,\d{1,2})?)\s*(?:€|euros?)/i)?.[1] || plain.match(/([\d.]+(?:,\d{1,2})?)\s*(?:€|euros?)/i)?.[1] || "";
+    const precio = price ? Number(price.replace(/\./g, "").replace(",", ".")) : 0;
+    const d = plain.match(/\ba\s+(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/i) || plain.match(/\b(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/i);
+    const mes = d ? MESES[d[2].toLowerCase()] : 0, fecha = d && mes ? `${String(d[1]).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${d[3]}` : "";
+    const numero = field(/(?:contrato|factura)\s*(?:n\.?[ºo°]|numero|n[uú]m\.?)\s*[:.]?\s*([A-Z0-9][A-Z0-9\/.-]{2,})/i);
+    const vehicle = { tipoDocumento: contrato ? "contrato" : "factura", contrato: numero, matricula, modelo: [marca, modelo].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(), tipoVehiculo: "", bastidor: vin.toUpperCase(), nombre, cif, precio, regimen: contrato || !/IVA\s*\(?\s*21/i.test(plain) ? "rebu" : "general" };
+    const label = numero || (contrato ? `CONTRATO ${matricula || vin.slice(-6)}`.trim() : "");
+    return { vehicle, record: { number: label, date: fecha, supplier: nombre ? nombre.toLocaleUpperCase("es") : "", supplierNif: cif, total: precio ? precio.toFixed(2) : "", base: contrato && precio ? precio.toFixed(2) : "", vatRate: contrato ? "0" : "", vat: contrato ? "0.00" : "", concept: [contrato ? "Compra de vehículo (contrato)" : "Compra de vehículo", marca, modelo, matricula].filter(Boolean).join(" · ") } };
+  };
   const loadFlags = () => getAllClientMetadata().then(list => list.forEach(c => { if (c.sistemaPropio === "vehiculos") flagged.add(clientIdentity(c)); })).catch(() => {});
   if (window.__authDecidida) loadFlags(); else document.addEventListener("auth-decidida", loadFlags, { once: true });
 
@@ -26,7 +52,7 @@
     let box = panel.querySelector(".veh-banner"); const client = currentClient(), on = isVehicleClient(client) && (typeof invoiceProcessorType !== "function" || invoiceProcessorType() !== "emitidas");
     if (!on) { box?.remove(); return; }
     if (!box) { box = document.createElement("div"); box.className = "veh-banner"; panel.querySelector(".invoice-processor-fields")?.before(box); }
-    box.innerHTML = `<span class="veh-banner-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.5-5h9L18 17M7.5 12 9 7h6l1.5 5"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg></span><div><strong>Este cliente tiene un sistema propio</strong><span>Las compras de vehículos (facturas y contratos con particulares) se separan en la pestaña «Compras de vehículos» y se guardan en RECIBIDAS / COMPRAS DE VEHÍCULOS. El resto va a «Gestión».</span></div>`;
+    box.innerHTML = `<span class="veh-banner-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2a1 1 0 0 0 1-1v-3c0-.9-.7-1.7-1.5-1.9L18.4 10.6 16 6.7A2 2 0 0 0 14.3 6H9.7a2 2 0 0 0-1.7.9L5.6 10.6l-2.1.5C2.7 11.3 2 12.1 2 13v3a1 1 0 0 0 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M5.6 10.6h12.8"/></svg></span><div><strong>Este cliente tiene un sistema propio</strong><span>Las compras de vehículos (facturas y contratos con particulares) se separan en la pestaña «Compras de vehículos» y se guardan en RECIBIDAS / COMPRAS DE VEHÍCULOS. El resto va a «Gestión».</span></div>`;
     if (!warned.has(client)) { warned.add(client); appConfirm({ eyebrow: "SISTEMA PROPIO", title: "Este cliente tiene un sistema propio", subtitle: client, message: "Al procesar sus facturas recibidas, la app separa las compras de vehículos (con fecha, nº de contrato, matrícula, modelo, bastidor, vendedor, CIF, precio y régimen General o REBU) del resto de facturas de la gestión.", ok: "Entendido", alertOnly: true }); }
   }
   document.addEventListener("change", event => { if (event.target.matches?.("#invoiceClient, #invoiceType")) setTimeout(banner, 50); });
