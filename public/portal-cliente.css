@@ -1,15 +1,11 @@
 /* Área de cliente · ajustes de portal-cliente.js */
 
-/* ---------- Filtro de ejercicio junto a las pestañas ---------- */
-.client-fiscal-layout>main{position:relative}
-.client-fiscal-overlay .pc-anio{position:absolute;z-index:2;top:11px;right:16px;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 12px;border:1px solid #dfe4ee;border-radius:12px;background:#fff;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7488}
-.client-fiscal-overlay .pc-anio select{height:32px;padding:0 30px 0 12px;border:0;border-radius:9px;background:#f1f4fa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230A1A3F' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;-webkit-appearance:none;appearance:none;font-weight:700;font-size:14px;line-height:1;font-family:inherit;color:#0A1A3F;cursor:pointer}
-.client-fiscal-overlay .client-fiscal-tabs{display:flex!important;flex-wrap:nowrap!important;padding-right:180px!important}
+/* ---------- Filtro de ejercicio (dentro de Contabilidad y sus subapartados) ---------- */
+.pc-cabecera{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.client-fiscal-overlay .pc-anio{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 12px;border:1px solid #dfe4ee;border-radius:12px;background:#fff;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7488}
+.client-fiscal-overlay .pc-anio select{height:32px;padding:0 30px 0 12px;border:0;border-radius:9px;background:#f1f4fa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230A1A3F' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;-webkit-appearance:none;appearance:none;font-family:inherit;font-weight:700;font-size:14px;color:#0A1A3F;cursor:pointer}
+.client-fiscal-overlay .client-fiscal-tabs{display:flex!important;flex-wrap:nowrap!important}
 .client-fiscal-overlay .client-fiscal-tabs>button{flex:1 1 auto!important;min-width:0;padding-left:8px!important;padding-right:8px!important;white-space:nowrap}
-.client-fiscal-overlay.pc-sin-anio .pc-anio{display:none}
-.client-fiscal-overlay.pc-sin-anio .client-fiscal-tabs{padding-right:0!important}
-/* «Declaraciones» usa el filtro de arriba */
-.client-fiscal-overlay .pc-anio~.client-fiscal-content .client-fiscal-year-filter{display:none!important}
 
 .pc-cuenta{display:inline-block;vertical-align:1px;margin-left:8px;min-width:24px;height:24px;padding:0 8px;border-radius:12px;background:#eef1ff;color:#2F4BD6;font-weight:700;font-size:12px;line-height:24px;font-family:inherit;font-style:normal;text-align:center}
 .pc-cuenta:empty{display:none}
@@ -62,7 +58,8 @@
 .pc-chat .client-chat-advisors button>b{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#f1f4fa;color:#0A1A3F!important;font-size:18px}
 
 @media(max-width:760px){
-  .client-fiscal-overlay .pc-anio{position:static;margin:10px 0 0;justify-content:space-between}
+  .pc-cabecera{width:100%}
+  .client-fiscal-overlay .pc-anio{flex:1;justify-content:space-between}
   .client-fiscal-overlay .client-fiscal-tabs{padding-right:0!important;overflow-x:auto;scrollbar-width:none}
   .client-fiscal-overlay .client-fiscal-tabs>button{flex:0 0 auto!important;padding-left:14px!important;padding-right:14px!important}
   .pc-acciones{width:100%;margin-top:4px}
