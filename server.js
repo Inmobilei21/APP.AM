@@ -626,7 +626,7 @@ http.createServer((req, res) => {
       for (const raw of items.slice(0, 500)) {
         const item = { client: owner, fecha: cleanText(raw.fecha, 10), contrato: cleanText(raw.contrato, 60), matricula: cleanText(raw.matricula, 20).toUpperCase(), modelo: cleanText(raw.modelo, 120), bastidor: cleanText(raw.bastidor, 30).toUpperCase(), nombre: cleanText(raw.nombre, 160), cif: cleanText(raw.cif, 20).toUpperCase(), precio: Number(raw.precio) || 0, regimen: raw.regimen === "rebu" ? "rebu" : "general", tipoDocumento: raw.tipoDocumento === "contrato" ? "contrato" : "factura", archivo: cleanText(raw.archivo, 300) };
         const same = list.find(x => x.client === owner && ((item.bastidor && x.bastidor === item.bastidor) || (item.contrato && x.contrato === item.contrato && x.fecha === item.fecha)));
-        if (same) { Object.assign(same, item, { updatedAt: now, updatedBy: user.name }); updated++; } else { list.push({ id: crypto.randomUUID(), ...item, createdAt: now, createdBy: user.name }); added++; }
+        if (same) { for (const [k, v] of Object.entries(item)) if (v !== "" && v !== 0) same[k] = v; Object.assign(same, { updatedAt: now, updatedBy: user.name }); updated++; } else { list.push({ id: crypto.randomUUID(), ...item, createdAt: now, createdBy: user.name }); added++; }
       }
       saveCollection(file, list); return json(res, 200, { added, updated });
     }).catch(() => json(res, 400, { error: "No se pudieron guardar las compras de vehículos." }));
