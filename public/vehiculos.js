@@ -12,6 +12,8 @@
   const norm = value => (typeof normalizeFiscalText === "function" ? normalizeFiscalText(String(value || "")) : String(value || "").toUpperCase());
   const isVehicleClient = client => Boolean(client) && (flagged.has(client) || NOMBRES.some(re => re.test(norm(client))));
   window.vehiculosCliente = isVehicleClient;
+  // Referencia de un vehículo: la matrícula y, si no se ha leído, el bastidor. Los contratos sin número toman esa referencia.
+  window.vehiculoReferencia = v => { if (!v) return ""; const ref = v.matricula || v.bastidor || ""; if (v.tipoDocumento === "contrato" && !v.contrato) v.contrato = ref; return ref; };
 
   // Lectura sin IA (texto del PDF o de la foto): contratos y facturas de compra de vehículos.
   const MESES = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
@@ -35,7 +37,9 @@
     const mes = d ? MESES[d[2].toLowerCase()] : 0, fecha = d && mes ? `${String(d[1]).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${d[3]}` : "";
     const numero = field(/(?:contrato|factura)\s*(?:n\.?[ºo°]|numero|n[uú]m\.?)\s*[:.]?\s*([A-Z0-9][A-Z0-9\/.-]{2,})/i);
     const vehicle = { tipoDocumento: contrato ? "contrato" : "factura", contrato: numero, matricula, modelo: [marca, modelo].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(), tipoVehiculo: "", bastidor: vin.toUpperCase(), nombre, cif, precio, regimen: contrato || !/IVA\s*\(?\s*21/i.test(plain) ? "rebu" : "general" };
-    const label = numero || (contrato ? `CONTRATO ${matricula || vin.slice(-6)}`.trim() : "");
+    // Los contratos sin número llevan como referencia la matrícula y, si no la hay, el bastidor.
+    if (contrato && !vehicle.contrato) vehicle.contrato = matricula || vin.toUpperCase();
+    const label = vehicle.contrato || numero;
     return { vehicle, record: { number: label, date: fecha, supplier: nombre ? nombre.toLocaleUpperCase("es") : "", supplierNif: cif, total: precio ? precio.toFixed(2) : "", base: contrato && precio ? precio.toFixed(2) : "", vatRate: contrato ? "0" : "", vat: contrato ? "0.00" : "", concept: [contrato ? "Compra de vehículo (contrato)" : "Compra de vehículo", marca, modelo, matricula].filter(Boolean).join(" · ") } };
   };
   const loadFlags = () => getAllClientMetadata().then(list => list.forEach(c => { if (c.sistemaPropio === "vehiculos") flagged.add(clientIdentity(c)); })).catch(() => {});
@@ -79,7 +83,7 @@
     const section = document.createElement("section"); section.className = "veh-section";
     const cell = (g, field, value, attrs = "") => `<td><input data-veh-field="${field}" data-veh-group="${escapeHtml(g.key)}" value="${escapeHtml(value ?? "")}" ${attrs}></td>`;
     section.innerHTML = groups.length ? `<div class="veh-head"><span>${groups.length} ${groups.length === 1 ? "compra" : "compras"} de vehículos · total ${money(groups.reduce((s, g) => s + (Number(g.record.vehicle.precio) || 0), 0))} €</span><button type="button" class="veh-excel">Descargar Excel</button></div>
-      <div class="veh-table-wrap"><table class="veh-table"><thead><tr><th></th><th>Fecha</th><th>Nº contrato</th><th>Matrícula</th><th>Modelo</th><th>Bastidor</th><th>Nombre</th><th>CIF</th><th>Precio</th><th>Régimen</th><th></th></tr></thead><tbody>${groups.map(g => { const v = g.record.vehicle, date = draftInput(g.index, "date")?.value || g.record.date || ""; return `<tr>
+      <div class="veh-table-wrap"><table class="veh-table"><colgroup><col style="width:118px"><col style="width:112px"><col style="width:160px"><col style="width:110px"><col style="width:230px"><col style="width:200px"><col style="width:230px"><col style="width:116px"><col style="width:112px"><col style="width:160px"><col style="width:108px"></colgroup><thead><tr><th></th><th>Fecha</th><th>Nº contrato</th><th>Matrícula</th><th>Modelo</th><th>Bastidor</th><th>Nombre</th><th>CIF</th><th>Precio</th><th>Régimen</th><th></th></tr></thead><tbody>${groups.map(g => { const v = g.record.vehicle, date = draftInput(g.index, "date")?.value || g.record.date || ""; return `<tr>
         <td><button type="button" class="veh-eye" data-veh-preview="${g.index}" title="Ver el documento">${typeof INVOICE_EYE_ICON !== "undefined" ? INVOICE_EYE_ICON : "👁"}</button><small class="veh-doc veh-doc-${v.tipoDocumento}">${v.tipoDocumento === "contrato" ? "Contrato" : "Factura"}</small></td>
         <td><input data-veh-date="${g.index}" value="${escapeHtml(date)}" placeholder="DD/MM/AAAA" class="veh-w-date"></td>
         ${cell(g, "contrato", v.contrato)}${cell(g, "matricula", v.matricula, 'class="veh-w-mat"')}${cell(g, "modelo", v.modelo, 'class="veh-w-model"')}${cell(g, "bastidor", v.bastidor, `class="veh-w-vin${v.bastidor && v.bastidor.length !== 17 ? " veh-warn" : ""}" title="${v.bastidor && v.bastidor.length !== 17 ? "Un bastidor suele tener 17 caracteres" : ""}"`)}${cell(g, "nombre", v.nombre, 'class="veh-w-name"')}${cell(g, "cif", v.cif, 'class="veh-w-cif"')}

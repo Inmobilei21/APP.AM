@@ -6537,3 +6537,8 @@ html:has(#invoicePreview:not([hidden])),html:has(#invoicePreview:not([hidden])) 
 #invoicePreview,#invoicePreview .invoice-preview-doc,#invoicePreview .invoice-preview-data{overscroll-behavior:contain}
 .veh-table{min-width:1560px}
 .veh-table td>input,.veh-table td>select{box-sizing:border-box}
+/* Tabla de compras de vehículos: columnas fijas, sin celdas montadas */
+.veh-table{table-layout:fixed;width:1656px!important;min-width:1656px!important}
+.veh-table th,.veh-table td{overflow:hidden}
+.veh-table td>input,.veh-table td>select{width:100%!important;min-width:0!important;max-width:100%!important}
+.veh-table td:first-child{white-space:nowrap}
