@@ -614,6 +614,50 @@ http.createServer((req, res) => {
       .then(result => json(res, 200, { clients: result }))
       .catch(error => json(res, error.status || 502, { error: error.message }));
   }
+  // Cambiar el nombre de un cliente (por si se escribió mal): se renombra su carpeta del servidor y se actualizan
+  // su ficha y todo lo que lo nombra (firmas, tareas, facturación, inspecciones, chat de cliente y declaraciones).
+  if (requestPath === "/api/clientes/renombrar" && req.method === "POST") {
+    const user = requireUser(req, res);if (!user) return;
+    return readJson(req, 4096).then(async ({ from, to }) => {
+      const oldName = cleanText(from, 200), newName = cleanText(to, 200).replace(/\s+/g, " ").replace(/[. ]+$/, "");
+      if (!oldName || !newName) return json(res, 400, { error: "Indica el nombre nuevo." });
+      if (/[\\/:*?"<>|]/.test(newName)) return json(res, 400, { error: "El nombre contiene caracteres que Windows no permite (\\ / : * ? \" < > |)." });
+      if (oldName === newName) return json(res, 200, { renamed: false });
+      const metadata = loadMetadata(), record = metadata.clients.find(c => c.id === oldName);
+      if (!record) return json(res, 404, { error: "No se encontró la ficha del cliente." });
+      const sameFolder = oldName.toLocaleLowerCase("es") === newName.toLocaleLowerCase("es");
+      if (!sameFolder && metadata.clients.some(c => c.id === newName || String(c.name || "").toLocaleLowerCase("es") === newName.toLocaleLowerCase("es"))) return json(res, 409, { error: `Ya existe un cliente llamado «${newName}».` });
+      // 1. Carpeta del servidor (si no hay WebDAV configurado, como en pruebas, solo se cambian los datos)
+      if (process.env.WEBDAV_USERNAME) {
+        try { await davRequest(`CLIENTES/${oldName}`, { method: "MOVE", headers: { Destination: davUrl(`CLIENTES/${newName}`), Overwrite: "F" } }); }
+        catch (error) {
+          if (error.status === 404) { /* sin carpeta: se renombra solo la ficha */ }
+          else if (error.status === 412) return json(res, 409, { error: `Ya hay una carpeta «${newName}» en CLIENTES. Cámbiale el nombre o elige otro.` });
+          else return json(res, 502, { error: `No se pudo renombrar la carpeta en el servidor: ${error.message}` });
+        }
+      }
+      const oldPrefix = `CLIENTES/${oldName}/`, newPrefix = `CLIENTES/${newName}/`, movePath = p => typeof p === "string" && p.startsWith(oldPrefix) ? newPrefix + p.slice(oldPrefix.length) : p;
+      Object.assign(record, { id: newName, name: newName, renamedFrom: [...(record.renamedFrom || []), oldName], renamedAt: new Date().toISOString(), renamedBy: user.name });
+      for (const list of ["portalDocuments", "portalFolders"]) if (Array.isArray(record[list])) record[list] = record[list].map(item => ({ ...item, path: movePath(item.path) }));
+      for (const signature of metadata.signatures) if (signature.client === oldName) signature.client = newName;
+      saveMetadata(metadata);
+      const swap = (file, fields) => { const list = loadCollection(file); let n = 0; for (const item of list) for (const f of fields) if (item && item[f] === oldName) { item[f] = newName; n++; } if (n) saveCollection(file, list); };
+      swap(tasksFile, ["client"]); swap(billingFile, ["client"]); swap(path.join(dataDirectory, "inspections.json"), ["client"]);
+      const messages = loadCollection(messagesFile); let changedMessages = false;
+      for (const m of messages) {
+        if (m.clientName === oldName) { m.clientName = newName; changedMessages = true; }
+        for (const f of ["senderId", "recipientId"]) if (m[f] === `client:${oldName}`) { m[f] = `client:${newName}`; changedMessages = true; }
+        if (m.senderName === oldName) m.senderName = newName;
+      }
+      if (changedMessages) saveCollection(messagesFile, messages);
+      const declarations = loadDeclarations(), suffix = `-${oldName}`; let changedDeclarations = 0;
+      for (const key of Object.keys(declarations)) if (key.endsWith(suffix)) { const target = key.slice(0, -suffix.length) + `-${newName}`; if (!declarations[target]) { declarations[target] = { ...declarations[key], updatedAt: new Date().toISOString(), updatedBy: user.name }; delete declarations[key]; changedDeclarations++; } }
+      if (changedDeclarations) { fs.mkdirSync(dataDirectory, { recursive: true }); fs.writeFileSync(declarationsFile, JSON.stringify(declarations), { mode: 0o600 }); }
+      clientFolderSync.at = 0;
+      console.log(`Cliente renombrado por ${user.name}: «${oldName}» → «${newName}»`);
+      return json(res, 200, { renamed: true, client: record });
+    }).catch(error => json(res, 400, { error: error.message || "No se pudo cambiar el nombre." }));
+  }
   if (requestPath.startsWith("/api/metadata/") && ["GET", "PUT"].includes(req.method)) {
     if (!requireUser(req, res)) return;
     const kind = requestPath.slice("/api/metadata/".length);

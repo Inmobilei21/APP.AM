@@ -864,10 +864,10 @@ function openClientModal(){
 async function openClientRecord(name,viewOnly=true){
   const form=document.querySelector("#newClientForm");form.reset();form.dataset.editing=name;delete form.dataset.existingSignature;document.querySelector("#existingSignaturePicker").hidden=true;
   const clients=await getAllClientMetadata(),data=clients.find(client=>client.id===name)||{name,cif:"",personType:"juridica",periodicity:"trimestral",obligations:{}};
-  const nameInput=document.querySelector("#clientName");nameInput.value=name;nameInput.readOnly=true;
+  const nameInput=document.querySelector("#clientName");nameInput.value=name;nameInput.readOnly=viewOnly;
   document.querySelector("#clientActive").checked=clientIsActive(data);
   document.querySelector("#clientAppEnabled").checked=Boolean(data.appAccessEnabled);if(document.querySelector("#clientStartDate"))document.querySelector("#clientStartDate").value=data.startDate||"";
-  document.querySelector("#clientCif").value=data.cif||"";
+  document.querySelector("#clientCif").value=data.cif||"";form.dataset.originalCif=data.cif||"";
   document.querySelector("#clientPersonType").value=data.personType||"juridica";
   document.querySelector("#clientAdministrators").value=data.administrators||"";
   document.querySelector("#clientPhones").value=data.phones||"";
@@ -895,7 +895,7 @@ function openClientDetails(name){return openClientRecord(name,true)}
 function openEditClient(name){return openClientRecord(name,false)}
 function enableClientEditing(){
   setClientViewMode(false);
-  document.querySelector("#clientName").readOnly=true;
+  document.querySelector("#clientName").readOnly=false;
   document.querySelector("#modalEyebrow").textContent="EDICIÓN DE CLIENTE";
   document.querySelector("#modalTitle").textContent="Editar cliente";
   document.querySelector("#clientCif")?.focus();
@@ -948,7 +948,20 @@ function setManagementClientView(view){
 }
 function filterManagementClients(e){const q=e.target.value.trim().toLocaleLowerCase("es");const cards=[...document.querySelectorAll(".management-client")];let v=0;cards.forEach(c=>{const s=c.dataset.client.includes(q);c.hidden=!s;if(s)v++});document.querySelector("#managementCount").textContent=q?`${v} resultados`:`${cards.length} clientes`}
 async function createClient(e){
-  e.preventDefault();const input=document.querySelector("#clientName"),message=document.querySelector("#formMessage"),button=document.querySelector("#saveClientButton");const entered=input.value.trim(),name=entered.replace(/[. ]+$/,"");if(!name)return;if(/[\\/:*?"<>|]/.test(name)){message.className="form-message error";message.textContent="El nombre contiene caracteres que Windows no permite.";return}button.disabled=true;button.textContent="Guardando…";
+  e.preventDefault();const input=document.querySelector("#clientName"),message=document.querySelector("#formMessage"),button=document.querySelector("#saveClientButton");const entered=input.value.trim(),name=entered.replace(/[. ]+$/,"");if(!name)return;if(/[\\/:*?"<>|]/.test(name)){message.className="form-message error";message.textContent="El nombre contiene caracteres que Windows no permite.";return}
+  // Al editar, cambiar el nombre o el CIF pide confirmación; el nombre nuevo renombra también la carpeta del servidor.
+  const form=e.target,previousName=form.dataset.editing||"",newCif=document.querySelector("#clientCif").value.trim().toUpperCase(),previousCif=String(form.dataset.originalCif||"").trim().toUpperCase();
+  const renaming=Boolean(previousName&&name!==previousName);
+  if(renaming&&!await appConfirm({eyebrow:"CAMBIAR NOMBRE",title:"Vas a cambiar el nombre, ¿seguro?",subtitle:`${previousName} → ${name}`,message:"Se renombrará también su carpeta en el servidor y se actualizarán sus tareas, firmas, chat, facturación y declaraciones.",ok:"Sí, cambiar el nombre",cancel:"Cancelar"}))return;
+  if(previousName&&previousCif&&newCif!==previousCif&&!await appConfirm({eyebrow:"CAMBIAR CIF",title:"Vas a cambiar el CIF, ¿seguro?",subtitle:`${previousCif} → ${newCif||"(vacío)"}`,message:"El CIF se usa en los modelos de la AEAT y en la importación a AMCOMTA.",ok:"Sí, cambiar el CIF",cancel:"Cancelar"}))return;
+  if(renaming){
+    button.disabled=true;button.textContent="Cambiando el nombre…";
+    try{await apiJson("/api/clientes/renombrar",{method:"POST",body:JSON.stringify({from:previousName,to:name})})}
+    catch(error){message.className="form-message error";message.textContent=error.message;button.disabled=false;button.textContent="Guardar";return}
+    try{for(let i=localStorage.length-1;i>=0;i--){const key=localStorage.key(i);if(key&&/^app-am-(declaration|annual-closing)-/.test(key)&&key.endsWith(`-${previousName}`)){const target=key.slice(0,-previousName.length)+name;if(localStorage.getItem(target)===null)localStorage.setItem(target,localStorage.getItem(key));localStorage.removeItem(key)}}}catch{}
+    form.dataset.editing=name;
+  }
+  button.disabled=true;button.textContent="Guardando…";
   try{let root=await getSavedHandle("clients-folder");if(root&&await root.requestPermission({mode:"readwrite"})!=="granted")root=null;if(!root){root=await window.showDirectoryPicker({mode:"readwrite"});await saveHandle("clients-folder",root)}
   let existed=true;try{await root.getDirectoryHandle(name)}catch{existed=false}const client=await root.getDirectoryHandle(name,{create:true}),folders={};for(const f of defaultClientFolders)folders[f]=await client.getDirectoryHandle(f,{create:true});const accountingYear=await folders["CONTABILIDAD"].getDirectoryHandle(String(new Date().getFullYear()),{create:true});for(const subfolder of ["1T","2T","3T","4T","BANCOS"])await accountingYear.getDirectoryHandle(subfolder,{create:true});
   const existingClientData=(await getAllClientMetadata()).find(item=>item.id===name)||{},personType=document.querySelector("#clientPersonType").value,certificate=document.querySelector("#registryCertificate");let registryCertificateName=existingClientData.commercialRegistry?.certificateName||"";
