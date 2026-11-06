@@ -6488,3 +6488,10 @@ html body #sidebar nav button:has(.billing-nav-alert) .suggestion-nav-alert{marg
 }
 html body #sidebar nav button .billing-nav-alert.billing-nav-alert{flex:0 0 auto!important;width:max-content!important;max-width:none!important;overflow:visible!important;white-space:nowrap!important}
 html body #sidebar nav button .billing-nav-alert.billing-nav-alert>b,html body #sidebar nav button .billing-nav-alert.billing-nav-alert>small{align-self:center!important}
+/* Aviso de facturación: solo el número, en rojo como el resto (sin «F») */
+html body #sidebar nav button .billing-nav-alert.billing-nav-alert{background:#ef4444!important;box-shadow:0 0 0 3px rgba(239,68,68,.18)!important;padding:0 7px!important;min-width:22px!important;justify-content:center!important}
+html body #sidebar nav button .billing-nav-alert.billing-nav-alert>b{display:none!important}
+@media(min-width:761px){
+  body:not(.client-preview-mode) #sidebar:not(:hover):not(.open) nav button .billing-nav-alert.billing-nav-alert{left:39px!important;top:1px!important;bottom:auto!important;min-width:17px!important;height:17px!important;padding:0 4px!important;border:1px solid #e53935!important;background:#e53935!important;box-shadow:none!important}
+  body:not(.client-preview-mode) #sidebar:not(:hover):not(.open) nav button:has(.billing-nav-alert) .suggestion-nav-alert.suggestion-nav-alert{left:auto!important;right:auto!important;left:2px!important}
+}
