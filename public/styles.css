@@ -6590,3 +6590,17 @@ tr.veh-unlinked td{background:#fffbeb}
 .veh-doc-img{flex:1;overflow:auto;display:grid;place-items:center;background:#f4f6fa}.veh-doc-img img{max-width:100%}
 html:has(.veh-view),html:has(.veh-doc-view){overflow:hidden}
 @media (max-width:760px){.veh-quarters{grid-template-columns:repeat(2,1fr)}.veh-view,.veh-doc-view{padding:10px}.veh-view-box{padding:16px;max-height:calc(100vh - 20px)}.veh-banner{flex-wrap:wrap}.veh-banner .veh-ver{margin-left:0}}
+/* Detalle de los impuestos en el móvil (paneles de 111, 115, 123, 130, 303…): la cabecera y la × quedan por debajo
+   de la barra de estado del iPhone, y las tablas se desplazan de lado en vez de partir el texto palabra a palabra */
+@media(max-width:760px){
+  .td-side{left:0!important;right:0!important;width:auto!important;max-width:none!important;box-shadow:none}
+  .td-side>header,.td-modal-box>header{position:relative!important;flex:none!important;height:auto!important;min-height:0!important;max-height:none!important;display:flex!important;align-items:flex-start!important;gap:12px!important;padding:max(14px,calc(env(safe-area-inset-top) + 8px)) 14px 12px 16px!important;background:#fff!important;border-bottom:1px solid #e8ebf1}
+  .td-side>header>div:first-child{flex:1 1 auto;min-width:0}
+  .td-side>header h3{font-size:18px!important;line-height:1.25}
+  .td-side>header p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .td-side .td-close,.td-modal-box .td-close{position:static!important;width:42px!important;height:42px!important;flex:0 0 42px!important;display:grid!important;place-items:center;font-size:24px!important;line-height:1;color:#0A1A3F!important;background:#eef0f5!important;margin:0!important}
+  .td-side-body{padding-bottom:env(safe-area-inset-bottom)}
+  .td-side .td-list{width:max-content!important;min-width:100%}
+  .td-side .td-list td{white-space:nowrap}
+  .td-side .td-list td small,.td-side .td-list td .td-sub{display:block;max-width:280px;white-space:normal}
+}
