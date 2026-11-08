@@ -12,11 +12,24 @@ async function checkForApplicationUpdate(){
   try{
     const {version}=await apiJson(`/api/version?time=${Date.now()}`,{cache:"no-store"});
     if(loadedApplicationVersion===null){loadedApplicationVersion=version;return}
-    if(version&&version!==loadedApplicationVersion)location.reload();
+    if(!version||version===loadedApplicationVersion)return;
+    // Sin sesión se actualiza directamente; con la sesión iniciada no se recarga sola (se perdería lo que se esté
+    // haciendo): sale un aviso y se actualiza cuando la persona quiera.
+    if(!signedInUser){location.reload();return}
+    showApplicationUpdateNotice();
   }catch{}
+}
+function showApplicationUpdateNotice(){
+  if(document.querySelector(".app-update-notice"))return;
+  const notice=document.createElement("div");notice.className="app-update-notice";notice.setAttribute("role","status");
+  notice.innerHTML='<span class="aun-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg></span><span class="aun-txt"><b>Nueva versión disponible</b><small>Actualiza para ver las últimas mejoras</small></span><button type="button" data-update>Actualizar</button><button type="button" data-later aria-label="Más tarde">×</button>';
+  notice.querySelector("[data-update]").onclick=()=>{notice.classList.add("cargando");notice.querySelector("[data-update]").textContent="Actualizando…";location.reload()};
+  notice.querySelector("[data-later]").onclick=()=>{notice.classList.add("fuera");setTimeout(()=>notice.remove(),250);setTimeout(()=>checkForApplicationUpdate(),30*60*1000)};
+  document.body.appendChild(notice);requestAnimationFrame(()=>notice.classList.add("on"));
 }
 checkForApplicationUpdate();
 setInterval(checkForApplicationUpdate,20000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkForApplicationUpdate()});
 function updateProfileButtons(){
   if(!signedInUser)return;
   document.querySelectorAll(".profile").forEach(button=>{button.innerHTML=`<span>${initials(signedInUser.name)}</span><span class="profile-copy"><strong>${signedInUser.name}</strong><small>${signedInUser.role==="admin"?"Administrador":"Usuario"}</small></span>`;button.title=signedInUser.role==="admin"?"Administrar usuarios":"Mi cuenta";button.onclick=()=>openAccountPanel()});
