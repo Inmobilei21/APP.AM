@@ -1257,7 +1257,9 @@ http.createServer((req, res) => {
   if (!file.startsWith(root)) return res.writeHead(403).end("Forbidden");
   fs.readFile(file, (error, data) => {
     if (error) return res.writeHead(404).end("Not found");
-    res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream", "Cache-Control": "no-cache, must-revalidate" });
+    // Imágenes y tipos de letra con versión (?v=…): se guardan en el móvil y no se vuelven a descargar en cada arranque
+    const fija = /[?&]v=/.test(req.url) && /\.(png|jpe?g|webp|svg|ico|woff2?)$/i.test(file);
+    res.writeHead(200, { "Content-Type": types[path.extname(file)] || "application/octet-stream", "Cache-Control": fija ? "public, max-age=31536000, immutable" : "no-cache, must-revalidate" });
     res.end(data);
   });
 }).listen(process.env.PORT || 3000);
