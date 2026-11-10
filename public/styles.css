@@ -6656,3 +6656,9 @@ html:has(.veh-view),html:has(.veh-doc-view){overflow:hidden}
 .app-update-notice [data-update]{flex:none;height:38px;padding:0 16px;border:0;border-radius:12px;background:#fff;color:#0A1A3F;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}
 .app-update-notice [data-later]{flex:none;width:30px;height:30px;border:0;border-radius:10px;background:none;color:rgba(255,255,255,.6);font-size:22px;line-height:1;cursor:pointer}
 @media(max-width:760px){.app-update-notice{bottom:calc(env(safe-area-inset-bottom) + 96px);width:calc(100vw - 24px)}.aun-txt{flex:1}.aun-txt small{display:none}}
+/* Borrador de facturas: las líneas de IVA de una misma factura se ven unidas */
+#invoiceDraftRows tr.invoice-line-cont td{border-top-color:transparent!important;padding-top:0!important}
+#invoiceDraftRows tr.invoice-line-cont td:nth-child(n+2):nth-child(-n+5) input{opacity:.45;background:#f6f8fc}
+#invoiceDraftRows tr.invoice-line-cont .invoice-preview-cell{position:relative}
+#invoiceDraftRows tr.invoice-line-cont .invoice-preview-cell button{visibility:hidden}
+#invoiceDraftRows tr.invoice-line-cont .invoice-preview-cell::after{content:"↳ IVA";position:absolute;inset:0;display:grid;place-items:center;font-size:11px;font-weight:700;color:#5b6788}

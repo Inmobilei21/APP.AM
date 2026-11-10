@@ -3352,7 +3352,7 @@ const INVOICE_EYE_ICON='<svg viewBox="0 0 24 24" width="17" height="17" aria-hid
 // Persona física sin contabilidad de AMCOMTA: sin cuentas (proveedor ni contrapartida) ni asientos.
 function invoiceWithoutAccounting(){const data=invoiceAccounting.data;return Boolean(invoiceAccounting.client&&invoiceAccounting.fisica&&!(data&&(data.empresa||data.actualizado)))}
 // Borrador por fecha, de la más antigua a la más reciente (así se ve si alguna es de otro trimestre); en el mismo
-// día, por proveedor o cliente y número. Las líneas de una misma factura siguen juntas; sin fecha, al final.
+// día, por número de factura. Las líneas de una misma factura siguen juntas; sin fecha, al final.
 // Claves de operación del modelo 349: primero las habituales de emitidas (entregas y servicios prestados) o de
 // recibidas (adquisiciones de bienes y servicios).
 const INVOICE_INTRA_KEYS={E:"Entrega intracomunitaria de bienes",S:"Prestación de servicios",A:"Adquisición de bienes",I:"Adquisición de servicios",T:"Operación triangular",M:"Entrega tras importación exenta",H:"Entrega tras importación exenta (repr. fiscal)",R:"Transferencia en consigna",D:"Devolución en consigna",C:"Sustitución en consigna"};
@@ -3375,10 +3375,10 @@ function invoiceSelfParty(record){
 function sortInvoiceRecords(records){
   const day=value=>{const d=invoiceDateParts(value);return d?`${d.year}${d.month}${d.day}`:"99999999"};
   const keyed=records.map((record,index)=>({record,index,name:String(record.supplier||"").trim()}));
-  // Mismo día: en emitidas, por número de factura (su orden correlativo); en recibidas, por proveedor y número.
-  const byNumber=(a,b)=>String(a.record.number||"").localeCompare(String(b.record.number||""),"es",{numeric:true});
-  const issued=invoiceProcessorType()==="emitidas";
-  keyed.sort((a,b)=>day(a.record.date).localeCompare(day(b.record.date))||(issued?byNumber(a,b):0)||(!a.name)-(!b.name)||a.name.localeCompare(b.name,"es",{sensitivity:"base"})||byNumber(a,b)||a.index-b.index);
+  // Primero por fecha y, en el mismo día, por número de factura (emitidas y recibidas). Las líneas de una misma
+  // factura quedan juntas; sin número, al final del día.
+  const byNumber=(a,b)=>(!String(a.record.number||"").trim())-(!String(b.record.number||"").trim())||String(a.record.number||"").trim().localeCompare(String(b.record.number||"").trim(),"es",{numeric:true,sensitivity:"base"});
+  keyed.sort((a,b)=>day(a.record.date).localeCompare(day(b.record.date))||byNumber(a,b)||a.name.localeCompare(b.name,"es",{sensitivity:"base"})||String(a.record.group||"").localeCompare(String(b.record.group||""))||a.index-b.index);
   records.splice(0,records.length,...keyed.map(item=>item.record));return records;
 }
 function renderInvoiceDraft(records){
@@ -3419,7 +3419,9 @@ function renderInvoiceDraft(records){
     if((field==="supplier"||field==="supplierNif")&&invoiceSelfParty(record))return `<td>${input(index,field,record[field]||"",`class="needs-account" title="${issued?"El cliente de la factura":"El proveedor"} no puede ser ${safeValue(invoiceAccounting.client)}: corrígelo"`)}</td>`;
     return `<td${numericField(field)?' class="num"':""}>${input(index,field,invoiceFormatField(field,record[field]||""))}</td>`;
   };
-  body.innerHTML=records.map((record,index)=>`<tr${received&&record.vatWarning&&!record.vatToBase?' class="vat-warning"':""}>${columns.map(([field])=>cell(index,record,field)).join("")}</tr>`).join("");
+  // Segunda (y siguientes) líneas de una misma factura con varios tipos de IVA: se ven unidas a la primera, no como otra factura
+  const sigue=index=>index>0&&record0(index).group&&record0(index).group===record0(index-1).group,record0=i=>records[i]||{};
+  body.innerHTML=records.map((record,index)=>{const cls=[received&&record.vatWarning&&!record.vatToBase?"vat-warning":"",sigue(index)?"invoice-line-cont":""].filter(Boolean).join(" ");return `<tr${cls?` class="${cls}"`:""}${sigue(index)?` title="Misma factura que la fila de arriba: otra línea de IVA (${escapeHtml(String(record.vatRate||0))} %)"`:""}>${columns.map(([field])=>cell(index,record,field)).join("")}</tr>`}).join("");
   draft.querySelector("#invoiceAccountLists")?.remove();draft.insertAdjacentHTML("beforeend",`<div id="invoiceAccountLists" hidden>${invoiceAccountLists()}</div>`);
   draft.querySelector("#downloadInvoiceDraft").hidden=false;
   const importable=(received||(invoiceProcessorType()==="emitidas"&&amParties().length>0))&&!invoiceWithoutAccounting();
@@ -4978,11 +4980,18 @@ setInterval(refreshSuggestions,15000);
     {const cif=invoiceAccounting.cif||"",clean=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^ES(?=[0-9A-Z]{9}$)/,"");
       const mine=emitida?{n:f.receptor_nif,name:f.receptor_nombre}:{n:f.emisor_nif,name:f.emisor_nombre},other=emitida?{n:f.emisor_nif,name:f.emisor_nombre}:{n:f.receptor_nif,name:f.receptor_nombre};
       const isMe=p=>(cif&&clean(p.n)===cif)||Boolean(client&&p.name&&typeof declarationClientScore==="function"&&declarationClientScore(client,normalizeFiscalText(String(p.name)))>=0.8);
-      if(isMe(mine)&&other.name&&!isMe(other)){if(emitida){f={...f,receptor_nif:other.n,receptor_nombre:other.name,emisor_nif:mine.n,emisor_nombre:mine.name}}else{f={...f,emisor_nif:other.n,emisor_nombre:other.name,receptor_nif:mine.n,receptor_nombre:mine.name}}}}
+      if(isMe(mine)&&other.name&&!isMe(other)){if(!emitida)f={...f,__emitidaPorCliente:true};if(emitida){f={...f,receptor_nif:other.n,receptor_nombre:other.name,emisor_nif:mine.n,emisor_nombre:mine.name}}else{f={...f,emisor_nif:other.n,emisor_nombre:other.name,receptor_nif:mine.n,receptor_nombre:mine.name}}}}
 
-    const tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
-    const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
     const recargo=num(f.recargo_equivalencia),ret=Math.abs(num(f.retencion_importe)),total=num(f.total);
+    let tipos=(Array.isArray(f.tipos_iva)?f.tipos_iva:[]).filter(t=>num(t.base)||num(t.cuota)||num(t.tipo));
+    // A veces el lector repite la misma línea de IVA: si sin la repetida cuadra con el total, se quita. Y las líneas
+    // del mismo tipo de IVA se juntan en una sola fila (una fila por tipo, no por concepto).
+    {const cierra=l=>total&&Math.abs(l.reduce((a,t)=>a+num(t.base)+num(t.cuota),0)+recargo-ret-total)<=.05;
+      const unicas=tipos.filter((t,i)=>tipos.findIndex(o=>num(o.tipo)===num(t.tipo)&&Math.abs(num(o.base)-num(t.base))<.01&&Math.abs(num(o.cuota)-num(t.cuota))<.01)===i);
+      if(unicas.length<tipos.length&&(cierra(unicas)||!cierra(tipos)))tipos=unicas;
+      const porTipo=new Map();for(const t of tipos){const k=num(t.tipo),o=porTipo.get(k);if(o){o.base=num(o.base)+num(t.base);o.cuota=num(o.cuota)+num(t.cuota);o.concepto=[o.concepto,t.concepto].filter(Boolean).join(" · ")}else porTipo.set(k,{...t})}
+      tipos=[...porTipo.values()]}
+    const base=tipos.reduce((s,t)=>s+num(t.base),0),cuota=tipos.reduce((s,t)=>s+num(t.cuota),0);
     const comun=[];
     if(f.rectificativa)comun.push("Factura rectificativa");
     if(f.moneda&&!/^eur/i.test(f.moneda))comun.push(`Moneda ${f.moneda}`);
@@ -4992,7 +5001,7 @@ setInterval(refreshSuggestions,15000);
     if(varias)comun.push(`Una de ${varias} facturas del mismo archivo${f.paginas?` (pág. ${f.paginas})`:""}`);
     if(f.observaciones)comun.push(String(f.observaciones).trim());
     const concepto=String(f.concepto||"").trim();
-    const cab={client,number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String((emitida?f.receptor_nombre:f.emisor_nombre)||"").trim(),supplierNif:nif(emitida?f.receptor_nif:f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim(),group:`${file.name}#${orden}`,supplierCountry:String((emitida?f.receptor_pais:f.emisor_pais)||"").trim().toUpperCase().slice(0,2)};
+    const cab={client,...(f.__emitidaPorCliente?{selfIssued:true}:{}),number:String(f.numero||"").trim(),date:fecha(f.fecha),supplier:String((emitida?f.receptor_nombre:f.emisor_nombre)||"").trim(),supplierNif:nif(emitida?f.receptor_nif:f.emisor_nif),file:file.name,pages:String(f.paginas||"").trim(),group:`${file.name}#${orden}`,supplierCountry:String((emitida?f.receptor_pais:f.emisor_pais)||"").trim().toUpperCase().slice(0,2)};
     // Compra de vehículo (cliente con sistema propio de vehículos): datos para la pestaña «Compras de vehículos».
     // Venta de vehículo (emitidas del mismo cliente): se une luego a su compra para el margen del REBU.
     if(emitida&&f.vehiculo?.es_vehiculo&&window.vehiculosCliente?.(client)){const v=f.vehiculo,clean=x=>String(x||"").trim();cab.vehicleSale={matricula:clean(v.matricula).toUpperCase().replace(/[\s-]/g,""),bastidor:clean(v.bastidor).toUpperCase().replace(/\s/g,""),modelo:clean(v.marca_modelo),precio:num(v.precio)||num(f.total),regimen:v.regimen==="rebu"?"rebu":"general"}}
@@ -5029,7 +5038,7 @@ setInterval(refreshSuggestions,15000);
     const r=await enviarConReintentos(file,client);
     const data=await r.json().catch(()=>({}));
     if(!r.ok){if(/x-api-key|api key|authentication/i.test(data.error||""))window.lectorSinClave=true;throw new Error(data.error||`Error ${r.status}`)}
-    const lista=Array.isArray(data.facturas)?data.facturas:[];
+    const vistas=new Set(),lista=(Array.isArray(data.facturas)?data.facturas:[]).filter(f=>{const k=[String(f.numero||"").trim().toUpperCase(),String(f.fecha||"").trim(),num(f.total).toFixed(2)].join("|");if(String(f.numero||"").trim()&&vistas.has(k))return false;vistas.add(k);return true});
     const otros=(Array.isArray(data.otros_documentos)?data.otros_documentos:[]).map(doc=>({...doc,file:file.name}));
     if(!lista.length){if(otros.length)return{filas:[],otros};throw new Error("No se ha encontrado ninguna factura en el archivo")}
     const filas=lista.flatMap((f,i)=>aRegistros(f,file,client,lista.length>1?lista.length:0,i));
@@ -5086,6 +5095,10 @@ setInterval(refreshSuggestions,15000);
     sortInvoiceRecords(records);invoiceDraftRecords=records;renderInvoiceDraft(records);
     status.textContent=fallos?`${fallos} ${fallos===1?"archivo no se ha podido":"archivos no se han podido"} leer con IA. Revisa las filas marcadas.`:(()=>{const n=new Set(records.map(r=>r.file+"|"+r.number)).size;return `Borrador preparado con ${n} ${n===1?"factura":"facturas"}${records.length>n?` (${records.length} líneas, una por tipo de IVA)`:""}${otrosDocs.length?` y ${otrosDocs.length} ${otrosDocs.length===1?"documento ignorado":"documentos ignorados"} que no ${otrosDocs.length===1?"es factura":"son facturas"}`:""}. Revisa las observaciones antes de confirmar.`})();
     button.disabled=false;invoiceProgress.finish("Volver a leer facturas");
+    // Facturas que emite el propio cliente leídas como «recibidas» (numeración correlativa, el cliente como emisor):
+    // se ofrece pasarlas a emitidas, donde se relacionan con las cuentas de clientes (43…) de su contabilidad.
+    if(invoiceProcessorType()!=="emitidas"){const grupos=new Map();records.forEach((r,i)=>{const k=r.group||`fila-${i}`;if(!grupos.has(k))grupos.set(k,r)});const propias=[...grupos.values()].filter(r=>r.selfIssued).length;
+      if(propias&&propias>=grupos.size/2)setTimeout(async()=>{if(await appConfirm({eyebrow:"FACTURAS EMITIDAS",title:"Parecen facturas emitidas",subtitle:client,message:`En ${propias} de ${grupos.size} facturas el emisor es ${client}: son facturas que emite el cliente a sus clientes. Como recibidas no se pueden relacionar con su contabilidad (buscaría proveedores). ¿Las pasamos a emitidas? Se relacionarán con las cuentas de clientes (43…).`,ok:"Pasar a emitidas",cancel:"Dejar como recibidas"})){const sel=document.querySelector("#invoiceType");if(sel){sel.value="emitidas";sel.dispatchEvent(new Event("change",{bubbles:true}))}}},300)}
     if(window.lectorSinClave){window.lectorSinClave=false;status.textContent="La IA no ha leído ningún documento: la clave del lector (ANTHROPIC_API_KEY en Railway) no es válida o ha caducado. Se han leído con el lector anterior; cambia la clave y vuelve a leerlas.";appConfirm({eyebrow:"LECTOR CON IA",title:"La clave del lector con IA no es válida",message:"El servidor de la IA ha rechazado la clave (invalid x-api-key), así que las facturas se han leído con el lector anterior, menos preciso. Hay que poner una clave válida en Railway → APP.AM → Variables → ANTHROPIC_API_KEY.",ok:"Entendido",alertOnly:true})}
   };
 })();
